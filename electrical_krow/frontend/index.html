@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>电子电器 · SOR填表</title>
+  <link rel="stylesheet" href="/static/styles.css?v=2" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="shell">
+        <div class="brand">
+          <i class="mark" aria-hidden="true"></i>
+          <div class="brand-name">电子电器 · <span>SOR填表</span></div>
+        </div>
+        <div class="privacy">规格书不出公网</div>
+      </div>
+    </header>
+    <main>
+      <p class="kicker">本机抽取，生成核对表</p>
+      <h1>登录后<span>出表</span></h1>
+      <p class="lead">识别在指定场所完成。规格书不出公网。</p>
+
+      <p id="health" class="health"><i class="dot"></i><span id="health-text">正在检查…</span></p>
+
+      <div id="login-card" class="card">
+        <label>用户名
+          <input id="user" type="text" autocomplete="username" value="demo" />
+        </label>
+        <label>密码
+          <input id="pass" type="password" autocomplete="current-password" value="demo" />
+        </label>
+        <label>密钥（可选）
+          <input id="key" type="password" autocomplete="off" />
+        </label>
+        <div class="actions">
+          <button id="login" type="button">登录</button>
+        </div>
+        <p id="login-msg" class="msg" hidden></p>
+      </div>
+
+      <div id="chat-card" class="card" hidden>
+        <p class="session">已登录：<strong id="who"></strong></p>
+        <label>连接检查
+          <textarea id="prompt" rows="3">检查识别是否可用，回复四个字即可。</textarea>
+        </label>
+        <div class="actions">
+          <button id="send" type="button">检查</button>
+          <button id="logout" type="button" class="ghost">退出</button>
+        </div>
+        <pre id="out" class="out"></pre>
+      </div>
+    </main>
+  </div>
+  <script src="/static/app.js?v=2" defer></script>
+</body>
+</html>

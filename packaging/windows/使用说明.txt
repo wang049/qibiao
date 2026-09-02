@@ -1,0 +1,93 @@
+电子电器 · SOR填表  Windows 客户端
+
+这是客户端正式交付。exe 启动本机 Python 服务，并用系统 Edge 开一个独立窗口
+（不是 Chrome，也不是 Electron）。登录和出表都在这个窗口里完成。
+规格书只在这台电脑上读，服务只绑 127.0.0.1，外网打不进来。
+关掉窗口即停止服务。
+
+给谁用
+  64 位 Windows 10 / 11。不必先装 Python。需要已安装 Edge / WebView2（系统通常自带）。
+  识别地址写在安装目录的 config.ini（server_url）。到客户现场只改这一项。
+  覆盖安装会使用安装包里的地址，旧 config.ini 备份为 config.ini.bak。
+
+推荐：安装包 exe
+  1. 双击「电子电器SOR填表-windows-x64.exe」。
+  2. 会安装到 %LOCALAPPDATA%\electrical-krow-app\，并在桌面生成快捷方式。
+  3. 第一次大约十几秒解压到当前用户目录，随后出现「电子电器 · SOR填表」
+     独立窗口。请等窗口出现，不要以为只生成了快捷方式就结束了。
+     若只有快捷方式、没有窗口：双击桌面「电子电器SOR填表」。
+     仍没有：双击安装目录里的 console.bat 看完整报错。
+  4. 用开通的邮箱和密码登录（不要填手机号）。
+  5. 选择 chat 类识别模型（如 deepseek-v4-pro、ZHIPU/GLM-5.2），
+     不要选 OCR/表格类（如 krow-ocr-table）。
+  6. 拖入 PDF / Word / Excel，点「开始出表」，再下载核对表。
+
+  若 Windows 提示「已保护你的电脑」，点「更多信息」→「仍要运行」。
+  若杀毒软件拦截，把安装目录和 exe 加白名单。
+  可直接反复双击 exe：会先停掉旧进程再覆盖安装。第一次大约十几秒，请等窗口出现。
+  失败详情在 %TEMP%\electrical-krow-install.log。
+  若提示缺少 WebView2，安装 Microsoft Edge WebView2 运行时后再打开。
+  若窗口起来后过一会儿变成「未响应」：请换本包（本机服务已改到独立进程）。
+  关掉窗口后再开即可；若仍提示已在运行，用安装目录里的「停止SOR填表」后再开。
+  若第一次没有出窗口（杀毒拦截解压）或提示缺少 httpx：
+    关掉窗口，删掉 %LOCALAPPDATA%\electrical-krow-app ，再用新的 exe 重装。
+    不要继续用已经失败过的旧目录。
+
+也可以：解压 zip
+  不要在压缩包窗口里直接双击任何 exe / bat / vbs。
+  右键 zip →「全部解压」到 D:\electrical-krow（文件夹名不要带括号）。
+  解压后会得到 electrical-krow-windows 文件夹，进去应能看到 python 文件夹
+  和「启动SOR填表.exe」。只双击「启动SOR填表.exe」（或 SORFill.exe）。
+  若 exe 安装失败，先删掉 %LOCALAPPDATA%\electrical-krow-app，
+  不要在那个残缺目录里点 start.bat / console.bat。
+
+停止
+  关掉出表窗口即可。也可双击安装目录里的「停止SOR填表.exe」（或 SORStop.exe）。
+  改 config.ini 前先停止。
+
+核对表和运行日志在：
+  %LOCALAPPDATA%\electrical-krow\
+  日志文件：gateway.log
+  若启动失败，先确认当前目录里有 python\python.exe，再双击 console.bat。
+  没有 python 文件夹就不要点 bat：说明还没完整解压，或还在用失败的安装目录。
+
+改识别地址（客户现场）
+  1. 先停止服务。
+  2. 用记事本打开安装目录的 config.ini
+     （一般在 %LOCALAPPDATA%\electrical-krow-app\config.ini）。
+  3. 改 server_url 为现场 Krow Server 的 HTTPS 根地址。
+     不要带尾部斜杠，不要带 /v1。
+     现场识别 API：https://rdapi.aurobaytech-t.com
+     （仪表盘 Base URL 是 …/v1，config 里不要带 /v1。）
+     错误：https://xxx/v1    正确：https://xxx
+     错误：https://rdagents.xxx.com（门户，登录会 405）
+     错误：https://rdweb.xxx.com（控制台网页）
+     错误：https://api.rdagents.xxx.com（现场没有这条 DNS）
+     正确：https://rdapi.aurobaytech-t.com
+  4. 如现场没有 deepseek-v4-pro，把 chat_model 改成现场清单里的 chat 模型 id。
+  5. 不要把账号、密码写进 config.ini。
+  6. 再双击桌面快捷方式，用现场邮箱重新登录。
+
+现场开通前请对方提供（发给客户/现场 impl 即可）
+  1. 现场 Krow Server 的 HTTPS 根地址（无尾斜杠、无 /v1）
+  2. 已开通的登录邮箱和密码（不要手机号；联调账号与现场账号不要混用）
+  3. 可用的 chat 模型 id 名单（出表要用 chat，不要只用 OCR 模型）
+  4. 证书类型：公网 CA，或企业内部 CA（若是内网 CA，需提供 PEM，
+     以便写入 Python 信任；不要关证书校验）
+
+现场验收（改完 config.ini 后必须三步都过）
+  1. 能登录，且门户/日志能对应到一把 sk-user-（本机 Key 名 electrical-krow）
+  2. 选中的 chat 模型能走通一次 JSON 抽取（日志出现分段抽取，不是 5 秒就结束的 OCR 模型）
+  3. 一份真实规格书能出核对表并下载
+
+扫描件 PDF
+  纯扫描件需要本机安装 Tesseract，并勾选 chi_sim + eng。
+  安装后一般在 C:\Program Files\Tesseract-OCR\，不必改 PATH。
+  可检索的 Word / 文字版 PDF 不需要。
+  是否纳入本期验收，须双方书面确认。
+
+注意
+  - 需要能访问 config.ini 里 server_url 指向的识别服务。
+  - 不要把账号写进 config.ini。
+  - 本包不必装 Inno；exe 是解压安装到当前用户目录。
+  - 本包是客户端独立窗口，不是公网网站。场所网页端见仓库 docs/场所网页部署.md。

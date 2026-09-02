@@ -52,6 +52,54 @@ class LlmTests(unittest.TestCase):
         self.assertTrue(content.startswith("{"))
         self.assertIn("rows", content)
 
+    def test_chat_accepts_openai_image_url(self) -> None:
+        resp = self.client.post(
+            "/v1/chat/completions",
+            headers={"Authorization": f"Bearer {DEMO_TOKEN}"},
+            json={
+                "model": "krow-ocr-table",
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "读图"},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": "data:image/png;base64,iVBORw0KGgo="
+                                },
+                            },
+                        ],
+                    }
+                ],
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        text = resp.json()["choices"][0]["message"]["content"]
+        self.assertIn("HVDC", text)
+        self.assertIn("380", text)
+
+    def test_ocr_endpoint(self) -> None:
+        empty = self.client.post(
+            "/v1/ocr",
+            headers={"Authorization": f"Bearer {DEMO_TOKEN}"},
+            json={"task": "table"},
+        )
+        self.assertEqual(empty.status_code, 400)
+        resp = self.client.post(
+            "/v1/ocr",
+            headers={"Authorization": f"Bearer {DEMO_TOKEN}"},
+            json={
+                "task": "table",
+                "image": "data:image/jpeg;base64,aGVsbG8=",
+            },
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertTrue(body.get("success"))
+        self.assertIn("HVDC", body["text"])
+        self.assertEqual(body.get("model"), "krow-ocr-table")
+
 
 if __name__ == "__main__":
     unittest.main()

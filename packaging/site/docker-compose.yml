@@ -1,0 +1,28 @@
+# 可选。electrical 工程与本仓库同级时，在仓库根目录：
+#   docker compose -f packaging/site/docker-compose.yml up --build
+# 应用仍只绑 127.0.0.1，请再在宿主机用 nginx 做内网 HTTPS。
+# 不要把 18765 映射到公网。
+
+services:
+  app:
+    image: python:3.12-slim
+    working_dir: /opt/electrical-krow
+    command: >
+      sh -c "pip install -e . &&
+      python -m electrical_krow gateway --no-browser --site --host 127.0.0.1 --port 18765"
+    network_mode: host
+    environment:
+      PYTHONPATH: /opt/electrical-krow
+      ELECTRICAL_ROOT: /opt/electrical
+      ELECTRICAL_KROW_CONFIG: /opt/electrical-krow/config.ini
+      ELECTRICAL_KROW_DATA: /var/lib/electrical-krow
+      KROW_DELIVERY: site
+      KROW_UVICORN_LOG: info
+    volumes:
+      - ../..:/opt/electrical-krow
+      - ../../../electrical:/opt/electrical
+      - krow-data:/var/lib/electrical-krow
+      - ./config.ini:/opt/electrical-krow/config.ini:ro
+
+volumes:
+  krow-data:

@@ -1,0 +1,22 @@
+[Unit]
+Description=电子电器 SOR填表（场所网页）
+After=network.target
+
+[Service]
+Type=simple
+User=electrical-krow
+Group=electrical-krow
+WorkingDirectory=/opt/electrical-krow
+Environment=PYTHONPATH=/opt/electrical-krow
+Environment=ELECTRICAL_ROOT=/opt/electrical
+Environment=ELECTRICAL_KROW_CONFIG=/opt/electrical-krow/config.ini
+Environment=ELECTRICAL_KROW_DATA=/var/lib/electrical-krow
+Environment=KROW_UVICORN_LOG=info
+ExecStart=/opt/electrical-krow/.venv/bin/python -m electrical_krow gateway --no-browser --site
+Restart=on-failure
+RestartSec=5
+# 出表可能跑数分钟；不要被默认超时杀掉
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target

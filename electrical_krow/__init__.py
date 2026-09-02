@@ -1,7 +1,7 @@
-"""电子电器 · SOR填表：登录与识别接入。
+"""电子电器 · SOR填表：登录后出表。
 
-出表流水线仍在 electrical。本包只负责登录，并把识别请求转到指定场所的模型服务。
-不把填表改成开放式 Agent。
+出表流水线仍在 electrical。本包负责登录，并把识别请求转到指定场所的模型服务。
+交付两种壳：客户端（127.0.0.1）与场所网页（内网 nginx）。不把填表改成开放式 Agent。
 """
 
 from electrical_krow.config import Settings, load_settings

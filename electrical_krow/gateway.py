@@ -1,37 +1,81 @@
-"""登录页：先登录，再把识别请求转到指定场所的模型服务。
+"""登录后出表：识别转到指定场所；填表仍走 electrical 流水线。
 
-只监听 127.0.0.1。出表程序可把 SPEC_SHEET_LLM_URL 指到这里。
+默认只监听 127.0.0.1（客户端）。场所网页须显式 delivery=site，
+应用仍建议绑回环，由内网 nginx HTTPS 转发。规格书不出公网。
 """
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
+import asyncio
+import os
+import sys
+import webbrowser
+from dataclasses import replace
 
 import uvicorn
-from fastapi import FastAPI, Header, HTTPException, Request, Response
-from fastapi.responses import HTMLResponse
+from typing import Any
+
+from fastapi import FastAPI, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from electrical_krow.config import Settings, is_loopback_host, load_settings
+from electrical_krow.bridge import wire_extract_endpoint
+from electrical_krow.config import Settings, allows_page_images, apply_macos_client_server, load_settings, require_gateway_bind
 from electrical_krow.errors import ConfigError, LLMError, LoginError
-from electrical_krow.llm import complete
-from electrical_krow.login import login_with_api_key, login_with_password
+from electrical_krow.jobs import JobStore
+from electrical_krow.llm import complete, list_models
+from electrical_krow.login import login_with_password, revoke_sdk_key
+from electrical_krow.ocr import decode_image_payload, prepare_page_ocr, recognize_page
+from electrical_krow.paths import FRONTEND_DIR, OUTPUT_DIR
 from electrical_krow.session import SessionStore, StoredSession
+from electrical_krow.vision import is_text_chat_model, message_has_image, pick_vision_model
 
 COOKIE = "electrical_krow_sid"
-FRONTEND = Path(__file__).resolve().parent / "frontend"
+FRONTEND = FRONTEND_DIR
+
+
+def prepare_page_vision(settings: Settings, item: StoredSession | None) -> str:
+    """出表前选定看图模型。公网 krow.cn 一律关闭页图。"""
+    if not allows_page_images(settings.server_url):
+        os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
+        os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
+        return ""
+    names: list[str] = []
+    if item is not None:
+        try:
+            names = list_models(
+                settings.server_url,
+                item.auth,
+                timeout=min(settings.timeout_sec, 8.0),
+            )
+        except (LLMError, ConfigError):
+            names = []
+    vision = pick_vision_model(names, settings.vision_model)
+    if vision:
+        os.environ["SPEC_SHEET_PAGE_VISION"] = "1"
+        os.environ["SPEC_SHEET_VISION_MODEL"] = vision
+        return vision
+    os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
+    os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
+    return ""
+
+
+def apply_windows_event_loop_policy() -> None:
+    """避免 Windows 默认 Proactor 循环和窗口消息泵抢同一进程。"""
+    if sys.platform != "win32":
+        return
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 
 class LoginIn(BaseModel):
     username: str = ""
     password: str = ""
-    api_key: str = ""
 
 
 class ChatMessageIn(BaseModel):
     role: str
-    content: str
+    content: Any = ""
 
 
 class ChatIn(BaseModel):
@@ -40,11 +84,26 @@ class ChatIn(BaseModel):
     temperature: float = 0.0
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+class ModelIn(BaseModel):
+    model: str = ""
+
+
+class OcrIn(BaseModel):
+    image: str = ""
+    task: str = "table"
+
+
+def create_app(
+    settings: Settings | None = None,
+    *,
+    extract_url: str | None = None,
+) -> FastAPI:
     cfg = settings or load_settings()
+    wire_extract_endpoint(cfg, origin=extract_url)
     app = FastAPI(title="电子电器 · SOR填表", docs_url=None, redoc_url=None)
     app.state.settings = cfg
     app.state.store = SessionStore()
+    app.state.jobs = JobStore()
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> HTMLResponse:
@@ -56,9 +115,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             headers={"Cache-Control": "no-store"},
         )
 
+    def _active_model(item: StoredSession | None) -> str:
+        chosen = (item.chat_model if item else "") or ""
+        return chosen.strip() or cfg.chat_model
+
     @app.get("/api/health")
     def health() -> dict[str, object]:
-        logged = app.state.store.default() is not None
+        item = app.state.store.default()
+        logged = item is not None
         try:
             origin = cfg.server_origin()
             server_error = ""
@@ -69,41 +133,44 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "ok": not server_error,
             "logged_in": logged,
             "server": origin,
-            "model": cfg.chat_model,
+            "model": _active_model(item),
             "detail": server_error,
+            "fill": True,
+            "delivery": cfg.delivery,
+            "busy": app.state.jobs.busy(),
         }
 
     @app.post("/api/login")
     def login(body: LoginIn, request: Request, response: Response) -> dict[str, object]:
         try:
-            if (body.api_key or "").strip():
-                auth = login_with_api_key(body.api_key.strip(), username=body.username)
-            else:
-                auth = login_with_password(
-                    cfg.server_url,
-                    body.username,
-                    body.password,
-                    timeout=min(cfg.timeout_sec, 30.0),
-                )
+            auth = login_with_password(
+                cfg.server_url,
+                body.username,
+                body.password,
+                timeout=min(cfg.timeout_sec, 30.0),
+            )
         except (LoginError, ConfigError) as exc:
             raise HTTPException(401, str(exc)) from exc
-        stored = request.app.state.store.put(auth)
-        response.set_cookie(
-            COOKIE,
-            stored.sid,
-            httponly=True,
-            samesite="lax",
-            path="/",
-        )
+        stored = request.app.state.store.put(auth, chat_model=cfg.chat_model)
+        response.set_cookie(COOKIE, stored.sid, **_cookie_kwargs(request))
         return {
             "ok": True,
             "username": auth.username,
             "source": auth.source,
+            "model": stored.chat_model or cfg.chat_model,
         }
 
     @app.post("/api/logout")
     def logout(request: Request, response: Response) -> dict[str, bool]:
-        request.app.state.store.drop(request.cookies.get(COOKIE))
+        item = _session_from(request, None)
+        if item is not None:
+            try:
+                revoke_sdk_key(cfg.server_url, item.auth)
+            except Exception:
+                pass
+            request.app.state.store.drop(item.sid)
+        else:
+            request.app.state.store.drop(request.cookies.get(COOKIE))
         response.delete_cookie(COOKIE, path="/")
         return {"ok": True}
 
@@ -117,7 +184,45 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "logged_in": True,
             "username": item.auth.username,
             "source": item.auth.source,
+            "model": _active_model(item),
         }
+
+    @app.get("/api/models")
+    def models(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        names: list[str] = []
+        try:
+            names = list_models(cfg.server_url, item.auth, timeout=min(cfg.timeout_sec, 20.0))
+        except (LLMError, ConfigError):
+            names = []
+        current = _active_model(item)
+        if current and current not in names:
+            names = [current, *names]
+        seen: set[str] = set()
+        ordered: list[str] = []
+        for name in names:
+            if name and name not in seen:
+                seen.add(name)
+                ordered.append(name)
+        return {"models": ordered, "model": current}
+
+    @app.post("/api/model")
+    def set_model(
+        body: ModelIn,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        name = (body.model or "").strip()
+        if not name:
+            raise HTTPException(400, "请选择模型。")
+        if len(name) > 80 or any(ch in name for ch in " \t\n"):
+            raise HTTPException(400, "模型名不合法。")
+        request.app.state.store.set_chat_model(item, name)
+        return {"ok": True, "model": name}
 
     @app.post("/v1/chat/completions")
     def chat_completions(
@@ -128,8 +233,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         item = _session_from(request, authorization)
         if item is None:
             raise HTTPException(401, "请先登录")
-        model = (body.model or cfg.chat_model).strip() or cfg.chat_model
+        model = (body.model or _active_model(item)).strip() or cfg.chat_model
         messages = [{"role": m.role, "content": m.content} for m in body.messages]
+        if any(message_has_image(m.content) for m in body.messages):
+            if not allows_page_images(cfg.server_url):
+                raise HTTPException(403, "扫描页图不得打公网识别。")
+            if is_text_chat_model(model):
+                vision = (
+                    (os.environ.get("SPEC_SHEET_VISION_MODEL") or "").strip()
+                    or (cfg.vision_model or "").strip()
+                )
+                if not vision or is_text_chat_model(vision):
+                    raise HTTPException(
+                        400,
+                        "页图请使用看图模型。deepseek-v4-pro / GLM-5.2 文本版不用于扫描页。",
+                    )
+                model = vision
         try:
             result = complete(
                 cfg.server_url,
@@ -143,9 +262,155 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             raise HTTPException(502, str(exc)) from exc
         return result.raw
 
+    @app.post("/v1/ocr")
+    def page_ocr(
+        body: OcrIn,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _session_from(request, authorization)
+        if item is None:
+            raise HTTPException(401, "请先登录")
+        try:
+            image = decode_image_payload(body.image)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        task = (body.task or "table").strip().lower() or "table"
+        if task not in {"table", "ocr"}:
+            raise HTTPException(400, "task 只能是 table 或 ocr。")
+        try:
+            result = recognize_page(
+                cfg.server_url,
+                item.auth,
+                image,
+                task=task,
+            )
+        except (LLMError, ConfigError) as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return result
+
+    @app.post("/api/jobs")
+    async def start_job(
+        request: Request,
+        file: UploadFile = File(...),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        data = await file.read()
+        incoming, out = request.app.state.jobs.prepare_upload(file, data)
+        item = _session_from(request, authorization)
+        model = _active_model(item)
+        if prepare_page_ocr(cfg, item):
+            os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
+            os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
+        else:
+            prepare_page_vision(cfg, item)
+        try:
+            job_id = request.app.state.jobs.start(
+                file.filename, incoming, out, model=model
+            )
+        except HTTPException:
+            incoming.unlink(missing_ok=True)
+            raise
+        return {"id": job_id}
+
+    @app.get("/api/jobs/{job_id}")
+    def job_status(
+        job_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        return request.app.state.jobs.snapshot(job_id)
+
+    @app.post("/api/jobs/{job_id}/pause")
+    def pause_job(
+        job_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        ctrl = request.app.state.jobs.control(job_id)
+        ctrl.request_pause()
+        request.app.state.jobs.update(
+            job_id, status="pausing", message="将在本批结束后暂停…"
+        )
+        return request.app.state.jobs.snapshot(job_id)
+
+    @app.post("/api/jobs/{job_id}/resume")
+    def resume_job(
+        job_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        ctrl = request.app.state.jobs.control(job_id)
+        ctrl.request_resume()
+        request.app.state.jobs.update(
+            job_id, status="running", message="已继续出表…"
+        )
+        return request.app.state.jobs.snapshot(job_id)
+
+    @app.post("/api/jobs/{job_id}/stop")
+    def stop_job(
+        job_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        ctrl = request.app.state.jobs.control(job_id)
+        ctrl.request_stop()
+        request.app.state.jobs.update(
+            job_id,
+            status="stopping",
+            message="将在本批结束后结束，并按已抽出内容出表…",
+        )
+        return request.app.state.jobs.snapshot(job_id)
+
+    @app.get("/files/{name}")
+    def download(
+        name: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> FileResponse:
+        _require_session(request, authorization)
+        path = (OUTPUT_DIR / name).resolve()
+        if path.parent != OUTPUT_DIR.resolve() or not path.is_file():
+            raise HTTPException(404, "找不到核对表")
+        return FileResponse(
+            path,
+            filename=path.name,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
     if FRONTEND.is_dir():
         app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")
+
+    @app.middleware("http")
+    async def no_store_ui(request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        if path == "/" or path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+        return response
+
     return app
+
+
+def _cookie_kwargs(request: Request) -> dict[str, object]:
+    proto = (
+        (request.headers.get("x-forwarded-proto") or request.url.scheme or "")
+        .split(",")[0]
+        .strip()
+        .lower()
+    )
+    return {
+        "httponly": True,
+        "samesite": "lax",
+        "path": "/",
+        "secure": proto == "https",
+    }
 
 
 def _bearer(authorization: str | None) -> str:
@@ -168,25 +433,90 @@ def _session_from(request: Request, authorization: str | None) -> StoredSession 
     found = sessions.get(sid)
     if found is not None:
         return found
+    # 本机工位同时只有一份登录。WebView2 上传 FormData 时偶尔不带 cookie，
+    # 抽取流水线也只带 Bearer local。场所网页必须继续靠 cookie，避免串号。
+    settings = getattr(request.app.state, "settings", None)
+    if settings is not None and getattr(settings, "delivery", "client") != "site":
+        return sessions.default()
     return None
+
+
+def _require_session(
+    request: Request, authorization: str | None
+) -> StoredSession:
+    item = _session_from(request, authorization)
+    if item is None:
+        raise HTTPException(401, "请先登录")
+    return item
 
 
 app = create_app()
 
 
-def main(argv: list[str] | None = None) -> int:
+def parse_gateway_argv(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="电子电器 · SOR填表")
     parser.add_argument("--host", default=None)
     parser.add_argument("--port", type=int, default=None)
-    args = parser.parse_args(argv)
+    parser.add_argument("--no-browser", action="store_true")
+    parser.add_argument(
+        "--site",
+        action="store_true",
+        help="场所网页模式（默认仍绑 127.0.0.1，由内网 nginx 转发）",
+    )
+    return parser.parse_args(argv)
+
+
+def listen_from_args(args: argparse.Namespace) -> tuple[Settings, str, int, str]:
     settings = load_settings()
+    if args.site and settings.delivery != "site":
+        settings = replace(settings, delivery="site")
     host = args.host or settings.gateway_host
     port = args.port or settings.gateway_port
-    if not is_loopback_host(host):
-        raise SystemExit("只允许绑本机回环（127.0.0.1 / localhost）。")
-    print(f"电子电器 · SOR填表：http://{host}:{port}/", flush=True)
+    host = require_gateway_bind(host, settings.delivery)
+    origin = f"http://{host}:{port}"
+    return settings, host, port, origin
+
+
+def announce(settings: Settings, host: str, origin: str) -> None:
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    if os.environ.get("ELECTRICAL_KROW_NESTED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }:
+        return
+    print(f"电子电器 · SOR填表：{origin}/", flush=True)
     print(f"识别服务：{settings.server_url}", flush=True)
-    uvicorn.run(create_app(settings), host=host, port=port, log_level="warning")
+    print(f"默认模型：{settings.chat_model}", flush=True)
+    if settings.delivery == "site":
+        print("场所网页：请用内网 nginx HTTPS 反代，不要把本服务直接暴露到公网。", flush=True)
+        print("规格书落本场所磁盘，不出公网。全站同时只跑一份出表。", flush=True)
+        if host in {"0.0.0.0", "::", "*"}:
+            print("警告：正在监听全部网卡。务必只放行场所内网，并在前面加 HTTPS 反代。", flush=True)
+    else:
+        print("客户端：用登录邮箱登录后出表。文件在本机读。", flush=True)
+    rules_only = os.environ.get("SPEC_SHEET_RULES_ONLY", "").strip().lower()
+    if rules_only in {"1", "true", "yes"}:
+        print("警告：SPEC_SHEET_RULES_ONLY 已开，将跳过模型抽取。", flush=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    apply_windows_event_loop_policy()
+    apply_macos_client_server()
+    args = parse_gateway_argv(argv)
+    try:
+        settings, host, port, origin = listen_from_args(args)
+    except ConfigError as exc:
+        raise SystemExit(str(exc)) from exc
+    announce(settings, host, origin)
+    if not args.no_browser:
+        webbrowser.open(f"{origin}/")
+    uvicorn.run(
+        create_app(settings, extract_url=origin),
+        host=host,
+        port=port,
+        log_level=os.environ.get("KROW_UVICORN_LOG", "warning"),
+    )
     return 0
 
 

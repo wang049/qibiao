@@ -1,15 +1,16 @@
-"""配置：识别服务地址、登录页端口，禁止公网 Cloud。"""
+"""配置：识别服务地址、登录页端口。地址来自 config.ini / KROW_SERVER_URL。"""
 from __future__ import annotations
 
+import configparser
 import ipaddress
 import os
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlparse
 
 from electrical_krow.errors import ConfigError
-
-_BLOCKED_HOST_SUFFIXES = (".krow.cn",)
-_BLOCKED_HOSTS = {"krow.cn", "api.krow.cn", "www.krow.cn", "api-staging.krow.cn"}
+from electrical_krow.paths import PROJECT_ROOT
 
 
 def hostname_of(url: str) -> str:
@@ -45,22 +46,101 @@ def origin_of(url: str) -> str:
     return f"{parsed.scheme}://{parsed.netloc}"
 
 
+def suggest_site_api_url(url: str) -> str | None:
+    """门户 / 控制台 / 误猜的 api.rdagents 换成识别 API（仪表盘 Base URL 去掉 /v1）。"""
+    host = hostname_of(url)
+    if not host:
+        return None
+    for prefix in ("rdweb.", "rdagents.", "api.rdagents."):
+        if host.startswith(prefix):
+            return f"https://rdapi.{host[len(prefix):]}"
+    return None
+
+
 def require_private_endpoint(url: str) -> str:
-    """允许本机或指定场所内网地址，拒绝公网 *.krow.cn。"""
-    origin = origin_of(url)
-    host = hostname_of(origin)
-    if host in _BLOCKED_HOSTS or any(host.endswith(s) for s in _BLOCKED_HOST_SUFFIXES):
-        raise ConfigError(
-            "规格书不得发往公网识别服务。"
-            "请改用指定场所内网地址，或本机联调地址。"
-        )
-    return origin
+    """归一化识别服务根地址（不要带 /v1）。允许本机、内网和 api.krow.cn。"""
+    return origin_of(url)
+
+
+def is_cloud_host(host: str) -> bool:
+    h = (host or "").strip().lower()
+    return h == "krow.cn" or h.endswith(".krow.cn")
+
+
+def allows_page_images(url: str) -> bool:
+    """扫描页图只许打指定场所识别服务，禁止 *.krow.cn。"""
+    try:
+        host = hostname_of(origin_of(url))
+    except ConfigError:
+        return False
+    return not is_cloud_host(host)
+
+
+def normalize_delivery(value: str) -> str:
+    raw = (value or "client").strip().lower()
+    if raw in {"client", "desktop", "loopback", "local"}:
+        return "client"
+    if raw in {"site", "lan", "web", "intranet"}:
+        return "site"
+    raise ConfigError(f"delivery 只能是 client 或 site，当前为 {value!r}。")
+
+
+CLOUD_API_URL = "https://api.krow.cn"
+
+
+def apply_macos_client_server() -> None:
+    """本机 Mac 调试连公网识别。客户内网地址只写在 Windows/场所包装的 config.ini。"""
+    if sys.platform != "darwin":
+        return
+    raw = os.environ.get("KROW_DELIVERY") or "client"
+    try:
+        delivery = normalize_delivery(raw)
+    except ConfigError:
+        delivery = "client"
+    if delivery == "site":
+        return
+    os.environ["KROW_SERVER_URL"] = CLOUD_API_URL
+
+
+def is_all_interfaces(host: str) -> bool:
+    return (host or "").strip().lower() in {"0.0.0.0", "::", "*"}
+
+
+def is_site_bind_host(host: str) -> bool:
+    """场所网页允许回环、全接口或 RFC1918 内网地址，禁止公网单播地址。"""
+    h = (host or "").strip().lower()
+    if is_loopback_host(h) or is_all_interfaces(h):
+        return True
+    try:
+        ip = ipaddress.ip_address(h)
+    except ValueError:
+        return False
+    return bool(ip.is_private or ip.is_link_local)
+
+
+def require_gateway_bind(host: str, delivery: str) -> str:
+    """客户端必须回环；场所网页默认同绑 127.0.0.1（nginx 转发），禁止公网地址。"""
+    mode = normalize_delivery(delivery)
+    h = (host or "").strip() or "127.0.0.1"
+    if mode == "client":
+        if not is_loopback_host(h):
+            raise ConfigError(
+                "客户端模式只允许绑本机回环（127.0.0.1）。"
+                "场所网页请设 delivery = site，并由内网 nginx 转发。"
+            )
+        return h
+    if is_site_bind_host(h):
+        return h
+    raise ConfigError(
+        "场所网页不得绑公网地址。请绑 127.0.0.1 并由内网 nginx 转发，或绑内网地址。"
+    )
 
 
 @dataclass(frozen=True)
 class Settings:
     server_url: str
     chat_model: str
+    vision_model: str
     username: str
     password: str
     api_key: str
@@ -69,9 +149,10 @@ class Settings:
     mock_port: int
     electrical_backend_url: str
     timeout_sec: float
+    delivery: str
 
     def server_origin(self) -> str:
-        return require_private_endpoint(self.server_url)
+        return origin_of(self.server_url)
 
     def has_password_login(self) -> bool:
         return bool(self.username and self.password)
@@ -79,51 +160,88 @@ class Settings:
     def has_api_key(self) -> bool:
         return bool(self.api_key)
 
+    def is_site(self) -> bool:
+        return self.delivery == "site"
+
+
+def _ini_values() -> dict[str, str]:
+    paths: list[Path] = []
+    env_path = (os.environ.get("ELECTRICAL_KROW_CONFIG") or "").strip()
+    if env_path:
+        paths.append(Path(env_path).expanduser())
+    paths.append(PROJECT_ROOT / "config.ini")
+    parser = configparser.ConfigParser()
+    for path in paths:
+        if not path.is_file():
+            continue
+        parser.read(path, encoding="utf-8-sig")
+        if parser.has_section("krow"):
+            return {k: v.strip() for k, v in parser.items("krow") if v.strip()}
+        if parser.has_section("DEFAULT") or parser.defaults():
+            return {k: v.strip() for k, v in parser.defaults().items() if v.strip()}
+    return {}
+
+
+def _pick(
+    overrides: dict[str, object],
+    key: str,
+    env_name: str,
+    ini: dict[str, str],
+    default: str,
+    ini_key: str = "",
+) -> str:
+    if key in overrides and overrides[key] is not None:
+        return str(overrides[key])
+    env = os.environ.get(env_name)
+    if env is not None and str(env).strip() != "":
+        return str(env)
+    found = ini.get(ini_key or key)
+    if found:
+        return found
+    return default
+
 
 def load_settings(**overrides: object) -> Settings:
-    server = str(
-        overrides.get(
-            "server_url",
-            os.environ.get("KROW_SERVER_URL", "http://127.0.0.1:18766"),
-        )
-    )
+    ini = _ini_values()
     data = {
-        "server_url": server,
-        "chat_model": str(
-            overrides.get(
-                "chat_model",
-                os.environ.get("KROW_CHAT_MODEL", "qwen2.5:7b"),
-            )
+        "server_url": _pick(
+            overrides, "server_url", "KROW_SERVER_URL", ini, "https://api.krow.cn"
         ),
-        "username": str(overrides.get("username", os.environ.get("KROW_USERNAME", ""))),
-        "password": str(overrides.get("password", os.environ.get("KROW_PASSWORD", ""))),
-        "api_key": str(overrides.get("api_key", os.environ.get("KROW_API_KEY", ""))),
-        "gateway_host": str(
-            overrides.get(
-                "gateway_host",
-                os.environ.get("KROW_GATEWAY_HOST", "127.0.0.1"),
-            )
+        "chat_model": _pick(
+            overrides, "chat_model", "KROW_CHAT_MODEL", ini, "deepseek-v4-pro"
+        ),
+        "vision_model": _pick(
+            overrides, "vision_model", "KROW_VISION_MODEL", ini, ""
+        ),
+        "username": _pick(overrides, "username", "KROW_USERNAME", ini, ""),
+        "password": _pick(overrides, "password", "KROW_PASSWORD", ini, ""),
+        "api_key": _pick(overrides, "api_key", "KROW_API_KEY", ini, ""),
+        "gateway_host": _pick(
+            overrides, "gateway_host", "KROW_GATEWAY_HOST", ini, "127.0.0.1"
         ),
         "gateway_port": int(
-            overrides.get(
-                "gateway_port",
-                os.environ.get("KROW_GATEWAY_PORT", "18765"),
-            )
+            _pick(overrides, "gateway_port", "KROW_GATEWAY_PORT", ini, "18765")
         ),
-        "mock_port": int(
-            overrides.get("mock_port", os.environ.get("KROW_MOCK_PORT", "18766"))
-        ),
-        "electrical_backend_url": str(
-            overrides.get(
-                "electrical_backend_url",
-                os.environ.get("ELECTRICAL_BACKEND_URL", "http://127.0.0.1:8765"),
-            )
+        "mock_port": int(_pick(overrides, "mock_port", "KROW_MOCK_PORT", ini, "18766")),
+        "electrical_backend_url": _pick(
+            overrides,
+            "electrical_backend_url",
+            "ELECTRICAL_BACKEND_URL",
+            ini,
+            "http://127.0.0.1:8765",
         ),
         "timeout_sec": float(
-            overrides.get(
+            _pick(
+                overrides,
                 "timeout_sec",
-                os.environ.get("KROW_LLM_TIMEOUT", "90"),
+                "KROW_LLM_TIMEOUT",
+                ini,
+                "180",
+                ini_key="timeout_sec",
             )
+        ),
+        "delivery": normalize_delivery(
+            _pick(overrides, "delivery", "KROW_DELIVERY", ini, "client")
         ),
     }
     return Settings(**data)  # type: ignore[arg-type]

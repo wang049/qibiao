@@ -5,3 +5,6 @@ __pycache__/
 output/
 .DS_Store
 krow_workspace/
+dist/
+packaging/windows/.cache/
+*.iconset/

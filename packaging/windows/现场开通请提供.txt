@@ -1,0 +1,29 @@
+现场 Krow Server 开通请提供
+
+请把下面四项发给实施人员。联调环境与现场独立部署是两套服务，账号和模型都不能混用。
+
+1. HTTPS 根地址
+   完整 https:// 域名，不要尾斜杠，不要 /v1。
+   现场识别 API：https://rdapi.aurobaytech-t.com
+   （仪表盘「快速开始」写成 https://rdapi.aurobaytech-t.com/v1，config 里不要带 /v1。）
+   不要填门户 https://rdagents.aurobaytech-t.com，也不要填控制台 https://rdweb.aurobaytech-t.com。
+
+2. 登录邮箱
+   管理员在现场开通的邮箱账号和密码。不要用手机号，不要用联调环境的账号。
+
+3. chat 模型 id 名单
+   出表必须用 chat 类模型（如 deepseek-v4-pro、ZHIPU/GLM-5.2）。
+   不要只用 OCR/表格类（如 krow-ocr-table）。
+
+4. 证书
+   公网 CA（阿里云 DV 等）：客户端不用额外配置。
+   企业内部 CA：请提供 PEM，以便写入 Python 信任链。不要关闭证书校验。
+
+改完解压目录里的 config.ini 后，按这三步验收：
+  - 能登录并拿到 sk-user- Key
+  - 所选 chat 模型能分段抽取
+  - 一份真实规格书能出核对表
+
+本清单用于客户端（工位安装包）。场所网页是同一套程序、另一种部署，
+不要把本 zip 理解成公网网站。网页端是否允许上传到场所服务器，见
+仓库 docs/双端交付口径.md，须甲方书面确认。

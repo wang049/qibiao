@@ -13,6 +13,7 @@ from electrical_krow.login import AuthSession
 class StoredSession:
     sid: str
     auth: AuthSession
+    chat_model: str = ""
     created_at: float = field(default_factory=time.time)
 
 
@@ -22,8 +23,12 @@ class SessionStore:
         self._by_sid: dict[str, StoredSession] = {}
         self._default: StoredSession | None = None
 
-    def put(self, auth: AuthSession) -> StoredSession:
-        stored = StoredSession(sid=secrets.token_hex(16), auth=auth)
+    def put(self, auth: AuthSession, *, chat_model: str = "") -> StoredSession:
+        stored = StoredSession(
+            sid=secrets.token_hex(16),
+            auth=auth,
+            chat_model=chat_model.strip(),
+        )
         with self._lock:
             self._by_sid[stored.sid] = stored
             self._default = stored
@@ -47,6 +52,10 @@ class SessionStore:
     def default(self) -> StoredSession | None:
         with self._lock:
             return self._default
+
+    def set_chat_model(self, item: StoredSession, name: str) -> None:
+        with self._lock:
+            item.chat_model = name.strip()
 
     def drop(self, sid: str | None) -> None:
         if not sid:

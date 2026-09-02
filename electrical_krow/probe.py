@@ -12,34 +12,50 @@ from typing import Any
 import httpx
 import uvicorn
 
-from electrical_krow.config import load_settings, require_private_endpoint
+from electrical_krow.config import allows_page_images, is_cloud_host, hostname_of, load_settings, origin_of
 from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.gateway import create_app as create_gateway
 from electrical_krow.llm import complete, list_models
 from electrical_krow.login import login_with_api_key, login_with_password
 from electrical_krow.mock_server import DEMO_PASSWORD, DEMO_USER, create_app as create_mock
+from electrical_krow.vision import image_chat_messages, pick_vision_model, sample_probe_png
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="登录与识别连通，再查出表服务")
     parser.add_argument("--username", default="")
     parser.add_argument("--password", default="")
+    parser.add_argument(
+        "--vision",
+        action="store_true",
+        help="用合成测试页探测看图（不是规格书）",
+    )
     args = parser.parse_args(argv)
     settings = load_settings()
-    username = args.username or settings.username or DEMO_USER
-    password = args.password or settings.password or DEMO_PASSWORD
+    username = args.username or settings.username
+    password = args.password or settings.password
 
     report: dict[str, Any] = {}
     ok = True
     started_mock = False
     server_url = settings.server_url
+    origin = _origin_or_empty(server_url)
+    cloud = is_cloud_host(hostname_of(origin or server_url))
 
-    if _reachable(f"{_origin_or_empty(server_url)}/health"):
+    if _reachable(f"{origin}/v1/models") or _reachable(f"{origin}/health"):
         report["krow_server"] = {
             "ok": True,
-            "url": _origin_or_empty(server_url),
-            "mode": "live",
+            "url": origin,
+            "mode": "cloud" if cloud else "live",
         }
+    elif cloud:
+        report["krow_server"] = {
+            "ok": False,
+            "url": origin,
+            "error": f"连不上识别服务 {origin}。请检查网络，不要回退本机 mock。",
+        }
+        _print(report)
+        return 1
     else:
         mock_url = f"http://127.0.0.1:{settings.mock_port}"
         _serve(create_mock(), "127.0.0.1", settings.mock_port)
@@ -49,12 +65,22 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         started_mock = True
         server_url = mock_url
+        username = username or DEMO_USER
+        password = password or DEMO_PASSWORD
         report["krow_server"] = {
             "ok": True,
             "url": mock_url,
             "mode": "mock",
             "note": "未连上 KROW_SERVER_URL，已在本机拉起 mock。",
         }
+
+    if not started_mock and not settings.has_api_key() and not (username and password):
+        report["login"] = {
+            "ok": False,
+            "error": "请设置 KROW_USERNAME / KROW_PASSWORD，或 KROW_API_KEY。",
+        }
+        _print(report)
+        return 1
 
     try:
         if settings.has_api_key() and not started_mock:
@@ -91,10 +117,23 @@ def main(argv: list[str] | None = None) -> int:
     except LLMError as exc:
         report["complete"] = {"ok": False, "error": str(exc)}
         ok = False
+        models = []
+
+    vision_ok, vision_name = _probe_vision(
+        report,
+        server_url=server_url,
+        session=session,
+        settings=settings,
+        models=models,
+        require=args.vision,
+    )
+    if args.vision and not vision_ok:
+        ok = False
 
     gw_settings = load_settings(
         server_url=server_url,
         chat_model=settings.chat_model,
+        vision_model=vision_name or settings.vision_model,
         gateway_port=settings.gateway_port,
     )
     gw_url = f"http://127.0.0.1:{gw_settings.gateway_port}"
@@ -103,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
         report["gateway"] = {"ok": False, "error": "登录页没起来"}
         ok = False
     else:
-        with httpx.Client(timeout=20.0, trust_env=False) as client:
+        with httpx.Client(timeout=90.0, trust_env=False) as client:
             login_resp = client.post(
                 f"{gw_url}/api/login",
                 json={"username": username, "password": password},
@@ -124,6 +163,22 @@ def main(argv: list[str] | None = None) -> int:
                 headers={"Authorization": "Bearer local"},
                 json=extract_payload,
             )
+            vision_resp = None
+            if vision_name and allows_page_images(server_url):
+                vision_resp = client.post(
+                    f"{gw_url}/v1/chat/completions",
+                    headers={"Authorization": "Bearer local"},
+                    json={
+                        "model": settings.chat_model,
+                        "temperature": 0,
+                        "messages": image_chat_messages(
+                            sample_probe_png(),
+                            "image/png",
+                            "把图上的字原样打出来，不要编数字。",
+                        ),
+                    },
+                    timeout=min(settings.timeout_sec, 90.0),
+                )
         gw_ok = login_resp.status_code == 200 and chat_resp.status_code == 200
         report["gateway"] = {
             "ok": gw_ok,
@@ -131,6 +186,21 @@ def main(argv: list[str] | None = None) -> int:
             "login_status": login_resp.status_code,
             "extract_shape_status": chat_resp.status_code,
         }
+        if vision_resp is not None:
+            report["gateway"]["vision_status"] = vision_resp.status_code
+            report["gateway"]["vision_model"] = vision_name
+            if vision_resp.status_code == 200:
+                try:
+                    report["gateway"]["vision_preview"] = (
+                        vision_resp.json()["choices"][0]["message"]["content"][:120]
+                    )
+                except Exception:
+                    report["gateway"]["vision_preview"] = _clip(vision_resp.text, 120)
+            else:
+                report["gateway"]["vision_body"] = _clip(vision_resp.text)
+                if args.vision:
+                    gw_ok = False
+                    report["gateway"]["ok"] = False
         if not gw_ok:
             ok = False
             report["gateway"]["login_body"] = _clip(login_resp.text)
@@ -190,9 +260,71 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if ok and complete_ok else 1
 
 
+def _probe_vision(
+    report: dict[str, Any],
+    *,
+    server_url: str,
+    session: Any,
+    settings: Any,
+    models: list[str],
+    require: bool,
+) -> tuple[bool, str]:
+    """合成测试页，不是规格书。公网直接跳过。"""
+    if not allows_page_images(server_url):
+        report["vision_probe"] = {
+            "ok": not require,
+            "skipped": True,
+            "reason": "扫描页图不得打公网识别。",
+        }
+        return (not require, "")
+    names = list(models)
+    if not names:
+        try:
+            names = list_models(server_url, session)
+        except LLMError:
+            names = []
+    vision = pick_vision_model(names, settings.vision_model)
+    if not vision:
+        report["vision_probe"] = {
+            "ok": False,
+            "error": (
+                "没有看图模型。deepseek-v4-pro、GLM-5.2 文本版不一定收图；"
+                "krow-ocr-table 只认字，不能拿来出 JSON 核对表。"
+            ),
+            "models": names[:12],
+        }
+        return False, ""
+    try:
+        result = complete(
+            server_url,
+            session,
+            image_chat_messages(
+                sample_probe_png(),
+                "image/png",
+                "把图上的字原样打出来，不要编数字。",
+            ),
+            model=vision,
+            timeout=min(settings.timeout_sec, 90.0),
+        )
+    except (LLMError, ConfigError) as exc:
+        report["vision_probe"] = {
+            "ok": False,
+            "model": vision,
+            "error": str(exc),
+        }
+        return False, vision
+    report["vision_probe"] = {
+        "ok": True,
+        "model": vision,
+        "preview": (result.content or "").replace("\n", " ")[:200],
+        "note": "合成测试页，不是规格书。看图结果当原文；JSON 核对表仍走 chat 模型。",
+    }
+    return True, vision
+
+
 def _origin_or_empty(url: str) -> str:
     try:
-        return require_private_endpoint(url)
+        return origin_of(url)
     except ConfigError:
         return ""
 

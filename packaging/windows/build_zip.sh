@@ -112,6 +112,22 @@ rsync -a \
 cp "$MODULES/__init__.py" "$STAGE/app/modules/__init__.py"
 
 cp "$WIN/config.ini" "$STAGE/config.ini"
+if [ -n "${PACK_SERVER_URL:-}" ]; then
+  PACK_SERVER_URL="$PACK_SERVER_URL" STAGE="$STAGE" python3 - <<'PY'
+import os
+import re
+from pathlib import Path
+
+url = os.environ["PACK_SERVER_URL"].strip().rstrip("/")
+ini = Path(os.environ["STAGE"]) / "config.ini"
+text = ini.read_text(encoding="utf-8")
+text, n = re.subn(r"(?m)^server_url\s*=\s*.*$", f"server_url = {url}", text, count=1)
+if n != 1:
+    raise SystemExit("failed to set server_url in staged config.ini")
+ini.write_text(text, encoding="utf-8")
+print("pack server_url", url)
+PY
+fi
 cp "$WIN/requirements.txt" "$STAGE/requirements.txt"
 cp "$WIN/run.py" "$STAGE/run.py"
 cp "$WIN/sitecustomize.py" "$STAGE/sitecustomize.py"

@@ -1,0 +1,6333 @@
+meta:
+  version: 2026-09-02 扩展版 v0.1
+  source_list: 电机控制需求清单_20260821V1.xlsx（120 项）
+  alias_levels:
+    strong: 整词、跨条目唯一，可直接计分
+    weak: 整词但多条目共享，须配合判别词（P1/P3、Boost、电池连接/断开、稳态/动态 等）或单位闸门才计分
+    anchor: 裸词如 BOOST/P1/P3/冷却/温度，只用于缩小段落范围，不计分
+  weak_alias_index:
+    3-phase short:
+    - 40
+    - 55
+    active short circuit:
+    - 40
+    - 55
+    active short circuit current:
+    - 42
+    - 57
+    apk:
+    - 44
+    - 60
+    arms peak:
+    - 44
+    - 60
+    asc arms:
+    - 42
+    - 57
+    asc capability:
+    - 40
+    - 55
+    asc current:
+    - 42
+    - 57
+    asc current capability:
+    - 40
+    - 55
+    asc phase current:
+    - 42
+    - 57
+    asc rms current:
+    - 42
+    - 57
+    asc steady state:
+    - 40
+    - 55
+    asc transient:
+    - 40
+    - 55
+    asc电流:
+    - 42
+    - 57
+    asc电流能力:
+    - 40
+    - 55
+    asc相电流:
+    - 42
+    - 57
+    asc瞬态:
+    - 40
+    - 55
+    asc稳态:
+    - 40
+    - 55
+    asc稳态电流:
+    - 42
+    - 57
+    assembly weight:
+    - 73
+    - 101
+    base speed:
+    - 31
+    - 33
+    - 48
+    - 50
+    bidirectional speed:
+    - 34
+    - 51
+    boost charging:
+    - 4
+    - 115
+    boost mode:
+    - 61
+    - 67
+    boost peak power:
+    - 28
+    - 45
+    - 68
+    boost topology:
+    - 3
+    - 61
+    cct:
+    - 74
+    - 102
+    charge boost:
+    - 4
+    - 115
+    charging boost:
+    - 4
+    - 115
+    charging topology:
+    - 4
+    - 115
+    cltc efficiency:
+    - 41
+    - 56
+    constant torque region:
+    - 31
+    - 48
+    continuous phase current:
+    - 43
+    - 58
+    continuous power:
+    - 30
+    - 47
+    continuous rating:
+    - 30
+    - 47
+    continuous torque:
+    - 32
+    - 49
+    controller weight:
+    - 73
+    - 101
+    corner speed:
+    - 31
+    - 33
+    - 48
+    - 50
+    corrosion class:
+    - 74
+    - 102
+    corrosion grade:
+    - 74
+    - 102
+    corrosion protection level:
+    - 74
+    - 102
+    corrosion resistance:
+    - 74
+    - 102
+    corrosion test:
+    - 74
+    - 102
+    cyclic corrosion:
+    - 74
+    - 102
+    dynamic accuracy:
+    - 78
+    - 89
+    efficiency at operating point:
+    - 41
+    - 56
+    efficiency map:
+    - 41
+    - 56
+    efficiency target:
+    - 41
+    - 56
+    external characteristic:
+    - 31
+    - 48
+    high-efficiency region:
+    - 41
+    - 56
+    inverter efficiency:
+    - 41
+    - 56
+    inverter weight:
+    - 73
+    - 101
+    locked rotor torque:
+    - 36
+    - 53
+    mass:
+    - 73
+    - 101
+    max operating speed:
+    - 35
+    - 52
+    max phase current:
+    - 44
+    - 60
+    max rpm:
+    - 35
+    - 52
+    maximum efficiency:
+    - 41
+    - 56
+    maximum phase current:
+    - 44
+    - 60
+    maximum power:
+    - 28
+    - 45
+    maximum speed:
+    - 35
+    - 52
+    maximum torque:
+    - 31
+    - 48
+    mechanical speed limit:
+    - 35
+    - 52
+    neutral salt spray:
+    - 74
+    - 102
+    nominal power:
+    - 30
+    - 47
+    nominal speed:
+    - 33
+    - 50
+    nominal torque:
+    - 32
+    - 49
+    non-boost peak power:
+    - 28
+    - 45
+    nss:
+    - 74
+    - 102
+    operating speed range:
+    - 34
+    - 51
+    overload current:
+    - 44
+    - 60
+    overload time:
+    - 29
+    - 46
+    overspeed:
+    - 35
+    - 52
+    peak ac current:
+    - 44
+    - 60
+    peak current:
+    - 44
+    - 60
+    peak duration:
+    - 29
+    - 46
+    peak efficiency:
+    - 41
+    - 56
+    peak hold time:
+    - 29
+    - 46
+    peak output current:
+    - 44
+    - 60
+    peak phase current:
+    - 44
+    - 60
+    peak power:
+    - 28
+    - 45
+    peak power duration:
+    - 29
+    - 46
+    peak time:
+    - 29
+    - 46
+    peak torque:
+    - 31
+    - 48
+    rated phase current:
+    - 43
+    - 58
+    rated power:
+    - 30
+    - 47
+    rated rpm:
+    - 33
+    - 50
+    rated speed:
+    - 33
+    - 50
+    rated torque:
+    - 32
+    - 49
+    reverse speed:
+    - 34
+    - 51
+    rpm range:
+    - 34
+    - 51
+    s1 power:
+    - 30
+    - 47
+    s1 torque:
+    - 32
+    - 49
+    s1功率:
+    - 30
+    - 47
+    s1扭矩:
+    - 32
+    - 49
+    s2 duty:
+    - 29
+    - 46
+    salt fog:
+    - 74
+    - 102
+    salt spray:
+    - 74
+    - 102
+    short-circuit current rms:
+    - 42
+    - 57
+    short-circuit withstand:
+    - 40
+    - 55
+    short-time power:
+    - 28
+    - 45
+    speed limit:
+    - 35
+    - 52
+    speed range:
+    - 34
+    - 51
+    speed requirement:
+    - 34
+    - 51
+    stall condition:
+    - 36
+    - 53
+    stall duration:
+    - 36
+    - 53
+    stall entry:
+    - 36
+    - 53
+    stall exit:
+    - 36
+    - 53
+    stall protection:
+    - 36
+    - 53
+    stall time:
+    - 36
+    - 53
+    stall torque:
+    - 36
+    - 53
+    standstill torque:
+    - 36
+    - 53
+    steady-state accuracy:
+    - 78
+    - 89
+    steady-state short circuit current:
+    - 40
+    - 55
+    target weight:
+    - 73
+    - 101
+    three-phase short circuit:
+    - 40
+    - 55
+    top speed:
+    - 35
+    - 52
+    torque accuracy:
+    - 78
+    - 89
+    torque control accuracy:
+    - 78
+    - 89
+    torque deviation:
+    - 78
+    - 89
+    torque error:
+    - 78
+    - 89
+    torque precision:
+    - 78
+    - 89
+    torque tolerance:
+    - 78
+    - 89
+    torque vs speed:
+    - 31
+    - 48
+    torque-speed envelope:
+    - 31
+    - 48
+    total weight:
+    - 73
+    - 101
+    transient short circuit current:
+    - 40
+    - 55
+    weight:
+    - 73
+    - 101
+    weight target:
+    - 73
+    - 101
+    wltc efficiency:
+    - 41
+    - 56
+    zero speed torque:
+    - 36
+    - 53
+    三相主动短路:
+    - 40
+    - 55
+    三相短路电流:
+    - 40
+    - 55
+    不含boost重量:
+    - 73
+    - 101
+    中性盐雾:
+    - 74
+    - 102
+    主动短路工况:
+    - 40
+    - 55
+    主动短路电流:
+    - 42
+    - 57
+    主动短路电流能力:
+    - 40
+    - 55
+    主动短路相电流:
+    - 42
+    - 57
+    主动短路能力:
+    - 40
+    - 55
+    交流主动短路电流:
+    - 42
+    - 57
+    交流峰值电流:
+    - 44
+    - 60
+    交流电流峰值:
+    - 44
+    - 60
+    低速大扭矩:
+    - 36
+    - 53
+    充电升压:
+    - 4
+    - 115
+    充电拓扑:
+    - 4
+    - 115
+    动态精度:
+    - 78
+    - 89
+    动态误差:
+    - 78
+    - 89
+    区间效率:
+    - 41
+    - 56
+    升压充电:
+    - 4
+    - 115
+    升压峰值功率:
+    - 28
+    - 45
+    - 68
+    升压拓扑:
+    - 3
+    - 61
+    反转转速:
+    - 34
+    - 51
+    含boost重量:
+    - 73
+    - 101
+    基速:
+    - 33
+    - 50
+    堵转保护:
+    - 36
+    - 53
+    堵转判定:
+    - 36
+    - 53
+    堵转工况:
+    - 36
+    - 53
+    堵转扭矩:
+    - 36
+    - 53
+    堵转持续时间:
+    - 36
+    - 53
+    堵转时间:
+    - 36
+    - 53
+    堵转能力:
+    - 36
+    - 53
+    堵转触发条件:
+    - 36
+    - 53
+    堵转转矩:
+    - 36
+    - 53
+    堵转退出条件:
+    - 36
+    - 53
+    外特性:
+    - 31
+    - 48
+    外特性曲线:
+    - 31
+    - 48
+    峰值保持时间:
+    - 29
+    - 46
+    峰值功率:
+    - 28
+    - 45
+    峰值功率持续时间:
+    - 29
+    - 46
+    峰值工作时间:
+    - 29
+    - 46
+    峰值扭矩:
+    - 31
+    - 48
+    峰值扭矩持续时间:
+    - 31
+    - 48
+    峰值扭矩转速范围:
+    - 31
+    - 48
+    峰值持续时间:
+    - 29
+    - 46
+    峰值效率:
+    - 41
+    - 56
+    峰值时间:
+    - 29
+    - 46
+    峰值电流能力:
+    - 44
+    - 60
+    峰值相电流:
+    - 44
+    - 60
+    峰值维持时间:
+    - 29
+    - 46
+    峰值转矩:
+    - 31
+    - 48
+    峰值输出电流:
+    - 44
+    - 60
+    工作转速范围:
+    - 34
+    - 51
+    工况点效率:
+    - 41
+    - 56
+    常用转速:
+    - 34
+    - 51
+    循环腐蚀:
+    - 74
+    - 102
+    快充升压:
+    - 4
+    - 115
+    总成重量:
+    - 73
+    - 101
+    恒功率起点:
+    - 33
+    - 50
+    恒扭矩区:
+    - 31
+    - 48
+    扭矩偏差:
+    - 78
+    - 89
+    扭矩准确度:
+    - 78
+    - 89
+    扭矩容差:
+    - 78
+    - 89
+    扭矩控制精度:
+    - 78
+    - 89
+    扭矩精度:
+    - 78
+    - 89
+    扭矩误差:
+    - 78
+    - 89
+    扭矩转速曲线:
+    - 31
+    - 48
+    扭矩输出精度:
+    - 78
+    - 89
+    拐点:
+    - 31
+    - 48
+    拐点转速:
+    - 33
+    - 50
+    持续功率:
+    - 30
+    - 47
+    持续扭矩:
+    - 32
+    - 49
+    持续电流能力:
+    - 43
+    - 58
+    持续相电流:
+    - 43
+    - 58
+    控制器效率:
+    - 41
+    - 56
+    控制器重量:
+    - 73
+    - 101
+    效率map:
+    - 41
+    - 56
+    效率地图:
+    - 41
+    - 56
+    效率指标:
+    - 41
+    - 56
+    效率要求:
+    - 41
+    - 56
+    整机重量:
+    - 73
+    - 101
+    旁路模式:
+    - 64
+    - 67
+    最大功率:
+    - 28
+    - 45
+    最大扭矩:
+    - 31
+    - 48
+    最大电流:
+    - 44
+    - 60
+    最大相电流:
+    - 44
+    - 60
+    最大转矩:
+    - 31
+    - 48
+    最大转速:
+    - 35
+    - 52
+    最高工作转速:
+    - 35
+    - 52
+    最高持续转速:
+    - 35
+    - 52
+    最高效率:
+    - 41
+    - 56
+    最高转速:
+    - 35
+    - 52
+    机械极限转速:
+    - 35
+    - 52
+    极限转速:
+    - 35
+    - 52
+    正反转:
+    - 34
+    - 51
+    涂层:
+    - 74
+    - 102
+    电控总成重量:
+    - 73
+    - 101
+    电控效率:
+    - 41
+    - 56
+    电控重量:
+    - 73
+    - 101
+    盐雾:
+    - 74
+    - 102
+    盐雾等级:
+    - 74
+    - 102
+    盐雾试验:
+    - 74
+    - 102
+    目标重量:
+    - 73
+    - 101
+    直流充电升压:
+    - 4
+    - 115
+    直通模式:
+    - 64
+    - 67
+    相电流峰值:
+    - 44
+    - 60
+    短时功率:
+    - 28
+    - 45
+    短时峰值:
+    - 29
+    - 46
+    短时电流:
+    - 44
+    - 60
+    短路电流有效值:
+    - 42
+    - 57
+    短路电流耐受:
+    - 40
+    - 55
+    短路瞬态电流:
+    - 40
+    - 55
+    短路稳态电流:
+    - 40
+    - 55
+    短路耐受:
+    - 40
+    - 55
+    稳态精度:
+    - 78
+    - 89
+    稳态误差:
+    - 78
+    - 89
+    耐腐蚀:
+    - 74
+    - 102
+    腐蚀等级:
+    - 74
+    - 102
+    腐蚀试验:
+    - 74
+    - 102
+    腐蚀防护等级:
+    - 74
+    - 102
+    表面处理:
+    - 74
+    - 102
+    质量:
+    - 73
+    - 101
+    超速:
+    - 35
+    - 52
+    超速转速:
+    - 35
+    - 52
+    转矩控制精度:
+    - 78
+    - 89
+    转矩精度:
+    - 78
+    - 89
+    转矩误差:
+    - 78
+    - 89
+    转速上限:
+    - 35
+    - 52
+    转速区间:
+    - 34
+    - 51
+    转速范围:
+    - 34
+    - 51
+    转速要求:
+    - 34
+    - 51
+    转速需求:
+    - 34
+    - 51
+    连续功率:
+    - 30
+    - 47
+    连续扭矩:
+    - 32
+    - 49
+    连续相电流:
+    - 43
+    - 58
+    逆变器效率:
+    - 41
+    - 56
+    重量目标:
+    - 73
+    - 101
+    重量要求:
+    - 73
+    - 101
+    重量限值:
+    - 73
+    - 101
+    防腐:
+    - 74
+    - 102
+    防腐等级:
+    - 74
+    - 102
+    防腐蚀:
+    - 74
+    - 102
+    防腐蚀等级:
+    - 74
+    - 102
+    防腐要求:
+    - 74
+    - 102
+    零转速扭矩:
+    - 36
+    - 53
+    零速扭矩:
+    - 36
+    - 53
+    非升压峰值功率:
+    - 28
+    - 45
+    额定功率:
+    - 30
+    - 47
+    额定扭矩:
+    - 32
+    - 49
+    额定点转速:
+    - 33
+    - 50
+    额定相电流:
+    - 43
+    - 58
+    额定转矩:
+    - 32
+    - 49
+    额定转速:
+    - 33
+    - 50
+    额定输出功率:
+    - 30
+    - 47
+    高效区:
+    - 41
+    - 56
+    高效区占比:
+    - 41
+    - 56
+items:
+- id: 1
+  name: 设计范围是否包含OD本体物理集成
+  group: 设计范围
+  gloss: 是否把 OD 单元的本体在物理上集成进 XCM 控制器（影响控制器架构）
+  zh_strong:
+  - OD本体
+  - OD集成
+  - OD物理集成
+  - 物理集成
+  - 本体集成
+  - 集成OD
+  - OD一体化
+  zh_weak: []
+  en_strong:
+  - OD integration
+  - integrated OD
+  - physical integration
+  - OD physically integrated
+  en_weak: []
+  cues:
+  - 是/否
+  - Y/N
+  - yes/no
+  std: []
+  exclude:
+  - 静态电流 ≤xxx mA 包含OD（→#22）
+  - 油泵上移（→#2）
+  see:
+  - 2
+  - 22
+  notes:
+  - 'OD 缩写在清单中未定义；由 #2「油泵上移」与 #22「XCM休眠，包含OD」可判断 OD 为一个带静态功耗的电气单元，很可能与油泵驱动相关，但原字典的 "oil distribution" 是推测，未经核实'
+  - 建议向甲方确认 OD 全称后再补英文长别名；当前只用 "OD" 作段落定位词
+  unverified:
+  - oil distribution [原字典]
+  xlsx:
+    example: 是
+    desc: ''
+    impact: 影响控制器架构设计
+- id: 2
+  name: 设计范围是否包含OD上移功能
+  group: 设计范围
+  gloss: 是否把 OD 的驱动/控制功能上移到 XCM（需推荐电路或确认平台电路可复用）
+  zh_strong:
+  - OD上移
+  - 上移功能
+  - 油泵上移
+  - 油泵驱动上移
+  - 上移电路
+  - 推荐电路
+  - 平台电路
+  - 功能上移
+  - 上移方案
+  zh_weak: []
+  en_strong:
+  - OD relocation
+  - relocated OD
+  - OD moved into
+  - function relocation
+  - reference circuit
+  - recommended circuit
+  - platform circuit
+  en_weak: []
+  cues:
+  - 是/否
+  - 电路 circuit
+  std: []
+  exclude:
+  - OD本体物理集成（→#1）
+  see:
+  - 1
+  notes: []
+  unverified:
+  - OD shift [原字典]
+  - oil pump relocation [原字典]（若 OD≠油泵则不成立）
+  xlsx:
+    example: 是
+    desc: 需提供OD上移动推荐电路，若不提供需确认平台电路是否可直接使用
+    impact: 影响控制器架构设计
+- id: 3
+  name: 设计范围是否包含驱动升压功能
+  group: 设计范围
+  gloss: 设计范围是否含行车（驱动）工况的母线升压功能，是否有推荐拓扑
+  zh_strong:
+  - 驱动升压
+  - 升压驱动
+  - 驱动Boost
+  - 行车升压
+  - 驱动模式升压
+  - 驱动工况升压
+  - 推荐拓扑
+  zh_weak:
+  - 升压拓扑
+  en_strong:
+  - drive boost
+  - traction boost
+  - boost for drive
+  - boost in driving mode
+  - propulsion boost
+  - recommended topology
+  en_weak:
+  - boost topology
+  cues:
+  - 是/否
+  - 拓扑 topology
+  std: []
+  exclude:
+  - 充电升压/charge boost（→#4/#115）
+  - Boost 数值参数 V/A/kW/kHz（→#62–#70）
+  see:
+  - 4
+  - 61
+  - 115
+  notes: []
+  unverified: []
+  xlsx:
+    example: 否
+    desc: 需要明确是否有推荐拓扑
+    impact: 影响控制器架构设计
+- id: 4
+  name: 设计范围是否包含充电升压功能
+  group: 设计范围
+  gloss: 设计范围是否含充电工况的升压功能（如低电压充电桩给高电压电池充电）
+  zh_strong:
+  - 充电Boost
+  - 充电模式升压
+  zh_weak:
+  - 充电升压
+  - 升压充电
+  - 直流充电升压
+  - 快充升压
+  - 充电拓扑
+  en_strong:
+  - DC charging boost
+  - boost mode charging
+  en_weak:
+  - charge boost
+  - charging boost
+  - boost charging
+  - charging topology
+  cues:
+  - 是/否
+  - 拓扑 topology
+  std: []
+  exclude:
+  - 驱动升压（→#3）
+  see:
+  - 3
+  - 115
+  notes:
+  - '#4 与 #115 同义（范围判断 vs 功能要求）；#115 的 D 列多要求充电电压/电流/时长'
+  unverified:
+  - OBC boost [原字典]（OBC 为交流车载充电机，直流快充升压通常不经 OBC，语义偏窄）
+  xlsx:
+    example: 否
+    desc: 需要明确是否有推荐拓扑
+    impact: 影响控制器架构设计
+- id: 5
+  name: 直流工作电压范围
+  group: 直流高压
+  gloss: 高压直流母线工作电压范围（含冷启动/全性能/极限三段）；决定器件耐压、DC-link 电容与绝缘设计
+  zh_strong:
+  - 直流工作电压
+  - 直流工作电压范围
+  - 高压直流母线
+  - 母线工作电压
+  - 母线电压范围
+  - 直流母线电压
+  - 直流母线电压范围
+  - 高压工作电压
+  - 高压电压范围
+  - HV工作电压
+  - 工作电压范围
+  - 冷启动电压
+  - 极限电压
+  - 最低工作电压
+  - 最高工作电压
+  - 电压区间
+  - 输入电压范围
+  zh_weak: []
+  en_strong:
+  - HVDC voltage range
+  - HV DC voltage
+  - DC link voltage range
+  - DC-link voltage
+  - DC bus voltage
+  - DC bus voltage range
+  - HV operating voltage
+  - operating voltage range
+  - input voltage range
+  - Umin
+  - Umax
+  - Vdc min
+  - Vdc max
+  - cold start voltage
+  - voltage class B
+  - nominal DC voltage
+  en_weak: []
+  cues:
+  - V / Vdc
+  - 区间 a~b、a–b、a to b
+  - 常带三段：冷启动/全性能/极限
+  std:
+  - ISO 21498-1（B级电压等级与工作电压范围定义）
+  - GB/T 18488（驱动电机系统 电压范围）
+  exclude:
+  - 过压阈值（→#9）
+  - 耐压/hipot 测试电压（→#14/#19）
+  - 采样精度（→#91）
+  - 低压 9~16V（→#20）
+  - Boost 电压（→#62/#67）
+  - 器件耐压等级 SiC/IGBT（E列套话）
+  see:
+  - 6
+  - 7
+  - 9
+  - 62
+  notes:
+  - '源表 #5 示例含「全性能200~450V」，而 #6 满功率电压示例为 340~450V，#7 降额为 160~340V——「全性能」与「满功率」口径不一致，应向甲方确认'
+  unverified: []
+  xlsx:
+    example: 160V~500V（冷启动160V，全性能200~450V，极限500V）
+    desc: 需明确高压直流母线工作电压范围（含冷启动/全性能/极限耐压）
+    impact: 决定功率器件耐压等级（SiC/IGBT）、DC-link电容选型、绝缘设计
+- id: 6
+  name: 满功率(电流)工作电压
+  group: 直流高压
+  gloss: 能够输出满功率/满电流、不降额的母线电压区间
+  zh_strong:
+  - 满功率电压
+  - 满功率工作电压
+  - 满功率母线电压
+  - 满电流电压
+  - 满电流工作电压
+  - 全功率电压
+  - 全性能电压
+  - 不降额电压
+  - 不降额区间
+  - 满功率区间
+  - 额定功率电压范围
+  - 峰值功率电压范围
+  zh_weak: []
+  en_strong:
+  - full power voltage
+  - full power DC voltage
+  - full power voltage range
+  - full performance voltage
+  - minimum voltage for full power
+  - min level for full power
+  - no derating voltage
+  - full current voltage
+  en_weak: []
+  cues:
+  - Vdc 区间
+  - 常与 kW/A 同句
+  std: []
+  exclude:
+  - 峰值功率 kW 本身（→#28/#45）
+  - 降额区间（→#7）
+  see:
+  - 5
+  - 7
+  - 28
+  - 45
+  notes:
+  - '「全性能」在源表 #5 的示例里出现，因此把「全性能」作为 #6 别名会与 #5 冲突——建议只在 #5 未命中时作为 #6 的弱别名'
+  unverified: []
+  xlsx:
+    example: 340-450Vdc
+    desc: ''
+    impact: ''
+- id: 7
+  name: 降额工作电压范围
+  group: 直流高压
+  gloss: 可工作但需功率/电流降额的母线电压区间
+  zh_strong:
+  - 降额电压
+  - 降额工作电压
+  - 降额区间
+  - 降额电压范围
+  - 性能限制
+  - 受限性能
+  - 限功率电压
+  - 功率降额电压
+  - 降功率区间
+  - 低压降额
+  - 电压降额
+  - 降额曲线
+  zh_weak: []
+  en_strong:
+  - derating voltage range
+  - derated operation
+  - derated voltage
+  - limited performance
+  - reduced performance
+  - power derating vs voltage
+  - derating curve
+  - voltage derating
+  - undervoltage derating
+  en_weak: []
+  cues:
+  - 'Vdc 区间（下限低于 #6）'
+  - 常带 % 或曲线
+  std: []
+  exclude:
+  - 温度降额/thermal derating
+  - 功率降额策略（E列套话）
+  - 满功率区间（→#6）
+  see:
+  - 5
+  - 6
+  notes: []
+  unverified: []
+  xlsx:
+    example: 160~340 Vdc
+    desc: ''
+    impact: ''
+- id: 8
+  name: 直流母线纹波电压要求
+  group: 直流高压
+  gloss: 直流母线上允许的电压纹波（峰峰值），分峰值/额定工况
+  zh_strong:
+  - 母线纹波
+  - 母线纹波电压
+  - 直流母线纹波
+  - 直流纹波
+  - 纹波电压
+  - 母线电压纹波
+  - 峰峰值纹波
+  - 电压纹波
+  - 母线电压波动
+  - 纹波峰峰值
+  zh_weak: []
+  en_strong:
+  - DC link ripple
+  - DC-link ripple voltage
+  - HVDC ripple
+  - bus ripple
+  - ripple voltage
+  - voltage ripple
+  - peak-to-peak ripple
+  - Vpp
+  - Vp-p
+  - ripple requirement
+  en_weak: []
+  cues:
+  - Vpp / Vp-p / V峰峰值
+  - 峰值工况/额定工况
+  std:
+  - ISO 21498-1/-2（母线纹波/电压波动定义与测试）
+  exclude:
+  - Boost 输出纹波（→#70）
+  - 纹波电流 ripple current（电容参数，不是电压）
+  - 电池连接/断开 语境（→#12）
+  see:
+  - 12
+  - 70
+  - 24
+  notes:
+  - '源表 #8（<32 Vpp 峰值 / <16 Vpp 额定）与 #12（连接≤16 / 断开≤30）数字口径不同，抽取时不得互相覆盖'
+  unverified: []
+  xlsx:
+    example: '<32 Vpp 峰值工况
+
+      <16 Vpp 额定工况'
+    desc: ''
+    impact: ''
+- id: 9
+  name: 直流电压过压保护
+  group: 直流高压
+  gloss: 母线过压保护阈值（软件/硬件）
+  zh_strong:
+  - 过压保护
+  - 过压阈值
+  - 过压保护阈值
+  - 过压点
+  - 过压保护点
+  - 母线过压
+  - 直流过压
+  - 高压过压
+  - 硬件过压
+  - 软件过压
+  - 过压关断
+  - 过压保护电压
+  - 过压限值
+  zh_weak: []
+  en_strong:
+  - overvoltage protection
+  - OVP
+  - over-voltage protection
+  - overvoltage threshold
+  - DC overvoltage
+  - HW OVP
+  - SW OVP
+  - overvoltage limit
+  - overvoltage trip
+  - OV threshold
+  en_weak: []
+  cues:
+  - Vdc 单值
+  - SW/HW 分列
+  std: []
+  exclude:
+  - 欠压 undervoltage（对偶项，清单未列）
+  - 低压 16~18V（→#20）
+  - 过压/欠压保护误动作（E列套话）
+  - 器件耐压
+  see:
+  - 5
+  notes: []
+  unverified: []
+  xlsx:
+    example: SW：无；HW：525Vdc
+    desc: ''
+    impact: ''
+- id: 10
+  name: 母线直流电流检测
+  group: 直流高压
+  gloss: 是否检测母线直流电流（传感器/软件估算）
+  zh_strong:
+  - 母线电流
+  - 母线电流检测
+  - 母线电流采样
+  - 母线电流传感器
+  - 直流电流检测
+  - 直流电流采样
+  - 直流电流传感器
+  - 直流侧电流
+  - 母线电流估算
+  - 电流软件估算
+  - 无电流传感器
+  - 直流母线电流
+  zh_weak: []
+  en_strong:
+  - DC current sensing
+  - DC link current
+  - DC bus current
+  - bus current sensor
+  - HVDC current measurement
+  - DC current estimation
+  - software estimated current
+  - DC current sensorless
+  - Idc
+  en_weak: []
+  cues:
+  - 有/无 传感器
+  - 软件估算
+  std: []
+  exclude:
+  - 相电流（→#43/#44/#58/#90）
+  - ASC 电流
+  - Boost 输入电流（→#63/#64）
+  see:
+  - 90
+  notes: []
+  unverified:
+  - 软件估算 [原字典]（是示例值不是术语，仅作弱线索）
+  xlsx:
+    example: 无电流传感器，软件估算
+    desc: ''
+    impact: ''
+- id: 11
+  name: 反电动势峰值
+  group: 直流高压
+  gloss: 电机最高转速下的反电动势峰值（线电压），决定逆变器耐压与 ASC 策略；总条目，P1/P3 各有子项
+  zh_strong:
+  - 反电动势
+  - 反电势
+  - 反电势峰值
+  - 反电动势峰值
+  - 线反电势
+  - 线电压峰值
+  - 空载反电势
+  - 空载线电压
+  - 反电动势线电压
+  - 最高转速反电势
+  - 反电势限值
+  zh_weak: []
+  en_strong:
+  - back EMF
+  - back-EMF
+  - BEMF
+  - back EMF peak
+  - line-to-line back EMF
+  - no-load back EMF
+  - no-load voltage
+  - peak line voltage
+  - V-peak
+  - Vpk
+  - Vll peak
+  en_weak: []
+  cues:
+  - V-peak / Vpp / V（线电压）+ @rpm
+  std: []
+  exclude:
+  - 峰值功率/电流峰值（→#28/#44）
+  see:
+  - 37
+  - 54
+  - 44
+  - 60
+  notes:
+  - '与 #37/#54 共享全部核心别名；建议规则：句中含 P1→#37，含 P3→#54，两者都含或都不含→#11'
+  - '源表 #44/#60 示例把 Back EMF 拼进了电流峰值格，抽取时 BEMF 值不应写入电流项'
+  unverified: []
+  xlsx:
+    example: 'P1/P3: 820Vpp（线电压）'
+    desc: 需明确电机反电势最大值（含最高转速工况）
+    impact: 决定逆变器耐压设计及主动短路保护策略
+- id: 12
+  name: 高压安全-纹波电压
+  group: 高压安全
+  gloss: 高压安全口径下的纹波限值：电池连接/断开两种状态
+  zh_strong:
+  - 电池连接纹波
+  - 电池断开纹波
+  - 连接状态纹波
+  - 断开状态纹波
+  - 高压安全纹波
+  - 继电器闭合纹波
+  - 继电器断开纹波
+  - 接触器断开
+  zh_weak: []
+  en_strong:
+  - ripple with battery connected
+  - ripple with battery disconnected
+  - battery connected
+  - battery disconnected
+  - contactor open ripple
+  - HV safety ripple
+  en_weak: []
+  cues:
+  - Vpp 两个值（连接/断开）
+  std: []
+  exclude:
+  - 单一峰值/额定工况纹波（→#8）
+  - Boost 纹波（→#70）
+  see:
+  - 8
+  - 70
+  notes:
+  - '原字典把 ≤16 Vpp / ≤30 Vpp 写进别名，属于示例数值，违背文件自身"只收整词"的规则，且 16 Vpp 也出现在 #8、#70 中'
+  unverified: []
+  xlsx:
+    example: 电池连接≤16Vpp，断开≤30Vpp
+    desc: 需明确直流母线纹波电压限制
+    impact: 影响DC-link电容容量及滤波设计
+- id: 13
+  name: 高压安全-绝缘电阻
+  group: 高压安全
+  gloss: 高压对地绝缘电阻要求（冷态/热态）
+  zh_strong:
+  - 绝缘电阻
+  - 绝缘阻值
+  - 绝缘电阻值
+  - 冷态绝缘电阻
+  - 热态绝缘电阻
+  - 绝缘电阻测试
+  - 绝缘电阻要求
+  - 兆欧
+  - 绝缘性能
+  - 高压对地绝缘
+  zh_weak: []
+  en_strong:
+  - insulation resistance
+  - IR
+  - insulation resistance test
+  - megohm
+  - MΩ
+  - Mohm
+  - insulation measurement
+  - megger
+  - IR test
+  en_weak: []
+  cues: &id001
+  - MΩ
+  - 冷态/热态
+  - 测试电压 500 Vdc / 1000 Vdc
+  std: &id002
+  - GB/T 18488（绝缘电阻）
+  - GB 18384（电动汽车安全要求 绝缘电阻）
+  - ISO 6469-3
+  exclude: &id003
+  - 放电电阻（→#25）
+  - 绝缘监测/IMD（整车功能）
+  - 爬电距离/电气间隙（E列/→#95）
+  - 绝缘电压等级（→#95）
+  see:
+  - 18
+  notes:
+  - '与 #18 完全同名同值，可共用一套写法并同值填写'
+  unverified: []
+  xlsx:
+    example: 冷态≥48MΩ
+    desc: 需明确绝缘电阻要求
+    impact: 影响绝缘材料选型、爬电距离设计；不满足将导致绝缘失效
+- id: 18
+  name: 高压安全-绝缘电阻
+  group: 高压安全
+  gloss: '同 #13'
+  zh_strong:
+  - 绝缘电阻
+  - 绝缘阻值
+  - 绝缘电阻值
+  - 冷态绝缘电阻
+  - 热态绝缘电阻
+  - 绝缘电阻测试
+  - 绝缘电阻要求
+  - 兆欧
+  - 绝缘性能
+  - 高压对地绝缘
+  zh_weak: []
+  en_strong:
+  - insulation resistance
+  - IR
+  - insulation resistance test
+  - megohm
+  - MΩ
+  - Mohm
+  - insulation measurement
+  - megger
+  - IR test
+  en_weak: []
+  cues: *id001
+  std: *id002
+  exclude: *id003
+  see:
+  - 13
+  notes:
+  - '与 #13 重复'
+  unverified: []
+  xlsx:
+    example: 冷态≥48MΩ
+    desc: 需明确绝缘电阻要求
+    impact: 影响绝缘材料选型、爬电距离设计；不满足将导致绝缘失效
+- id: 14
+  name: 高压安全-耐电压
+  group: 高压安全
+  gloss: 耐电压（hipot）测试要求：电压、时长、漏电流、无闪络击穿
+  zh_strong:
+  - 耐电压
+  - 耐压
+  - 耐压测试
+  - 耐压试验
+  - 耐压要求
+  - 介电强度
+  - 电气强度
+  - 绝缘强度
+  - 高压绝缘测试
+  - 闪络
+  - 击穿
+  - 无击穿
+  - 漏电流
+  - 工频耐压
+  - 交流耐压
+  - 直流耐压
+  - 打耐压
+  - 耐压值
+  zh_weak: []
+  en_strong:
+  - withstand voltage
+  - dielectric withstand
+  - dielectric strength
+  - electric strength
+  - hipot
+  - hi-pot
+  - high potential test
+  - dielectric test
+  - breakdown
+  - flashover
+  - leakage current
+  - AC withstand
+  - DC withstand
+  en_weak: []
+  cues: &id004
+  - kV 或 V + 时间(1 min/60 s) + 漏电流 mA
+  - 无闪络/无击穿
+  std: &id005
+  - GB/T 18488（耐电压）
+  - GB 18384
+  - ISO 6469-3
+  - ISO 21498-2
+  exclude: &id006
+  - 器件耐压/耐压等级/耐压选型（功率器件参数，E列套话）
+  - withstand 用于持续供电/温度语境
+  - 绝缘电压等级 650V（→#95）
+  see:
+  - 19
+  - 95
+  notes:
+  - '与 #19 完全同名同值'
+  unverified: []
+  xlsx:
+    example: 直流2828V，1min，无闪络及击穿，漏电流<5mA
+    desc: 需明确耐电压测试要求
+    impact: 影响绝缘设计、安全间距；不满足将导致高压击穿风险
+- id: 19
+  name: 高压安全-耐电压
+  group: 高压安全
+  gloss: '同 #14'
+  zh_strong:
+  - 耐电压
+  - 耐压
+  - 耐压测试
+  - 耐压试验
+  - 耐压要求
+  - 介电强度
+  - 电气强度
+  - 绝缘强度
+  - 高压绝缘测试
+  - 闪络
+  - 击穿
+  - 无击穿
+  - 漏电流
+  - 工频耐压
+  - 交流耐压
+  - 直流耐压
+  - 打耐压
+  - 耐压值
+  zh_weak: []
+  en_strong:
+  - withstand voltage
+  - dielectric withstand
+  - dielectric strength
+  - electric strength
+  - hipot
+  - hi-pot
+  - high potential test
+  - dielectric test
+  - breakdown
+  - flashover
+  - leakage current
+  - AC withstand
+  - DC withstand
+  en_weak: []
+  cues: *id004
+  std: *id005
+  exclude: *id006
+  see:
+  - 14
+  notes:
+  - '与 #14 重复'
+  unverified: []
+  xlsx:
+    example: 直流2828V，1min，无闪络及击穿，漏电流<5mA
+    desc: 需明确耐电压测试要求
+    impact: 影响绝缘设计、安全间距；不满足将导致高压击穿风险
+- id: 15
+  name: 高压安全-主动放电功能
+  group: 高压安全
+  gloss: 下电后主动把母线电压放至安全电压（60V）以下的功能
+  zh_strong:
+  - 主动放电
+  - 主动泄放
+  - 主动卸荷
+  - 高压主动放电
+  - 快速放电
+  - 快速泄放
+  - 主动放电功能
+  - 主动放电要求
+  - 放电至60V
+  - 放电到安全电压
+  zh_weak: []
+  en_strong:
+  - active discharge
+  - active bleed
+  - active bleeding
+  - fast discharge
+  - rapid discharge
+  - HV active discharge
+  - active discharge function
+  en_weak: []
+  cues:
+  - s + 60 V
+  std:
+  - GB 18384（放电至60V要求）
+  - ISO 6469-3
+  exclude:
+  - 被动放电（→#16/#27）
+  see:
+  - 25
+  - 26
+  - 23
+  notes: []
+  unverified: []
+  xlsx:
+    example: 2s内从最高电压降至60V以下
+    desc: 需明确主动放电时间要求
+    impact: 影响放电电路设计、安全策略；不满足将导致维修安全风险
+- id: 16
+  name: 高压安全-被动放电功能
+  group: 高压安全
+  gloss: 无控制情况下经泄放电阻自然放电至 60V 以下的功能
+  zh_strong:
+  - 被动放电
+  - 被动泄放
+  - 自然放电
+  - 慢速放电
+  - 泄放电阻放电
+  - 被动放电功能
+  - 常泄放
+  zh_weak: []
+  en_strong:
+  - passive discharge
+  - passive bleed
+  - bleeder discharge
+  - slow discharge
+  - natural discharge
+  - passive discharge function
+  en_weak: []
+  cues:
+  - min / s + 60 V
+  std:
+  - GB 18384
+  - ISO 6469-3
+  exclude:
+  - 主动放电（→#15/#26）
+  see:
+  - 27
+  - 25
+  notes: []
+  unverified: []
+  xlsx:
+    example: 2min内从最高电压降至60V以下
+    desc: 需明确被动放电时间要求
+    impact: 影响放电电阻设计；不满足将导致维修等待时间过长
+- id: 17
+  name: 高压安全-Y电容指标
+  group: 高压安全
+  gloss: 高压对地（Y）电容总量限值，影响下电残余电压与漏电流
+  zh_strong:
+  - Y电容
+  - Y电容容值
+  - Y电容总量
+  - 对地电容
+  - 高压对地电容
+  - 共模电容
+  - 正对地电容
+  - 负对地电容
+  - Y电容限值
+  - Y容
+  zh_weak: []
+  en_strong:
+  - Y capacitor
+  - Y-cap
+  - Y-capacitor
+  - Cy
+  - capacitance to ground
+  - capacitance to chassis
+  - common mode capacitor
+  - line-to-chassis capacitance
+  - Y capacitance limit
+  en_weak: []
+  cues:
+  - nF / µF（小值）
+  - 对地
+  std: []
+  exclude:
+  - X电容/差模电容（不同器件）
+  - 薄膜电容/DC-link（→#24）
+  - 电容漏电流
+  - 电容耐压
+  see:
+  - 24
+  notes:
+  - 原字典 "X/Y capacitor" 会把 X 电容值带进来，建议改为只收 Y
+  unverified: []
+  xlsx:
+    example: ≤500nf
+    desc: /
+    impact: Y电容超标整车下电时可能存在较多残余电压
+- id: 24
+  name: 薄膜电容容值
+  group: 高压安全
+  gloss: 直流母线支撑（DC-link）薄膜电容容值
+  zh_strong:
+  - 薄膜电容
+  - 母线电容
+  - 支撑电容
+  - 直流支撑电容
+  - 母线支撑电容
+  - DC-link电容
+  - 直流母线电容
+  - 母线电容容值
+  - 电容容值
+  - 电容容量
+  - 滤波电容容值
+  - 薄膜电容容量
+  zh_weak: []
+  en_strong:
+  - DC-link capacitor
+  - DC link capacitance
+  - film capacitor
+  - bus capacitor
+  - DC bus capacitance
+  - link capacitor
+  - bulk capacitor
+  - µF
+  - uF
+  en_weak: []
+  cues:
+  - µF / uF ± %
+  std: []
+  exclude:
+  - Y电容（→#17）
+  - 电容耐压 V
+  - 纹波电流 ripple current（电容参数）
+  - ESR/ESL
+  - 电容寿命
+  see:
+  - 17
+  - 8
+  notes: []
+  unverified: []
+  xlsx:
+    example: 660uF±5%
+    desc: ''
+    impact: ''
+- id: 25
+  name: 主动放电电阻
+  group: 高压安全
+  gloss: 主动放电所用的放电电阻（阻值/功率；示例为"无"，即用电机绕组放电）
+  zh_strong:
+  - 放电电阻
+  - 主动放电电阻
+  - 泄放电阻
+  - 卸荷电阻
+  - 放电电阻阻值
+  - 放电电阻功率
+  - 主动放电回路
+  - 绕组放电
+  zh_weak: []
+  en_strong:
+  - discharge resistor
+  - active discharge resistor
+  - switched discharge resistor
+  - discharge resistance
+  - discharge circuit
+  - motor winding discharge
+  en_weak: []
+  cues:
+  - Ω + W，或"无"
+  std: []
+  exclude:
+  - 绝缘电阻（→#13）
+  - 被动泄放电阻语境（→#16）
+  see:
+  - 15
+  - 16
+  - 26
+  notes:
+  - '原字典把 bleeder resistor 放在 #25，但 bleeder 通常指常接的被动泄放电阻，与 #16 被动放电更贴近，建议标注歧义'
+  unverified:
+  - bleeder resistor [原字典]（偏被动放电语义）
+  xlsx:
+    example: 无
+    desc: ''
+    impact: ''
+- id: 26
+  name: 主动放电时间
+  group: 高压安全
+  gloss: 主动放电从最高电压降到 60V 以下的时间限值
+  zh_strong:
+  - 主动放电时间
+  - 主动放电时长
+  - 主动放电≤
+  - 放电到60V时间
+  - 快速放电时间
+  - 主动放电完成时间
+  zh_weak: []
+  en_strong:
+  - active discharge time
+  - active discharge duration
+  - discharge time to 60 V
+  - time to below 60 V
+  - fast discharge time
+  en_weak: []
+  cues:
+  - s + 60 V
+  std: []
+  exclude:
+  - 被动放电时间（→#27）
+  - 备份电源维持时间 2 min（→#23）
+  - 峰值持续时间（→#29/#46）
+  see:
+  - 15
+  - 27
+  - 23
+  notes: []
+  unverified: []
+  xlsx:
+    example: <2s
+    desc: ''
+    impact: ''
+- id: 27
+  name: 被动放电时间
+  group: 高压安全
+  gloss: 被动放电从最高电压降到 60V 以下的时间限值
+  zh_strong:
+  - 被动放电时间
+  - 被动放电时长
+  - 自然放电时间
+  - 被动放电≤
+  - 慢放电时间
+  zh_weak: []
+  en_strong:
+  - passive discharge time
+  - passive discharge duration
+  - bleed down time
+  - passive bleed time
+  en_weak: []
+  cues:
+  - s / min + 60 V
+  std: []
+  exclude:
+  - 主动放电时间（→#26）
+  - 备份电源 2 min（→#23，数字相近易混）
+  see:
+  - 16
+  - 26
+  - 23
+  notes: []
+  unverified: []
+  xlsx:
+    example: <120s
+    desc: ''
+    impact: ''
+- id: 20
+  name: 低压电源电压工作范围
+  group: 低压
+  gloss: 12V 低压供电（KL30/KL15）的工作电压范围，含仅通讯/正常工作/功能安全边界
+  zh_strong:
+  - 低压电源
+  - 低压供电
+  - 低压电源电压
+  - 低压工作电压
+  - 低压电压范围
+  - 低压供电范围
+  - 12V电源
+  - 12V供电
+  - 蓄电池电压
+  - 蓄电池电压范围
+  - 常电
+  - 常火
+  - 点火电
+  - 供电电压范围
+  - 通讯保持电压
+  - 正常工作电压
+  - 工作电压区间
+  - 电源电压范围
+  - 低压侧电压
+  zh_weak: []
+  en_strong:
+  - LV supply voltage
+  - LV power supply
+  - LV supply range
+  - low voltage supply
+  - 12 V supply
+  - 12V battery voltage
+  - battery voltage range
+  - KL30
+  - KL15
+  - KL.30
+  - KL.15
+  - T30
+  - T15
+  - terminal 30
+  - terminal 15
+  - supply voltage range
+  - operating voltage range 9-16 V
+  - extended voltage range
+  - functional status
+  - functional class
+  en_weak: []
+  cues:
+  - V（6~9 / 9~16 / 16~18 分段）
+  - 功能状态等级 A/B/C/D/E
+  std:
+  - ISO 16750-2（电气负荷：供电电压范围、功能状态分级）
+  - GB/T 28046.2
+  exclude:
+  - 低压采样精度（→#92）
+  - 低压功耗（→#21）
+  - CPSR（→#85）
+  - 高压母线电压（→#5）
+  see:
+  - 21
+  - 22
+  - 92
+  - 85
+  notes: []
+  unverified: []
+  xlsx:
+    example: 6~9V，16~18V通讯功能，9~16V正常工作
+    desc: 需明确KL30/KL15供电电压范围
+    impact: 决定低压电源电路设计及功能安全激活边界
+- id: 21
+  name: 低压功耗要求
+  group: 低压
+  gloss: 低压侧工作功耗（动态）限值，@14V
+  zh_strong:
+  - 低压功耗
+  - 低压功率消耗
+  - 动态功耗
+  - 工作功耗
+  - 低压侧功耗
+  - 12V功耗
+  - 低压电流消耗
+  - 工作电流
+  - 运行功耗
+  - 低压耗电
+  - 低压负载
+  zh_weak: []
+  en_strong:
+  - LV power consumption
+  - 12 V power consumption
+  - low voltage power consumption
+  - operating power
+  - dynamic power consumption
+  - operating current at 14 V
+  - LV current draw
+  - LV load
+  en_weak: []
+  cues:
+  - W @14V 或 A/mA
+  std: []
+  exclude:
+  - 热损失 kW（→#120）
+  - 静态/休眠语境（→#22）
+  see:
+  - 22
+  - 120
+  notes:
+  - '源表 #21 示例含「静态≤0.5mA」，而 #22 静态电流示例为「≤500mA(XCM休眠，包含OD)」，相差 1000 倍，源表自身冲突，须向甲方确认'
+  unverified: []
+  xlsx:
+    example: 静态≤0.5mA，动态≤20W@14V
+    desc: 需明确低压供电电压正常工作范围及极限值
+    impact: 影响电源芯片选型、电压监控阈值设定；超出范围将导致器件损坏
+- id: 22
+  name: 静态电流
+  group: 低压
+  gloss: 控制器休眠/未唤醒状态下的低压静态电流（含 OD）
+  zh_strong:
+  - 静态电流
+  - 休眠电流
+  - 暗电流
+  - 待机电流
+  - 睡眠电流
+  - 静置电流
+  - 下电电流
+  - 未唤醒电流
+  - 静态功耗
+  - 休眠功耗
+  - 静态电流要求
+  zh_weak: []
+  en_strong:
+  - quiescent current
+  - sleep current
+  - dark current
+  - standby current
+  - key-off current
+  - parasitic current
+  - parasitic draw
+  - Iq
+  - sleep mode current
+  en_weak: []
+  cues:
+  - mA / µA
+  - 休眠/含OD
+  std: []
+  exclude:
+  - 电容漏电流
+  - 耐压漏电流 mA（→#14）
+  - 动态功耗 W（→#21）
+  see:
+  - 21
+  - 1
+  notes:
+  - 原字典把 Dark Current 列为"误配"，但暗电流/dark current 正是汽车行业对整车静置状态 ECU 静态电流的标准叫法，应收为别名
+  unverified: []
+  xlsx:
+    example: ≤500mA(XCM休眠，包含OD)
+    desc: 需明确是否含OD的静态电流
+    impact: 影响静态功耗管理策略；超标将导致整车静置亏电
+- id: 23
+  name: 备份电源功能
+  group: 低压
+  gloss: 低压掉电后维持功率开关动作、完成主动放电的备份供电能力（时间）
+  zh_strong:
+  - 备份电源
+  - 备用电源
+  - 后备电源
+  - 备电
+  - 掉电保持
+  - 低压掉电
+  - 低压丢失
+  - 断电后放电
+  - 掉电放电
+  - 储能电容
+  - 维持时间
+  - 备份电源功能
+  - 低压失效放电
+  zh_weak: []
+  en_strong:
+  - backup power
+  - back-up supply
+  - backup supply
+  - power hold-up
+  - hold-up time
+  - loss of LV supply
+  - LV loss
+  - energy reserve
+  - reserve energy
+  - discharge after LV loss
+  en_weak: []
+  cues:
+  - min / s + 维持/放电
+  std: []
+  exclude:
+  - 低压电源范围（→#20）
+  - 主动放电时间 2 s（→#26）
+  - 被动放电时间 2 min（→#27，数字相近）
+  see:
+  - 15
+  - 26
+  - 27
+  notes: []
+  unverified: []
+  xlsx:
+    example: 2min维持P1或P3开关实施主动放电
+    desc: 需明确备份电源功能要求（维持主动放电的时间）
+    impact: 影响备份电源容量设计、安全放电功能；不满足将导致高压安全风险
+- id: 28
+  name: P1峰值功率
+  group: P1
+  gloss: P1 电机峰值功率（区分升压/非升压母线电压）
+  zh_strong:
+  - P1峰值功率
+  - P1最大功率
+  - P1电机峰值功率
+  - P1峰值
+  - 发电峰值功率
+  zh_weak:
+  - 峰值功率
+  - 最大功率
+  - 短时功率
+  - 升压峰值功率
+  - 非升压峰值功率
+  en_strong:
+  - P1 peak power
+  - P1 maximum power
+  - P1 max power
+  - generating peak power
+  en_weak:
+  - peak power
+  - maximum power
+  - short-time power
+  - boost peak power
+  - non-boost peak power
+  cues:
+  - kW @ V
+  - 常成对：非升压@340V / 升压@450V
+  std:
+  - GB/T 18488（峰值功率定义）
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 持续时间 s（→峰值持续时间）
+  - Boost 输出功率 125 kW（→#68）
+  - 额定功率
+  see:
+  - 29
+  - 30
+  - 68
+  notes: []
+  unverified: []
+  xlsx:
+    example: 100KW（非升压@340V）/ 120KW（升压@450V）
+    desc: 需明确P1电机峰值功率要求（区分升压/非升压工况）
+    impact: 影响功率模块选型、散热设计；不满足将导致动力不足
+- id: 29
+  name: P1峰值功率持续时间
+  group: P1
+  gloss: P1 峰值功率可持续的时间
+  zh_strong:
+  - P1峰值持续
+  zh_weak:
+  - 峰值持续时间
+  - 峰值功率持续时间
+  - 峰值时间
+  - 峰值维持时间
+  - 峰值保持时间
+  - 短时峰值
+  - 峰值工作时间
+  en_strong:
+  - P1 peak duration
+  en_weak:
+  - peak duration
+  - peak power duration
+  - peak hold time
+  - peak time
+  - overload time
+  - S2 duty
+  cues:
+  - s
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 扭矩响应时间 ms（→#77）
+  - 放电时间（→#26/#27）
+  - 堵转时间
+  see:
+  - 28
+  notes: []
+  unverified: []
+  xlsx:
+    example: 10S
+    desc: 需明确P1峰值功率可持续时间
+    impact: 影响热设计、功率降额策略；不满足将导致过温保护
+- id: 30
+  name: P1额定功率
+  group: P1
+  gloss: P1 电机额定（连续）功率
+  zh_strong:
+  - P1额定功率
+  - P1连续功率
+  - P1持续功率
+  zh_weak:
+  - 额定功率
+  - 连续功率
+  - 持续功率
+  - S1功率
+  - 额定输出功率
+  en_strong:
+  - P1 rated power
+  - P1 continuous power
+  en_weak:
+  - rated power
+  - continuous power
+  - nominal power
+  - S1 power
+  - continuous rating
+  cues:
+  - kW
+  std:
+  - GB/T 18488（额定功率/S1）
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 峰值功率
+  - 额定功率相电流 A（→#58）
+  see:
+  - 28
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 31
+  name: P1峰值扭矩/时间/对应转速范围
+  group: P1
+  gloss: P1 峰值扭矩、可持续时间及对应转速区间（外特性）
+  zh_strong:
+  - P1峰值扭矩
+  - P1最大扭矩
+  zh_weak:
+  - 峰值扭矩
+  - 峰值转矩
+  - 最大扭矩
+  - 最大转矩
+  - 峰值扭矩持续时间
+  - 峰值扭矩转速范围
+  - 外特性
+  - 外特性曲线
+  - 扭矩转速曲线
+  - 恒扭矩区
+  - 拐点
+  en_strong:
+  - P1 peak torque
+  - P1 max torque
+  en_weak:
+  - peak torque
+  - maximum torque
+  - torque-speed envelope
+  - torque vs speed
+  - external characteristic
+  - constant torque region
+  - corner speed
+  - base speed
+  cues:
+  - Nm / N·m + s + rpm 区间
+  std:
+  - GB/T 18488（峰值转矩）
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 额定扭矩
+  - 堵转扭矩
+  - 扭矩精度（→#78/#89）
+  - 扭矩响应（→#77）
+  see:
+  - 32
+  - 36
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 32
+  name: P1额定扭矩
+  group: P1
+  gloss: P1 额定（连续）扭矩
+  zh_strong:
+  - P1额定扭矩
+  - P1连续扭矩
+  - P1持续扭矩
+  zh_weak:
+  - 额定扭矩
+  - 额定转矩
+  - 连续扭矩
+  - 持续扭矩
+  - S1扭矩
+  en_strong:
+  - P1 rated torque
+  en_weak:
+  - rated torque
+  - continuous torque
+  - nominal torque
+  - S1 torque
+  cues:
+  - Nm
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 峰值扭矩
+  see:
+  - 31
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 33
+  name: P1 额定转速
+  group: P1
+  gloss: P1 额定转速（基速/拐点转速）
+  zh_strong:
+  - P1额定转速
+  zh_weak:
+  - 额定转速
+  - 基速
+  - 拐点转速
+  - 额定点转速
+  - 恒功率起点
+  en_strong:
+  - P1 rated speed
+  en_weak:
+  - rated speed
+  - base speed
+  - nominal speed
+  - corner speed
+  - rated rpm
+  cues:
+  - rpm / r/min
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 最高转速
+  - 转速范围
+  see:
+  - 35
+  - 34
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 34
+  name: P1 转速需求
+  group: P1
+  gloss: P1 工作转速范围/需求（含反转）
+  zh_strong:
+  - P1转速需求
+  - P1转速范围
+  zh_weak:
+  - 转速需求
+  - 转速范围
+  - 工作转速范围
+  - 常用转速
+  - 转速区间
+  - 反转转速
+  - 正反转
+  - 转速要求
+  en_strong:
+  - P1 speed range
+  - P1 speed demand
+  en_weak:
+  - speed range
+  - operating speed range
+  - speed requirement
+  - rpm range
+  - reverse speed
+  - bidirectional speed
+  cues:
+  - rpm 区间
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 最高转速单值
+  - 额定转速
+  see:
+  - 35
+  - 33
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 35
+  name: P1最高工作转速
+  group: P1
+  gloss: P1 最高工作转速
+  zh_strong:
+  - P1最高转速
+  - P1最大转速
+  - P1最高工作转速
+  zh_weak:
+  - 最高工作转速
+  - 最高转速
+  - 最大转速
+  - 极限转速
+  - 超速
+  - 超速转速
+  - 机械极限转速
+  - 最高持续转速
+  - 转速上限
+  en_strong:
+  - P1 max speed
+  - P1 maximum speed
+  en_weak:
+  - maximum speed
+  - max operating speed
+  - top speed
+  - overspeed
+  - max rpm
+  - mechanical speed limit
+  - speed limit
+  cues:
+  - rpm ≤ 单值
+  std:
+  - GB/T 18488（最高工作转速）
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 额定转速
+  - '反电势@rpm 里的 rpm（源表 #37 用 16000 rpm 校核反电势，高于 #35 的 13000 rpm 上限，勿当最高转速）'
+  see:
+  - 37
+  notes: []
+  unverified: []
+  xlsx:
+    example: ≤13000rpm
+    desc: 需明确P1电机最高工作转速
+    impact: 决定P1弱磁控制策略、转子强度
+- id: 36
+  name: P1堵转扭矩/时间
+  group: P1
+  gloss: P1 堵转（零速/极低速大扭矩）扭矩与可持续时间，含触发/退出条件
+  zh_strong:
+  - P1堵转扭矩
+  zh_weak:
+  - 堵转扭矩
+  - 堵转转矩
+  - 堵转时间
+  - 堵转工况
+  - 堵转能力
+  - 零速扭矩
+  - 零转速扭矩
+  - 低速大扭矩
+  - 堵转触发条件
+  - 堵转退出条件
+  - 堵转判定
+  - 堵转持续时间
+  - 堵转保护
+  en_strong:
+  - P1 stall torque
+  en_weak:
+  - stall torque
+  - locked rotor torque
+  - standstill torque
+  - zero speed torque
+  - stall time
+  - stall duration
+  - stall condition
+  - stall entry
+  - stall exit
+  - stall protection
+  cues:
+  - Nm + s + rpm< 条件
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 峰值扭矩
+  - 堵转电流 A（→#59，仅 P3 有）
+  see:
+  - 31
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 37
+  name: P1反电动势（Back EMF）
+  group: P1
+  gloss: P1 电机反电动势限值（@最高/超速转速）
+  zh_strong:
+  - P1反电动势
+  - P1反电势
+  - P1反电势峰值
+  - P1空载反电势
+  zh_weak: []
+  en_strong:
+  - P1 back EMF
+  - P1 BEMF
+  - P1 back-EMF
+  en_weak: []
+  cues:
+  - V-peak @ rpm
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  see:
+  - 11
+  - 35
+  notes:
+  - '裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条'
+  unverified: []
+  xlsx:
+    example: < 820V-peak@16000rpm
+    desc: 需明确P1电机反电动势限值
+    impact: 影响功率器件耐压选择、弱磁控制策略；超限将导致器件损坏
+- id: 40
+  name: P1 ASC电流能力
+  group: P1
+  gloss: P1 主动短路（ASC）稳态+瞬态电流能力（带时长），对应功率模块短路耐受
+  zh_strong:
+  - P1 ASC
+  - P1主动短路
+  zh_weak:
+  - ASC电流能力
+  - 主动短路电流能力
+  - 主动短路能力
+  - 三相短路电流
+  - 三相主动短路
+  - 短路稳态电流
+  - 短路瞬态电流
+  - ASC稳态
+  - ASC瞬态
+  - 短路耐受
+  - 短路电流耐受
+  - 主动短路工况
+  en_strong: []
+  en_weak:
+  - active short circuit
+  - ASC capability
+  - ASC current capability
+  - three-phase short circuit
+  - 3-phase short
+  - steady-state short circuit current
+  - transient short circuit current
+  - short-circuit withstand
+  - ASC steady state
+  - ASC transient
+  cues:
+  - 成对 A/s：稳态 xxxA/x s + 瞬态 xxxA/1 ms
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 单个 Arms 值（→ ASC 电流条目）
+  - 堵转电流
+  - 相电流峰值
+  see:
+  - 42
+  notes:
+  - 与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目
+  unverified: []
+  xlsx:
+    example: 稳态250A/3.5s，瞬态830A/1ms
+    desc: 需明确P1主动短路保护稳态和瞬态电流能力
+    impact: 决定功率模块短路耐受能力和故障安全策略
+- id: 41
+  name: P1逆变器效率指标
+  group: P1
+  gloss: P1 逆变器效率：最高效率、区间效率及测试边界（母线电压/扭矩/转速）
+  zh_strong:
+  - P1效率
+  - P1逆变器效率
+  zh_weak:
+  - 逆变器效率
+  - 电控效率
+  - 控制器效率
+  - 最高效率
+  - 峰值效率
+  - 区间效率
+  - 高效区
+  - 高效区占比
+  - 效率MAP
+  - 效率地图
+  - 工况点效率
+  - 效率指标
+  - 效率要求
+  en_strong:
+  - P1 inverter efficiency
+  en_weak:
+  - inverter efficiency
+  - peak efficiency
+  - maximum efficiency
+  - efficiency map
+  - high-efficiency region
+  - efficiency at operating point
+  - efficiency target
+  - CLTC efficiency
+  - WLTC efficiency
+  cues:
+  - '% @ UDC/Nm/rpm 边界'
+  std:
+  - GB/T 18488（效率测试方法）
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 升压效率（→#66）
+  - 电机效率 motor efficiency
+  - 系统效率（含电机，口径不同）
+  see:
+  - 66
+  notes: []
+  unverified: []
+  xlsx:
+    example: 最高效率99%，区间效率98%（UDC=340V；扭矩：[-30nm~-50nm]；转速：[5000rpm~7000rpm]）
+    desc: 至少需包含最高效率，区间效率指标，明确测试边界条件
+    impact: 影响功率器件选型、开关频率选择；效率低将导致续航减少
+- id: 42
+  name: P1逆变器交流主动短路电流
+  group: P1
+  gloss: P1 逆变器 ASC 状态下的交流相电流（有效值）
+  zh_strong:
+  - P1 ASC电流
+  zh_weak:
+  - ASC电流
+  - 交流主动短路电流
+  - 主动短路电流
+  - 主动短路相电流
+  - 短路电流有效值
+  - ASC稳态电流
+  - ASC相电流
+  en_strong: []
+  en_weak:
+  - ASC current
+  - active short circuit current
+  - ASC phase current
+  - short-circuit current rms
+  - ASC Arms
+  - ASC rms current
+  cues:
+  - Arms 单值
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - 稳态/瞬态成对 A/s（→ ASC 能力条目）
+  see:
+  - 40
+  notes: []
+  unverified: []
+  xlsx:
+    example: 250Arms
+    desc: 需明确P1 ASC电流能力
+    impact: 影响功率模块选型、安全状态设计；不足将导致ASC失效
+- id: 43
+  name: P1逆变器持续交流电流
+  group: P1
+  gloss: P1 逆变器持续（连续）输出交流电流
+  zh_strong:
+  - P1持续电流
+  - 持续交流电流
+  - 连续电流
+  - 持续输出电流
+  - 连续输出电流
+  - 逆变器额定电流
+  zh_weak:
+  - 持续相电流
+  - 额定相电流
+  - 连续相电流
+  - 持续电流能力
+  en_strong:
+  - continuous AC current
+  - continuous current
+  - Arms continuous
+  - S1 current
+  - nominal current
+  - continuous output current
+  en_weak:
+  - continuous phase current
+  - rated phase current
+  cues:
+  - Arms
+  std: []
+  exclude:
+  - P3 语境（→#58）
+  - 峰值电流（→#44）
+  - ASC 电流（→#42）
+  - 母线直流电流（→#10）
+  - Boost 额定电流 195 A（→#64）
+  see:
+  - 44
+  - 58
+  notes: []
+  unverified: []
+  xlsx:
+    example: 250Arms
+    desc: 需明确P1持续输出电流能力
+    impact: 影响功率模块选型、散热设计；不足将导致持续功率不足
+- id: 44
+  name: P1逆变器交流电流峰值
+  group: P1
+  gloss: P1 逆变器峰值交流电流及可持续时间
+  zh_strong:
+  - P1峰值电流
+  zh_weak:
+  - 交流峰值电流
+  - 交流电流峰值
+  - 相电流峰值
+  - 峰值相电流
+  - 最大相电流
+  - 最大电流
+  - 短时电流
+  - 峰值输出电流
+  - 峰值电流能力
+  en_strong: []
+  en_weak:
+  - peak AC current
+  - peak phase current
+  - max phase current
+  - maximum phase current
+  - peak current
+  - Apk
+  - Arms peak
+  - overload current
+  - peak output current
+  cues:
+  - Arms / Apk + s
+  std: []
+  exclude:
+  - P3 语境（→P3 对应条目）
+  - ASC 电流
+  - 持续电流
+  - 反电势 V（源表示例混入）
+  - '功率 kW（源表 #44 示例实为功率）'
+  see:
+  - 43
+  - 42
+  - 37
+  notes:
+  - '源表 #44 示例值为「100KW@340V / 120KW@450V；Back EMF <820V-peak」，无电流值；抽取时不得把 kW 或 V 当作电流'
+  unverified: []
+  xlsx:
+    example: 100KW@340V / 120KW@450V；Back EMF < 820V-peak@16000rpm
+    desc: 需明确P1峰值电流能力及持续时间
+    impact: 影响功率模块峰值电流等级选择；不足将导致加速性能受限
+- id: 38
+  name: P1馈电要求
+  group: P1
+  gloss: P1 作为发电机的馈电（发电）能力要求
+  zh_strong:
+  - P1馈电
+  - 馈电
+  - 馈电要求
+  - 馈电功率
+  - 发电
+  - 发电功率
+  - 发电模式
+  - 发电机模式
+  - 回馈
+  - 能量回馈
+  - 回馈功率
+  - 满功率馈电
+  - 发电能力
+  - 充电功率（P1发电）
+  zh_weak: []
+  en_strong:
+  - P1 generating
+  - generating
+  - generator mode
+  - generation power
+  - generating power
+  - regeneration
+  - regen
+  - regenerative power
+  - feedback power
+  - generating capability
+  en_weak: []
+  cues:
+  - kW 或 满功率
+  std: []
+  exclude:
+  - 充电升压（→#4/#115）
+  - 制动能量回收（P3 侧，清单未列）
+  - 馈电模式（整车能量管理语境）
+  see:
+  - 28
+  - 30
+  notes: []
+  unverified: []
+  xlsx:
+    example: 满功率馈电
+    desc: ''
+    impact: ''
+- id: 39
+  name: P1位置传感器
+  group: P1
+  gloss: P1 转子位置传感器类型（示例：电涡流）
+  zh_strong:
+  - P1位置传感器
+  - 位置传感器
+  - 转子位置传感器
+  - 旋变
+  - 旋转变压器
+  - 电涡流传感器
+  - 电涡流
+  - 涡流传感器
+  - 角度传感器
+  - 位置解码
+  - 旋变解码
+  - 磁编码器
+  - 编码器
+  - 极对数（旋变）
+  zh_weak: []
+  en_strong:
+  - position sensor
+  - rotor position sensor
+  - resolver
+  - eddy current sensor
+  - inductive position sensor
+  - inductive sensor
+  - angle sensor
+  - encoder
+  - magnetic encoder
+  - resolver-to-digital
+  - RDC
+  - sin/cos sensor
+  en_weak: []
+  cues:
+  - 类型词，非数值
+  std: []
+  exclude:
+  - 温度传感器（→#93/#94）
+  - 电流传感器（→#90）
+  - 油压传感器（→#88）
+  see: []
+  notes:
+  - 清单只列了 P1 位置传感器，没有 P3 位置传感器条目，疑为甲方遗漏，建议确认
+  unverified: []
+  xlsx:
+    example: 电涡流
+    desc: ''
+    impact: ''
+- id: 45
+  name: P3峰值功率
+  group: P3
+  gloss: P3 电机峰值功率（区分升压/非升压母线电压）
+  zh_strong:
+  - P3峰值功率
+  - P3最大功率
+  - P3电机峰值功率
+  - P3峰值
+  - 驱动峰值功率
+  - 牵引峰值功率
+  zh_weak:
+  - 峰值功率
+  - 最大功率
+  - 短时功率
+  - 升压峰值功率
+  - 非升压峰值功率
+  en_strong:
+  - P3 peak power
+  - P3 maximum power
+  - P3 max power
+  - traction peak power
+  - drive peak power
+  en_weak:
+  - peak power
+  - maximum power
+  - short-time power
+  - boost peak power
+  - non-boost peak power
+  cues:
+  - kW @ V
+  - 常成对：非升压@340V / 升压@450V
+  std:
+  - GB/T 18488（峰值功率定义）
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 持续时间 s（→峰值持续时间）
+  - Boost 输出功率 125 kW（→#68）
+  - 额定功率
+  see:
+  - 46
+  - 47
+  - 68
+  notes: []
+  unverified:
+  - peak generate power@P3 [原字典]
+  xlsx:
+    example: 160KW（非升压@340V）/ 210KW（升压@450V）
+    desc: 需明确P3电机峰值功率要求（区分升压/非升压工况）
+    impact: 影响功率模块选型、散热设计；不满足将导致驱动性能不足
+- id: 46
+  name: P3峰值功率持续时间
+  group: P3
+  gloss: P3 峰值功率可持续的时间
+  zh_strong:
+  - P3峰值持续
+  zh_weak:
+  - 峰值持续时间
+  - 峰值功率持续时间
+  - 峰值时间
+  - 峰值维持时间
+  - 峰值保持时间
+  - 短时峰值
+  - 峰值工作时间
+  en_strong:
+  - P3 peak duration
+  en_weak:
+  - peak duration
+  - peak power duration
+  - peak hold time
+  - peak time
+  - overload time
+  - S2 duty
+  cues:
+  - s
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 扭矩响应时间 ms（→#77）
+  - 放电时间（→#26/#27）
+  - 堵转时间
+  see:
+  - 45
+  notes: []
+  unverified: []
+  xlsx:
+    example: 10S
+    desc: 需明确P3峰值功率可持续时间
+    impact: 影响热设计、功率降额策略；不满足将导致过温保护
+- id: 47
+  name: P3额定功率
+  group: P3
+  gloss: P3 电机额定（连续）功率
+  zh_strong:
+  - P3额定功率
+  - P3连续功率
+  - P3持续功率
+  zh_weak:
+  - 额定功率
+  - 连续功率
+  - 持续功率
+  - S1功率
+  - 额定输出功率
+  en_strong:
+  - P3 rated power
+  - P3 continuous power
+  en_weak:
+  - rated power
+  - continuous power
+  - nominal power
+  - S1 power
+  - continuous rating
+  cues:
+  - kW
+  std:
+  - GB/T 18488（额定功率/S1）
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 峰值功率
+  - 额定功率相电流 A（→#58）
+  see:
+  - 45
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 48
+  name: P3峰值扭矩/时间/对应转速范围
+  group: P3
+  gloss: P3 峰值扭矩、可持续时间及对应转速区间（外特性）
+  zh_strong:
+  - P3峰值扭矩
+  - P3最大扭矩
+  zh_weak:
+  - 峰值扭矩
+  - 峰值转矩
+  - 最大扭矩
+  - 最大转矩
+  - 峰值扭矩持续时间
+  - 峰值扭矩转速范围
+  - 外特性
+  - 外特性曲线
+  - 扭矩转速曲线
+  - 恒扭矩区
+  - 拐点
+  en_strong:
+  - P3 peak torque
+  - P3 max torque
+  en_weak:
+  - peak torque
+  - maximum torque
+  - torque-speed envelope
+  - torque vs speed
+  - external characteristic
+  - constant torque region
+  - corner speed
+  - base speed
+  cues:
+  - Nm / N·m + s + rpm 区间
+  std:
+  - GB/T 18488（峰值转矩）
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 额定扭矩
+  - 堵转扭矩
+  - 扭矩精度（→#78/#89）
+  - 扭矩响应（→#77）
+  see:
+  - 49
+  - 53
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 49
+  name: P3额定扭矩
+  group: P3
+  gloss: P3 额定（连续）扭矩
+  zh_strong:
+  - P3额定扭矩
+  - P3连续扭矩
+  - P3持续扭矩
+  zh_weak:
+  - 额定扭矩
+  - 额定转矩
+  - 连续扭矩
+  - 持续扭矩
+  - S1扭矩
+  en_strong:
+  - P3 rated torque
+  en_weak:
+  - rated torque
+  - continuous torque
+  - nominal torque
+  - S1 torque
+  cues:
+  - Nm
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 峰值扭矩
+  see:
+  - 48
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 50
+  name: P3 额定转速
+  group: P3
+  gloss: P3 额定转速（基速/拐点转速）
+  zh_strong:
+  - P3额定转速
+  zh_weak:
+  - 额定转速
+  - 基速
+  - 拐点转速
+  - 额定点转速
+  - 恒功率起点
+  en_strong:
+  - P3 rated speed
+  en_weak:
+  - rated speed
+  - base speed
+  - nominal speed
+  - corner speed
+  - rated rpm
+  cues:
+  - rpm / r/min
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 最高转速
+  - 转速范围
+  see:
+  - 52
+  - 51
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 51
+  name: P3 转速需求
+  group: P3
+  gloss: P3 工作转速范围/需求（含反转）
+  zh_strong:
+  - P3转速需求
+  - P3转速范围
+  zh_weak:
+  - 转速需求
+  - 转速范围
+  - 工作转速范围
+  - 常用转速
+  - 转速区间
+  - 反转转速
+  - 正反转
+  - 转速要求
+  en_strong:
+  - P3 speed range
+  - P3 speed demand
+  en_weak:
+  - speed range
+  - operating speed range
+  - speed requirement
+  - rpm range
+  - reverse speed
+  - bidirectional speed
+  cues:
+  - rpm 区间
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 最高转速单值
+  - 额定转速
+  see:
+  - 52
+  - 50
+  notes: []
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 52
+  name: P3最高工作转速
+  group: P3
+  gloss: P3 最高工作转速
+  zh_strong:
+  - P3最高转速
+  - P3最大转速
+  - P3最高工作转速
+  zh_weak:
+  - 最高工作转速
+  - 最高转速
+  - 最大转速
+  - 极限转速
+  - 超速
+  - 超速转速
+  - 机械极限转速
+  - 最高持续转速
+  - 转速上限
+  en_strong:
+  - P3 max speed
+  - P3 maximum speed
+  en_weak:
+  - maximum speed
+  - max operating speed
+  - top speed
+  - overspeed
+  - max rpm
+  - mechanical speed limit
+  - speed limit
+  cues:
+  - rpm ≤ 单值
+  std:
+  - GB/T 18488（最高工作转速）
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 额定转速
+  - '反电势@rpm 里的 rpm（源表 #37 用 16000 rpm 校核反电势，高于 #35 的 13000 rpm 上限，勿当最高转速）'
+  see:
+  - 54
+  notes: []
+  unverified: []
+  xlsx:
+    example: ≤20000rpm
+    desc: ''
+    impact: ''
+- id: 53
+  name: P3堵转扭矩/时间
+  group: P3
+  gloss: P3 堵转（零速/极低速大扭矩）扭矩与可持续时间，含触发/退出条件
+  zh_strong:
+  - P3堵转扭矩
+  zh_weak:
+  - 堵转扭矩
+  - 堵转转矩
+  - 堵转时间
+  - 堵转工况
+  - 堵转能力
+  - 零速扭矩
+  - 零转速扭矩
+  - 低速大扭矩
+  - 堵转触发条件
+  - 堵转退出条件
+  - 堵转判定
+  - 堵转持续时间
+  - 堵转保护
+  en_strong:
+  - P3 stall torque
+  en_weak:
+  - stall torque
+  - locked rotor torque
+  - standstill torque
+  - zero speed torque
+  - stall time
+  - stall duration
+  - stall condition
+  - stall entry
+  - stall exit
+  - stall protection
+  cues:
+  - Nm + s + rpm< 条件
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 峰值扭矩
+  - 堵转电流 A（→#59，仅 P3 有）
+  see:
+  - 48
+  - 59
+  notes:
+  - '源表 #53 示例为电流（峰值520A/3s，持续260A），#59 堵转电流示例却是 130 N·m——两格内容疑似互换或口径混用，须向甲方确认'
+  unverified:
+  - locking strategy [原字典]
+  xlsx:
+    example: 峰值520A/3s，持续260A（转速<80rpm且扭矩>120Nm）
+    desc: 需明确堵转工况的电流能力和触发/退出条件
+    impact: 影响功率模块热设计和堵转控制策略
+- id: 54
+  name: P3 反电动势（Back EMF）
+  group: P3
+  gloss: P3 电机反电动势限值（@最高/超速转速）
+  zh_strong:
+  - P3反电动势
+  - P3反电势
+  - P3反电势峰值
+  - P3空载反电势
+  zh_weak: []
+  en_strong:
+  - P3 back EMF
+  - P3 BEMF
+  - P3 back-EMF
+  en_weak: []
+  cues:
+  - V-peak @ rpm
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  see:
+  - 11
+  - 52
+  notes:
+  - '裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条'
+  unverified: []
+  xlsx:
+    example: < 820V-peak@20000rpm
+    desc: 需明确P3电机反电动势限值
+    impact: 影响功率器件耐压选择、弱磁控制策略；超限将导致器件损坏
+- id: 55
+  name: P3 ASC电流能力（是否整机提供？）
+  group: P3
+  gloss: P3 主动短路（ASC）稳态+瞬态电流能力（带时长），对应功率模块短路耐受
+  zh_strong:
+  - P3 ASC
+  - P3主动短路
+  zh_weak:
+  - ASC电流能力
+  - 主动短路电流能力
+  - 主动短路能力
+  - 三相短路电流
+  - 三相主动短路
+  - 短路稳态电流
+  - 短路瞬态电流
+  - ASC稳态
+  - ASC瞬态
+  - 短路耐受
+  - 短路电流耐受
+  - 主动短路工况
+  en_strong: []
+  en_weak:
+  - active short circuit
+  - ASC capability
+  - ASC current capability
+  - three-phase short circuit
+  - 3-phase short
+  - steady-state short circuit current
+  - transient short circuit current
+  - short-circuit withstand
+  - ASC steady state
+  - ASC transient
+  cues:
+  - 成对 A/s：稳态 xxxA/x s + 瞬态 xxxA/1 ms
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 单个 Arms 值（→ ASC 电流条目）
+  - 堵转电流
+  - 相电流峰值
+  see:
+  - 57
+  notes:
+  - 与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目
+  - 标题中"是否整机提供"指该值由整机/电机侧提供还是电控侧给出
+  unverified: []
+  xlsx:
+    example: 稳态310A/20s，瞬态1370A/1ms
+    desc: 需明确P3主动短路保护稳态和瞬态电流能力
+    impact: 决定功率模块短路耐受能力（关键安全参数）
+- id: 56
+  name: P3逆变器效率指标
+  group: P3
+  gloss: P3 逆变器效率：最高效率、区间效率及测试边界（母线电压/扭矩/转速）
+  zh_strong:
+  - P3效率
+  - P3逆变器效率
+  zh_weak:
+  - 逆变器效率
+  - 电控效率
+  - 控制器效率
+  - 最高效率
+  - 峰值效率
+  - 区间效率
+  - 高效区
+  - 高效区占比
+  - 效率MAP
+  - 效率地图
+  - 工况点效率
+  - 效率指标
+  - 效率要求
+  en_strong:
+  - P3 inverter efficiency
+  en_weak:
+  - inverter efficiency
+  - peak efficiency
+  - maximum efficiency
+  - efficiency map
+  - high-efficiency region
+  - efficiency at operating point
+  - efficiency target
+  - CLTC efficiency
+  - WLTC efficiency
+  cues:
+  - '% @ UDC/Nm/rpm 边界'
+  std:
+  - GB/T 18488（效率测试方法）
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 升压效率（→#66）
+  - 电机效率 motor efficiency
+  - 系统效率（含电机，口径不同）
+  see:
+  - 66
+  notes: []
+  unverified: []
+  xlsx:
+    example: 最高效率99%，区间效率98%（UDC=340V；扭矩：[-30nm~-50nm]；转速：[5000rpm~7000rpm]）
+    desc: 至少需包含最高效率，区间效率指标，明确测试边界条件
+    impact: 影响功率器件选型、控制策略；效率低将导致续航减少
+- id: 57
+  name: P3逆变器交流主动短路电流
+  group: P3
+  gloss: P3 逆变器 ASC 状态下的交流相电流（有效值）
+  zh_strong:
+  - P3 ASC电流
+  zh_weak:
+  - ASC电流
+  - 交流主动短路电流
+  - 主动短路电流
+  - 主动短路相电流
+  - 短路电流有效值
+  - ASC稳态电流
+  - ASC相电流
+  en_strong: []
+  en_weak:
+  - ASC current
+  - active short circuit current
+  - ASC phase current
+  - short-circuit current rms
+  - ASC Arms
+  - ASC rms current
+  cues:
+  - Arms 单值
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - 稳态/瞬态成对 A/s（→ ASC 能力条目）
+  see:
+  - 55
+  notes: []
+  unverified: []
+  xlsx:
+    example: 待明确
+    desc: 需明确P3 ASC电流能力
+    impact: 影响功率模块选型和安全状态设计
+- id: 58
+  name: P3额定功率相电流
+  group: P3
+  gloss: P3 额定功率对应的相电流（持续）
+  zh_strong:
+  - 额定功率相电流
+  - P3额定相电流
+  - 额定功率对应相电流
+  - 额定电流
+  - 额定工况相电流
+  zh_weak:
+  - 额定相电流
+  - 持续相电流
+  - 连续相电流
+  - 持续电流能力
+  en_strong:
+  - phase current at rated power
+  - continuous Arms
+  - rated current
+  - nominal phase current
+  en_weak:
+  - rated phase current
+  - continuous phase current
+  cues:
+  - Arms
+  std: []
+  exclude:
+  - P1 语境（→#43）
+  - 峰值电流（→#60）
+  - ASC 电流（→#57）
+  - 额定功率 kW 本身（→#47）
+  - 采样精度（→#90）
+  see:
+  - 43
+  - 47
+  - 60
+  notes: []
+  unverified: []
+  xlsx:
+    example: 250Arms
+    desc: 需明确P3电机额定功率对应相电流
+    impact: 影响功率模块额定电流选型；不足将导致额定工况无法达成
+- id: 59
+  name: P3逆变器堵转电流
+  group: P3
+  gloss: P3 逆变器堵转工况电流能力与降载策略
+  zh_strong:
+  - P3堵转电流
+  - 堵转电流
+  - 堵转相电流
+  - 零速电流
+  - 堵转持续电流
+  - 堵转峰值电流
+  - 堵转降载
+  - 堵转降额
+  - 堵转电流能力
+  - 堵转限流
+  zh_weak: []
+  en_strong:
+  - stall current
+  - P3 stall current
+  - locked rotor current
+  - standstill current
+  - zero speed current
+  - stall derating
+  - stall current derating
+  - stall current limit
+  en_weak: []
+  cues:
+  - A + s（+ rpm< 条件）
+  std: []
+  exclude:
+  - 堵转扭矩 Nm（→#53）
+  - ASC 电流
+  - 峰值电流
+  see:
+  - 53
+  - 55
+  notes:
+  - '源表 #59 示例为 130 N·m（TBD），是扭矩不是电流；与 #53 疑似互换，须向甲方确认'
+  unverified: []
+  xlsx:
+    example: 130N·m（TBD）
+    desc: 需明确P3堵转电流能力及降载策略
+    impact: 影响功率模块选型、堵转保护策略设计
+- id: 60
+  name: P3逆变器交流电流峰值
+  group: P3
+  gloss: P3 逆变器峰值交流电流及可持续时间
+  zh_strong:
+  - P3峰值电流
+  zh_weak:
+  - 交流峰值电流
+  - 交流电流峰值
+  - 相电流峰值
+  - 峰值相电流
+  - 最大相电流
+  - 最大电流
+  - 短时电流
+  - 峰值输出电流
+  - 峰值电流能力
+  en_strong: []
+  en_weak:
+  - peak AC current
+  - peak phase current
+  - max phase current
+  - maximum phase current
+  - peak current
+  - Apk
+  - Arms peak
+  - overload current
+  - peak output current
+  cues:
+  - Arms / Apk + s
+  std: []
+  exclude:
+  - P1 语境（→P1 对应条目）
+  - ASC 电流
+  - 持续电流
+  - 反电势 V（源表示例混入）
+  - '功率 kW（源表 #44 示例实为功率）'
+  see:
+  - 58
+  - 57
+  - 54
+  notes:
+  - '源表 #60 示例把功率与反电势拼在电流格里，只应抽 520 Arms'
+  unverified: []
+  xlsx:
+    example: 520Arms；160KW@340V / 210KW@450V；Back EMF < 820V-peak@20000rpm
+    desc: 需明确P3峰值电流能力及持续时间
+    impact: 影响功率模块峰值电流等级选择
+- id: 61
+  name: Boost功能要求
+  group: 升压
+  gloss: 是否需要升压（Boost）功能及其总体要求
+  zh_strong:
+  - Boost功能
+  - 升压功能
+  - 升压需求
+  - 升压要求
+  - 升压模块
+  - 升压单元
+  - 升压方案
+  - DC/DC升压
+  - 双向DC/DC
+  - 升压电感
+  - 升压控制
+  - 是否升压
+  - 升压器
+  zh_weak:
+  - 升压拓扑
+  en_strong:
+  - boost function
+  - boost converter
+  - boost requirement
+  - DC-DC boost
+  - DC/DC boost
+  - step-up converter
+  - boost stage
+  - bidirectional DC/DC
+  - boost unit
+  en_weak:
+  - boost mode
+  - boost topology
+  cues:
+  - 是/否
+  std: []
+  exclude:
+  - 范围判断句（→#3/#4）
+  - 数值参数 V/A/kW/kHz/Vpp（→#62–#70）
+  - 充电升压（→#115）
+  see:
+  - 3
+  - 4
+  - 62
+  - 115
+  notes:
+  - '原字典把裸词 BOOST 作为 #61 别名，会吸收全部 Boost 句子；建议裸词 BOOST/Boost/升压 只作"段落定位词"，不计分'
+  unverified: []
+  xlsx:
+    example: 是或否
+    desc: 需明确Boost升压功能需求
+    impact: 影响Boost硬件设计、控制策略；缺失将导致无法升压
+- id: 62
+  name: BOOST最高工作电压
+  group: 升压
+  gloss: 升压后母线可达的最高工作电压
+  zh_strong:
+  - 升压最高电压
+  - 升压最高工作电压
+  - Boost最高电压
+  - 升压目标电压
+  - 升压后母线电压
+  - 升压上限电压
+  - 升压电压上限
+  - 最高升压电压
+  - Boost电压上限
+  zh_weak: []
+  en_strong:
+  - boost max voltage
+  - boost maximum operating voltage
+  - boost target voltage
+  - boosted DC link voltage
+  - boost output max voltage
+  - boost voltage limit
+  - maximum boost voltage
+  en_weak: []
+  cues:
+  - V 单值
+  std: []
+  exclude:
+  - HVDC 工作范围（→#5）
+  - 极限电压 500 V（→#5）
+  - 输出电压范围/模式（→#67）
+  see:
+  - 67
+  - 5
+  notes: []
+  unverified: []
+  xlsx:
+    example: 450V
+    desc: 需明确BOOST最高工作电压
+    impact: 影响Boost功率器件耐压选型；超出将导致器件损坏
+- id: 63
+  name: BOOST输入峰值电流
+  group: 升压
+  gloss: 升压电路输入（电池侧）峰值电流
+  zh_strong:
+  - 升压输入峰值电流
+  - Boost输入峰值电流
+  - 升压峰值电流
+  - 电感峰值电流
+  - 升压输入最大电流
+  - 电池侧峰值电流
+  - 升压输入电流峰值
+  - Boost峰值电流
+  zh_weak: []
+  en_strong:
+  - boost input peak current
+  - boost peak current
+  - inductor peak current
+  - battery side peak current
+  - boost input max current
+  - peak input current
+  en_weak: []
+  cues:
+  - A @ V
+  std: []
+  exclude:
+  - 额定/持续（→#64）
+  - 逆变器相电流（→#44/#60）
+  see:
+  - 64
+  - 68
+  notes: []
+  unverified: []
+  xlsx:
+    example: 400A@340V
+    desc: 需明确BOOST输入峰值电流
+    impact: 影响Boost电感、功率器件选型；不足将导致峰值功率受限
+- id: 64
+  name: BOOST输入额定电流
+  group: 升压
+  gloss: 升压电路输入额定（持续）电流，分 Boost 模式与 Bypass 模式
+  zh_strong:
+  - 升压输入额定电流
+  - Boost额定电流
+  - 升压额定电流
+  - 升压持续电流
+  - 升压额定输入电流
+  - Bypass额定电流
+  - 旁路电流
+  - 旁路额定电流
+  - 直通电流
+  - 旁路模式电流
+  - Boost模式电流
+  zh_weak:
+  - 直通模式
+  - 旁路模式
+  en_strong:
+  - boost input rated current
+  - boost continuous current
+  - boost rated current
+  - bypass current
+  - bypass mode current
+  - pass-through current
+  - boost rated input current
+  - bypass rated current
+  en_weak: []
+  cues:
+  - A + Boost/Bypass 标签
+  std: []
+  exclude:
+  - 峰值（→#63）
+  see:
+  - 63
+  - 67
+  notes:
+  - Bypass 数字与 Boost 数字并列出现，抽取需保留模式标签
+  unverified: []
+  xlsx:
+    example: Boost 195A / Bypass 200A@340V
+    desc: 需明确BOOST输入额定电流（Boost模式和Bypass模式）
+    impact: 影响Boost持续工作能力设计；不足将导致持续功率不足
+- id: 65
+  name: Boost输出性能
+  group: 升压
+  gloss: 升压输出侧综合性能：输出电压范围、功率、响应时间（依 D 列）
+  zh_strong:
+  - 升压输出
+  - 升压输出性能
+  - 升压输出参数
+  - 升压性能
+  - 升压输出电压范围
+  - 升压响应时间
+  - 升压动态响应
+  - 升压输出特性
+  - Boost输出
+  - 升压能力
+  zh_weak: []
+  en_strong:
+  - boost output performance
+  - boost output characteristics
+  - boost output
+  - boost output voltage range
+  - boost response time
+  - boost dynamic response
+  - boost capability
+  en_weak: []
+  cues:
+  - 复合条目：V 范围 + kW + ms
+  std: []
+  exclude:
+  - 单独的输入侧参数（→#63/#64）
+  see:
+  - 62
+  - 63
+  - 64
+  - 67
+  - 68
+  notes:
+  - '源表示例是 #62/#63/#64 的拼接（输入侧），而 D 列要求输出电压范围/功率/响应时间（输出侧）——示例与说明不一致；建议以 D 列语义为准，并把响应时间作为本条独有线索'
+  unverified: []
+  xlsx:
+    example: 最高工作电压450V；输入峰值电流400A@340V；额定电流Boost 195A/Bypass 200A@340V
+    desc: 需明确Boost输出电压范围、功率、响应时间
+    impact: 影响Boost功率模块选型、电感设计；不满足将导致母线电压不稳
+- id: 66
+  name: 升压效率
+  group: 升压
+  gloss: 升压（DC/DC）转换效率
+  zh_strong:
+  - 升压效率
+  - Boost效率
+  - 升压转换效率
+  - DC/DC效率
+  - DCDC效率
+  - 升压模式效率
+  - 升压峰值效率
+  - 旁路效率
+  - 转换效率
+  zh_weak: []
+  en_strong:
+  - boost efficiency
+  - boost conversion efficiency
+  - DC-DC efficiency
+  - DC/DC efficiency
+  - boost mode efficiency
+  - step-up efficiency
+  - conversion efficiency
+  en_weak: []
+  cues:
+  - '% ≥'
+  std: []
+  exclude:
+  - 逆变器效率（→#41/#56）
+  - 系统效率
+  see:
+  - 41
+  - 56
+  notes: []
+  unverified: []
+  xlsx:
+    example: ≥99.3%
+    desc: 需明确Boost模式转换效率
+    impact: 影响Boost热设计
+- id: 67
+  name: 升压输出电压
+  group: 升压
+  gloss: 升压输出电压范围及工作模式（Boost/Bypass/Buck）
+  zh_strong:
+  - 升压输出电压
+  - Boost输出电压
+  - 升压后电压
+  - 升压电压范围
+  - 输出电压范围
+  - Boost模式
+  - Bypass模式
+  - Buck模式
+  - 降压模式
+  - 三种模式
+  - 工作模式（升压）
+  zh_weak:
+  - 旁路模式
+  - 直通模式
+  en_strong:
+  - boost output voltage
+  - boosted voltage
+  - output voltage range
+  - boost/bypass/buck
+  - buck mode
+  - bypass mode
+  - operating modes
+  - DC-DC output voltage
+  en_weak:
+  - boost mode
+  cues:
+  - V + 模式名
+  std: []
+  exclude:
+  - 最高工作电压单值（→#62）
+  - HVDC 范围（→#5）
+  see:
+  - 62
+  - 64
+  notes: []
+  unverified: []
+  xlsx:
+    example: 最高450V（支持Boost/Bypass/Buck三种模式）
+    desc: 需明确升压功能输出电压范围和工作模式
+    impact: 决定Boost电感、电容、开关管选型
+- id: 68
+  name: 升压输出功率
+  group: 升压
+  gloss: 升压模式的输出功率能力（峰值/持续）
+  zh_strong:
+  - 升压输出功率
+  - Boost输出功率
+  - 升压功率
+  - 升压持续功率
+  - 升压额定功率
+  - DC/DC功率
+  - Boost功率
+  - 升压功率能力
+  zh_weak:
+  - 升压峰值功率
+  en_strong:
+  - boost output power
+  - boost power
+  - boost continuous power
+  - boost rated power
+  - DC-DC power rating
+  - boost power capability
+  en_weak:
+  - boost peak power
+  cues:
+  - kW @ V / s
+  std: []
+  exclude:
+  - P1/P3 峰值功率（→#28/#45；源表用「升压@450V」修饰 P1/P3 功率，需靠 P1/P3 前缀区分）
+  see:
+  - 28
+  - 45
+  notes: []
+  unverified:
+  - boost kW [原字典]（过泛）
+  xlsx:
+    example: 峰值125kW@320-450V/10s，持续62.5kW@320V
+    desc: 需明确升压模式功率输出能力
+    impact: 影响Boost功率器件选型和热设计
+- id: 69
+  name: 升压开关频率
+  group: 升压
+  gloss: 升压电路开关频率
+  zh_strong:
+  - 升压开关频率
+  - Boost开关频率
+  - DC/DC开关频率
+  - 升压PWM频率
+  - 斩波频率
+  - 升压载波频率
+  - 开关频率（升压）
+  zh_weak: []
+  en_strong:
+  - boost switching frequency
+  - boost fsw
+  - DC-DC switching frequency
+  - boost PWM frequency
+  - chopping frequency
+  - switching frequency for boost
+  en_weak: []
+  cues:
+  - kHz
+  std: []
+  exclude:
+  - 逆变器开关频率/载波频率（清单未列但规格常见，勿混）
+  - 踏板 PWM 频率 Hz（→#87）
+  - 电流环/控制频率
+  see:
+  - 87
+  notes: []
+  unverified: []
+  xlsx:
+    example: ≥12kHz
+    desc: 需明确Boost工作开关频率
+    impact: 影响Boost电感设计及EMI
+- id: 70
+  name: 升压纹波电压
+  group: 升压
+  gloss: 升压输出电压纹波限值（给定输入/输出电压条件）
+  zh_strong:
+  - 升压纹波
+  - 升压纹波电压
+  - 升压输出纹波
+  - Boost输出纹波
+  - Boost纹波
+  - DC/DC输出纹波
+  - 升压电压纹波
+  zh_weak: []
+  en_strong:
+  - boost output ripple
+  - boost ripple voltage
+  - boost ripple
+  - DC-DC output ripple
+  - output ripple at boost
+  en_weak: []
+  cues:
+  - Vpp ± + 输入/输出电压条件
+  std: []
+  exclude:
+  - 母线纹波（→#8/#12）
+  - 电感纹波电流 inductor ripple current
+  see:
+  - 8
+  - 12
+  notes: []
+  unverified: []
+  xlsx:
+    example: Vpp≤±16V（输入300-380V，输出450V）
+    desc: 需明确Boost输出纹波限制
+    impact: 影响Boost输出滤波设计
+- id: 115
+  name: 升压充电功能
+  group: 升压
+  gloss: 是否需要升压充电功能及充电拓扑/电压/电流/时长要求
+  zh_strong:
+  - 升压充电功能
+  - 充电电压
+  - 充电电流
+  - 充电时长
+  - 充电功率（升压）
+  - 充电模式
+  zh_weak:
+  - 升压充电
+  - 充电升压
+  - 充电拓扑
+  - 直流充电升压
+  - 快充升压
+  en_strong:
+  - charging voltage
+  - charging current
+  - charging duration
+  - DC fast charging boost
+  - charging mode boost
+  en_weak:
+  - boost charging
+  - charge boost
+  - charging boost
+  - charging topology
+  cues:
+  - 是/否 + V/A/h
+  std: []
+  exclude:
+  - 驱动升压（→#3）
+  see:
+  - 4
+  - 61
+  notes: []
+  unverified: []
+  xlsx:
+    example: 是否需升压充电功能
+    desc: 需提供充电拓扑，充电电压充，电电流及时长要求
+    impact: 影响电控模块选型，铜排选型，电容选型
+- id: 71
+  name: 冷却回路压降
+  group: 冷却
+  gloss: 冷却回路在给定流量/温度下的压降限值
+  zh_strong:
+  - 冷却回路压降
+  - 压降（冷却）
+  - 压力损失
+  - 压损
+  - 流阻
+  - 流动阻力
+  - 水阻
+  - 水路压降
+  - 流道压降
+  - 冷却压降
+  - 进出口压差
+  - 压差
+  - 冷却液压降
+  - 回路阻力
+  zh_weak: []
+  en_strong:
+  - pressure drop
+  - pressure loss
+  - flow resistance
+  - hydraulic resistance
+  - coolant pressure drop
+  - ΔP
+  - delta P
+  - dP
+  - differential pressure
+  en_weak: []
+  cues: &id007
+  - kPa / bar / mbar @ L/min @ ℃
+  std: []
+  exclude: &id008
+  - 电压压降 voltage drop（"压降"在电气语境指电压降，如二极管压降、线束压降）
+  - 油压（→#88）
+  see:
+  - 119
+  - 112
+  - 113
+  notes:
+  - '与 #119 同名同值'
+  unverified: []
+  xlsx:
+    example: 35kPa@65℃@10L /min
+    desc: 需明确冷却回路压降限值
+    impact: 影响水泵选型、流道设计；压降过大将导致散热不足
+- id: 119
+  name: 冷却回路压降
+  group: 冷却
+  gloss: '同 #71'
+  zh_strong:
+  - 冷却回路压降
+  - 压降（冷却）
+  - 压力损失
+  - 压损
+  - 流阻
+  - 流动阻力
+  - 水阻
+  - 水路压降
+  - 流道压降
+  - 冷却压降
+  - 进出口压差
+  - 压差
+  - 冷却液压降
+  - 回路阻力
+  zh_weak: []
+  en_strong:
+  - pressure drop
+  - pressure loss
+  - flow resistance
+  - hydraulic resistance
+  - coolant pressure drop
+  - ΔP
+  - delta P
+  - dP
+  - differential pressure
+  en_weak: []
+  cues: *id007
+  std: []
+  exclude: *id008
+  see:
+  - 71
+  notes:
+  - '与 #71 重复'
+  unverified: []
+  xlsx:
+    example: 35kPa@65℃@10L /min
+    desc: 需明确冷却回路压降限值
+    impact: 影响水泵选型、流道设计；压降过大将导致散热不足
+- id: 72
+  name: 最大散热能力
+  group: 冷却
+  gloss: '水冷系统可带走的最大热量（示例 ≤6.17 kW，与 #120 热损失同值）'
+  zh_strong:
+  - 最大散热能力
+  - 散热能力
+  - 散热功率
+  - 冷却能力
+  - 冷却功率
+  - 最大散热量
+  - 散热量
+  - 允许散热
+  - 冷却系统能力
+  - 散热需求
+  - 带走热量
+  zh_weak: []
+  en_strong:
+  - max heat dissipation capability
+  - heat dissipation capability
+  - cooling capacity
+  - cooling capability
+  - heat rejection
+  - maximum heat rejection
+  - thermal capacity
+  - cooling power
+  en_weak: []
+  cues:
+  - kW（水冷）
+  std: []
+  exclude:
+  - 低压功耗 W（→#21）
+  see:
+  - 120
+  notes:
+  - '#72 与 #120 数值相同、语义互为镜像（系统能带走多少 vs 控制器产生多少）；"dissipation" 在原字典同时出现在两条，属别名冲突。建议作为一对处理：同值、分别标注口径'
+  unverified: []
+  xlsx:
+    example: ≤6.17kW（水冷）
+    desc: 需明确水冷散热能力上限
+    impact: 决定冷却系统设计和功率降额策略
+- id: 110
+  name: 冷却接口
+  group: 冷却
+  gloss: 冷却液型号及管路接口规格
+  zh_strong:
+  - 冷却接口
+  - 冷却液接口
+  - 冷却管路接口
+  - 水口
+  - 进水口
+  - 出水口
+  - 进出水口
+  - 水嘴
+  - 水管接头
+  - 快插接头
+  - 冷却液型号
+  - 冷却液规格
+  - 冷却液牌号
+  - 冷却液零件号
+  - 防冻液
+  - 乙二醇
+  - 冷却介质
+  - 冷却液供应商
+  - 管径
+  zh_weak: []
+  en_strong:
+  - cooling connections
+  - coolant connection
+  - coolant port
+  - coolant inlet
+  - coolant outlet
+  - inlet/outlet
+  - spigot
+  - hose barb
+  - quick connector
+  - coolant type
+  - coolant specification
+  - coolant part number
+  - glycol
+  - ethylene glycol
+  - antifreeze
+  - coolant medium
+  en_weak: []
+  cues:
+  - 零件号 / 供应商 / mm 管径 / 冷却液 -40℃
+  std: []
+  exclude:
+  - 高压连接器（→#109）
+  - 低压插件
+  see:
+  - 111
+  notes: []
+  unverified: []
+  xlsx:
+    example: -40℃吉利专用冷却液，零件号：01303011，供应商：江苏龙蟠
+    desc: 需明确冷却液型号及管路接口规格
+    impact: 影响冷却回路设计、密封设计；不匹配将导致冷却系统无法连接
+- id: 111
+  name: 冷却液温度范围
+  group: 冷却
+  gloss: 冷却液（进口）温度工作范围
+  zh_strong:
+  - 冷却液温度
+  - 冷却液温度范围
+  - 进水温度
+  - 入口水温
+  - 进口温度
+  - 冷却液入口温度
+  - 水温范围
+  - 最高进水温度
+  - 冷却液最高温度
+  - 冷却水温度
+  zh_weak: []
+  en_strong:
+  - coolant temperature range
+  - coolant inlet temperature
+  - inlet temperature
+  - max coolant temperature
+  - coolant temp
+  - water temperature
+  en_weak: []
+  cues:
+  - ℃ 区间
+  std: []
+  exclude:
+  - 水温采样精度/延时（→#83/#84）
+  - 环境温度（→#97）
+  - 油温（→#82）
+  see:
+  - 83
+  - 97
+  notes: []
+  unverified: []
+  xlsx:
+    example: -40℃~65℃
+    desc: ''
+    impact: ''
+- id: 112
+  name: 冷却流量范围
+  group: 冷却
+  gloss: 冷却液流量工作范围
+  zh_strong:
+  - 冷却流量
+  - 冷却液流量
+  - 流量范围
+  - 流量区间
+  - 最小流量
+  - 最大流量
+  - 水流量
+  - 冷却液流量范围
+  - 流量工作范围
+  zh_weak: []
+  en_strong:
+  - coolant flow range
+  - flow rate range
+  - min flow
+  - max flow
+  - flow range
+  - LPM range
+  - coolant flow rate
+  en_weak: []
+  cues:
+  - L/min 区间
+  std: []
+  exclude:
+  - 额定流量单值（→#113）
+  - 压降条件中的 @10 L/min（→#71）
+  see:
+  - 113
+  - 71
+  notes: []
+  unverified: []
+  xlsx:
+    example: /
+    desc: ''
+    impact: ''
+- id: 113
+  name: 额定流量
+  group: 冷却
+  gloss: 冷却液额定流量
+  zh_strong:
+  - 额定流量
+  - 标称流量
+  - 名义流量
+  - 设计流量
+  - 标定流量
+  - 额定冷却流量
+  zh_weak: []
+  en_strong:
+  - rated flow
+  - nominal flow
+  - design flow rate
+  - rated coolant flow
+  - nominal flow rate
+  en_weak: []
+  cues:
+  - L/min 单值
+  std: []
+  exclude:
+  - 流量范围（→#112）
+  - 压降条件里的流量（→#71）
+  see:
+  - 112
+  - 71
+  notes: []
+  unverified: []
+  xlsx:
+    example: /
+    desc: ''
+    impact: ''
+- id: 120
+  name: 热损失
+  group: 冷却
+  gloss: 控制器最大发热（损耗）限值
+  zh_strong:
+  - 热损失
+  - 热损耗
+  - 损耗功率
+  - 发热量
+  - 功率损耗
+  - 总损耗
+  - 最大损耗
+  - 热耗
+  - 损耗
+  - 发热功率
+  zh_weak: []
+  en_strong:
+  - heat loss
+  - power loss
+  - thermal loss
+  - power dissipation
+  - total losses
+  - max power dissipation
+  - heat generation
+  - Ploss
+  en_weak: []
+  cues:
+  - kW
+  std: []
+  exclude:
+  - 低压功耗 W（→#21）
+  - 效率 %（→#41/#56/#66）
+  see:
+  - 72
+  notes:
+  - '见 #72 备注'
+  unverified: []
+  xlsx:
+    example: ≤6.17KW（TBD）
+    desc: 需明确最大热损失限值
+    impact: 影响散热系统设计、冷却能力匹配；超标将导致过温保护
+- id: 73
+  name: 控制器重量
+  group: 环境与材料
+  gloss: 电控总重量目标（含线束、盖板等）
+  zh_strong: []
+  zh_weak:
+  - 控制器重量
+  - 电控重量
+  - 总成重量
+  - 电控总成重量
+  - 重量目标
+  - 目标重量
+  - 质量
+  - 整机重量
+  - 含Boost重量
+  - 不含Boost重量
+  - 重量要求
+  - 重量限值
+  en_strong: []
+  en_weak:
+  - controller weight
+  - inverter weight
+  - weight
+  - mass
+  - weight target
+  - assembly weight
+  - target weight
+  - total weight
+  cues: &id009
+  - kg
+  std: []
+  exclude: &id010
+  - 整车重量
+  - 电机重量（若单列）
+  see:
+  - 101
+  notes:
+  - '源表 #73（≤19.5/≤16 kg）与 #101（25 kg）数值不同，口径可能不同（含/不含 Boost、是否含线束）；不应强制对齐'
+  unverified:
+  - PCM weight [原字典]（PCM 缩写来源不明）
+  xlsx:
+    example: ≤19.5kg（含Boost）/ ≤16kg（不含Boost）
+    desc: 需明确电控总重量目标（含线束、盖板等）
+    impact: 影响结构轻量化设计和材料选型
+- id: 101
+  name: 重量要求
+  group: 环境与材料
+  gloss: 电控总成重量目标值
+  zh_strong: []
+  zh_weak:
+  - 控制器重量
+  - 电控重量
+  - 总成重量
+  - 电控总成重量
+  - 重量目标
+  - 目标重量
+  - 质量
+  - 整机重量
+  - 含Boost重量
+  - 不含Boost重量
+  - 重量要求
+  - 重量限值
+  en_strong: []
+  en_weak:
+  - controller weight
+  - inverter weight
+  - weight
+  - mass
+  - weight target
+  - assembly weight
+  - target weight
+  - total weight
+  cues: *id009
+  std: []
+  exclude: *id010
+  see:
+  - 73
+  notes:
+  - '见 #73'
+  unverified:
+  - PCM weight [原字典]
+  xlsx:
+    example: 25Kg
+    desc: 需明确电控总成重量目标值
+    impact: 影响整车轻量化目标、安装支架设计；超重需调整结构或材料
+- id: 74
+  name: 防腐等级
+  group: 环境与材料
+  gloss: 防腐等级要求
+  zh_strong: []
+  zh_weak:
+  - 防腐等级
+  - 腐蚀等级
+  - 防腐蚀等级
+  - 腐蚀防护等级
+  - 防腐
+  - 防腐蚀
+  - 防腐要求
+  - 盐雾
+  - 盐雾等级
+  - 盐雾试验
+  - 中性盐雾
+  - 循环腐蚀
+  - 耐腐蚀
+  - 腐蚀试验
+  - 表面处理
+  - 涂层
+  en_strong: []
+  en_weak:
+  - corrosion class
+  - corrosion grade
+  - corrosion protection level
+  - corrosion resistance
+  - salt spray
+  - salt fog
+  - NSS
+  - neutral salt spray
+  - cyclic corrosion
+  - CCT
+  - corrosion test
+  cues: &id011
+  - 等级代号（如 F 级）+ 企标号
+  std: &id012
+  - Q/JL J160003-2024 [清单]
+  - ISO 16750-4（盐雾）
+  - GB/T 28046.4
+  - ISO 9227（盐雾试验）
+  - GB/T 10125
+  exclude: &id013
+  - 化学试剂耐受 chemical resistance（ISO 16750-5）
+  - EMC/IP 等级
+  see:
+  - 102
+  notes:
+  - '#74 示例给等级，#102 示例给标准号，二者互补而非重复'
+  unverified: []
+  xlsx:
+    example: F3等级（Q/JL J160003-2024）
+    desc: 需明确防腐等级要求
+    impact: 影响表面处理和涂层设计
+- id: 102
+  name: 防腐要求
+  group: 环境与材料
+  gloss: 防腐要求（腐蚀等级划分与定义，参考 ISO 16750）
+  zh_strong: []
+  zh_weak:
+  - 防腐等级
+  - 腐蚀等级
+  - 防腐蚀等级
+  - 腐蚀防护等级
+  - 防腐
+  - 防腐蚀
+  - 防腐要求
+  - 盐雾
+  - 盐雾等级
+  - 盐雾试验
+  - 中性盐雾
+  - 循环腐蚀
+  - 耐腐蚀
+  - 腐蚀试验
+  - 表面处理
+  - 涂层
+  en_strong: []
+  en_weak:
+  - corrosion class
+  - corrosion grade
+  - corrosion protection level
+  - corrosion resistance
+  - salt spray
+  - salt fog
+  - NSS
+  - neutral salt spray
+  - cyclic corrosion
+  - CCT
+  - corrosion test
+  cues: *id011
+  std: *id012
+  exclude: *id013
+  see:
+  - 74
+  notes:
+  - '见 #74'
+  unverified: []
+  xlsx:
+    example: Q/JL J160003-2024
+    desc: 需明确零部件腐蚀等级划分及定义（参考ISO 16750）
+    impact: 影响涂层/镀层选型、材料选择；不满足将导致使用寿命缩短
+- id: 75
+  name: 振动要求
+  group: 环境与材料
+  gloss: 振动/冲击要求
+  zh_strong:
+  - 振动
+  - 振动要求
+  - 振动谱
+  - 随机振动
+  - 正弦振动
+  - 机械冲击
+  - 冲击
+  - 振动试验
+  - 振动等级
+  - 加速度谱
+  - 功率谱密度
+  - 扫频
+  - 振动耐久
+  - 机械负荷
+  zh_weak: []
+  en_strong:
+  - vibration
+  - random vibration
+  - sine vibration
+  - sinusoidal vibration
+  - vibration profile
+  - PSD
+  - mechanical shock
+  - shock
+  - vibration spectrum
+  - Grms
+  - g rms
+  - mechanical load
+  en_weak: []
+  cues: &id014
+  - g / m/s² / Hz / PSD (g²/Hz)
+  std: &id015
+  - ISO 16750-3
+  - GB/T 28046.3
+  - ISO 19453-3（电驱高压部件机械负荷）
+  exclude: &id016
+  - NVH/噪声
+  - 扭矩振荡/torque ripple
+  see:
+  - 103
+  notes:
+  - '与 #103 同名'
+  unverified: []
+  xlsx:
+    example: ''
+    desc: ''
+    impact: ''
+- id: 103
+  name: 振动要求
+  group: 环境与材料
+  gloss: '同 #75'
+  zh_strong:
+  - 振动
+  - 振动要求
+  - 振动谱
+  - 随机振动
+  - 正弦振动
+  - 机械冲击
+  - 冲击
+  - 振动试验
+  - 振动等级
+  - 加速度谱
+  - 功率谱密度
+  - 扫频
+  - 振动耐久
+  - 机械负荷
+  zh_weak: []
+  en_strong:
+  - vibration
+  - random vibration
+  - sine vibration
+  - sinusoidal vibration
+  - vibration profile
+  - PSD
+  - mechanical shock
+  - shock
+  - vibration spectrum
+  - Grms
+  - g rms
+  - mechanical load
+  en_weak: []
+  cues: *id014
+  std: *id015
+  exclude: *id016
+  see:
+  - 75
+  notes:
+  - '与 #75 重复'
+  unverified: []
+  xlsx:
+    example: 按ISO 16750-3规定条件
+    desc: 需明确振动谱
+    impact: 影响结构强度设计、焊点可靠性；不满足将导致机械疲劳失效
+- id: 76
+  name: EMC等级
+  group: 环境与材料
+  gloss: EMC 等级及测试标准
+  zh_strong:
+  - 电磁兼容
+  - 电磁兼容性
+  - 电磁干扰
+  - 电磁抗扰
+  - 传导发射
+  - 辐射发射
+  - 传导抗扰
+  - 辐射抗扰
+  - 电磁骚扰
+  - 抗扰度
+  - 静电放电
+  - 瞬态传导
+  - 大电流注入
+  - 高压EMC
+  - 电驱EMC
+  - EMC等级
+  - EMC要求
+  - EMC标准
+  zh_weak: []
+  en_strong:
+  - EMC
+  - electromagnetic compatibility
+  - EMI
+  - conducted emission
+  - radiated emission
+  - conducted immunity
+  - radiated immunity
+  - CE
+  - RE
+  - CI
+  - RI
+  - ESD
+  - BCI
+  - transient immunity
+  - EMC level
+  - EMC class
+  en_weak: []
+  cues:
+  - 标准号 + 等级/限值 dBµV
+  std:
+  - Q/JLY J7110922D-2024 [清单]
+  - CISPR 25
+  - ISO 11452 系列
+  - ISO 7637-2/-3
+  - ISO 10605
+  - UN R10 / ECE R10
+  - GB/T 18655
+  - GB/T 33014 系列
+  - GB/T 36282（电驱动系统 EMC）
+  exclude:
+  - 网络安全（→#80）
+  - 功能安全（→#81）
+  see:
+  - 80
+  - 81
+  notes: []
+  unverified: []
+  xlsx:
+    example: Q/JLY J7110922D-2024（高压电驱EMC标准）
+    desc: 需明确EMC等级及测试标准
+    impact: 影响滤波、屏蔽、接地设计
+- id: 96
+  name: 存储温度范围
+  group: 环境与材料
+  gloss: 存储/非工作温度范围
+  zh_strong:
+  - 存储温度
+  - 储存温度
+  - 贮存温度
+  - 存放温度
+  - 运输温度
+  - 非工作温度
+  - 存储温度范围
+  zh_weak: []
+  en_strong:
+  - storage temperature
+  - non-operating temperature
+  - transport temperature
+  - Tstg
+  - storage temp range
+  en_weak: []
+  cues:
+  - ℃ 区间
+  std:
+  - ISO 16750-4
+  - GB/T 28046.4
+  - ISO 19453-4
+  exclude:
+  - 工作温度（→#97）
+  - 冷却液温度（→#111）
+  see:
+  - 97
+  notes: []
+  unverified: []
+  xlsx:
+    example: -40℃~105℃
+    desc: 需明确电控存储温度上下限
+    impact: 影响元器件选型、PCB布局、壳体材料选择；不满足将导致低温启动困难或高温损坏
+- id: 97
+  name: 工作温度范围
+  group: 环境与材料
+  gloss: 工作环境温度范围
+  zh_strong:
+  - 工作温度
+  - 工作温度范围
+  - 工作环境温度
+  - 环境温度
+  - 使用温度
+  - 运行温度
+  - 安装环境温度
+  - 低温工作
+  - 高温工作
+  - 低温启动温度
+  - 环境温度范围
+  zh_weak: []
+  en_strong:
+  - operating temperature
+  - operating temperature range
+  - ambient temperature
+  - Tamb
+  - operating ambient
+  - environmental temperature
+  - low temperature operation
+  - high temperature operation
+  en_weak: []
+  cues:
+  - ℃ 区间
+  std:
+  - ISO 16750-4
+  - GB/T 28046.4
+  - ISO 19453-4
+  exclude:
+  - 存储温度（→#96）
+  - 冷却液温度（→#111）
+  - 结温 Tj / 器件温度（→#94）
+  - 采样温度范围（→#82–#84）
+  see:
+  - 96
+  - 111
+  notes: []
+  unverified:
+  - surface temperature [原字典]（表面温度一般是壳温限值，非环境温度）
+  xlsx:
+    example: -40℃~105℃
+    desc: 需明确电控工作环境温度范围
+    impact: 影响散热设计、功率器件降额策略；超出范围将导致性能下降或保护停机
+- id: 98
+  name: 工作海拔高度
+  group: 环境与材料
+  gloss: 工作海拔要求（影响绝缘/散热）
+  zh_strong:
+  - 海拔
+  - 工作海拔
+  - 海拔高度
+  - 海拔要求
+  - 高原
+  - 高海拔
+  - 气压
+  - 大气压力
+  - 低气压
+  zh_weak: []
+  en_strong:
+  - altitude
+  - operating altitude
+  - elevation
+  - high altitude
+  - atmospheric pressure
+  - air pressure
+  - low pressure
+  - above sea level
+  en_weak: []
+  cues:
+  - m / km / kPa
+  std: []
+  exclude:
+  - 离地高度
+  - 安装高度
+  - 车高
+  see: []
+  notes: []
+  unverified: []
+  xlsx:
+    example: 5000米
+    desc: 需明确电控工作海拔范围要求
+    impact: 影响绝缘设计、散热效率；高海拔可能导致爬电距离不足
+- id: 99
+  name: 存储相对湿度
+  group: 环境与材料
+  gloss: 存储/非工作湿度范围
+  zh_strong:
+  - 存储湿度
+  - 储存湿度
+  - 贮存湿度
+  - 存储相对湿度
+  - 非工作湿度
+  zh_weak: []
+  en_strong:
+  - storage humidity
+  - storage RH
+  - non-operating humidity
+  - storage relative humidity
+  en_weak: []
+  cues:
+  - '%RH 区间'
+  std: []
+  exclude:
+  - 工作湿度（→#100）
+  see:
+  - 100
+  notes: []
+  unverified: []
+  xlsx:
+    example: 相对湿度5%~95%
+    desc: ''
+    impact: ''
+- id: 100
+  name: 湿度要求
+  group: 环境与材料
+  gloss: 工作环境湿度要求（含湿热、凝露）
+  zh_strong:
+  - 湿度
+  - 相对湿度
+  - 工作湿度
+  - 环境湿度
+  - 湿热
+  - 凝露
+  - 结露
+  - 交变湿热
+  - 恒定湿热
+  - 湿度试验
+  - 湿度要求
+  - 湿度范围
+  zh_weak: []
+  en_strong:
+  - humidity
+  - relative humidity
+  - RH
+  - operating humidity
+  - damp heat
+  - condensation
+  - dew
+  - cyclic humidity
+  - humidity test
+  en_weak: []
+  cues:
+  - '%RH'
+  std:
+  - ISO 16750-4
+  - GB/T 28046.4
+  - IEC 60068-2-30（交变湿热）
+  - IEC 60068-2-78（恒定湿热）
+  exclude:
+  - 存储湿度（→#99）
+  see:
+  - 99
+  notes: []
+  unverified: []
+  xlsx:
+    example: 相对湿度5%~95%
+    desc: 需明确工作环境湿度范围
+    impact: 影响防护等级设计、三防漆选型；湿度过高将导致腐蚀和短路
+- id: 104
+  name: 密封（IP等级）
+  group: 环境与材料
+  gloss: 密封要求：IP 防护等级，以及电控-变速箱接合面的油密封（D 列）
+  zh_strong:
+  - 密封
+  - 密封要求
+  - 密封等级
+  - 防护等级
+  - IP等级
+  - 防水
+  - 防尘
+  - 防水防尘
+  - 密封圈
+  - 密封面
+  - 接合面
+  - 结合面
+  - 密封胶
+  - 油封
+  - 漏油
+  - 渗油
+  - 泄漏
+  - 气密
+  - 气密性
+  - 气密测试
+  - 泄漏率
+  - 泄漏测试
+  - 密封性能
+  zh_weak: []
+  en_strong:
+  - sealing
+  - seal
+  - ingress protection
+  - IP rating
+  - IP code
+  - IP67
+  - IP6K7
+  - IP6K9K
+  - IP69K
+  - waterproof
+  - dust proof
+  - gasket
+  - O-ring
+  - sealing surface
+  - mating surface
+  - oil leakage
+  - leak test
+  - leak rate
+  - air tightness
+  - pressure decay
+  en_weak: []
+  cues:
+  - IPxx 代号 / 泄漏率 / 压力
+  std:
+  - ISO 20653
+  - IEC 60529
+  - GB/T 4208
+  - GB/T 30038
+  exclude:
+  - IPXXB 触指防护（→#109）
+  - 高压连接器
+  see:
+  - 109
+  notes:
+  - '原字典 #104 与 #109 共用 IPXXB，属别名冲突；IPXXB 是防触指代号，应只归 #109'
+  unverified: []
+  xlsx:
+    example: 待明确（密封圈选型、壳体加工精度）
+    desc: 需明确电控与变速箱接合面的密封要求
+    impact: 影响密封圈选型、壳体加工精度；不满足将导致油液泄漏
+- id: 105
+  name: 清洁度要求
+  group: 环境与材料
+  gloss: 电控内部技术清洁度（颗粒物）要求
+  zh_strong:
+  - 清洁度
+  - 清洁度要求
+  - 清洁度等级
+  - 技术清洁度
+  - 颗粒物
+  - 颗粒度
+  - 污染度
+  - 残余颗粒
+  - 残留物
+  - 异物
+  - 洁净度
+  - 装配环境
+  - 内部清洁度
+  - 颗粒尺寸
+  - 最大颗粒
+  zh_weak: []
+  en_strong:
+  - cleanliness
+  - technical cleanliness
+  - particle
+  - particle size
+  - contamination
+  - residual particles
+  - foreign matter
+  - cleanliness class
+  - particle count
+  en_weak: []
+  cues:
+  - mg / 颗粒尺寸 µm / 等级
+  std:
+  - Q/JLE J2100002-2026 [清单]
+  - ISO 16232
+  - VDA 19
+  exclude:
+  - 表面清洁/清洗工艺
+  - 冷却液清洁度
+  see: []
+  notes: []
+  unverified: []
+  xlsx:
+    example: Q/JLE J2100002-2026
+    desc: 需明确电控内部清洁度等级要求
+    impact: 影响内部颗粒物控制、装配环境要求；不满足将导致绝缘性能下降或短路风险
+- id: 106
+  name: 阻燃要求
+  group: 环境与材料
+  gloss: 材料阻燃等级要求
+  zh_strong:
+  - 阻燃
+  - 阻燃等级
+  - 阻燃要求
+  - 燃烧特性
+  - 燃烧等级
+  - 防火
+  - 耐燃
+  - 难燃
+  - 可燃性
+  - 燃烧试验
+  - 材料阻燃
+  - 垂直燃烧
+  - 水平燃烧
+  - 阻燃材料
+  zh_weak: []
+  en_strong:
+  - flammability
+  - flame retardant
+  - flame retardancy
+  - fire resistance
+  - UL 94
+  - UL94
+  - V-0
+  - V-1
+  - V-2
+  - HB
+  - burning rate
+  - combustion
+  - flame rating
+  en_weak: []
+  cues:
+  - UL94 等级代号 / mm/min
+  std:
+  - Q/JLY J7210870B-2024 [清单]
+  - UL 94
+  - GB 8410
+  - FMVSS 302
+  - ISO 3795
+  exclude:
+  - 热失控 thermal runaway（电池）
+  see: []
+  notes: []
+  unverified: []
+  xlsx:
+    example: Q/JLY J7210870B-2024
+    desc: 需明确电控材料阻燃等级要求
+    impact: 影响材料选型、安全性设计；不满足将导致火灾风险
+- id: 107
+  name: 寿命要求
+  group: 环境与材料
+  gloss: 设计寿命与质保要求
+  zh_strong:
+  - 寿命
+  - 寿命要求
+  - 设计寿命
+  - 使用寿命
+  - 服役寿命
+  - 质保
+  - 质保期
+  - 保修
+  - 保修期
+  - 里程
+  - 万公里
+  - 运行小时
+  - 耐久
+  - 耐久性
+  - 可靠性
+  - 可靠性目标
+  - 失效率
+  - 寿命里程
+  - 整车寿命
+  zh_weak: []
+  en_strong:
+  - lifetime
+  - service life
+  - design life
+  - durability
+  - warranty
+  - warranty period
+  - mileage
+  - operating hours
+  - reliability target
+  - B10 life
+  - MTBF
+  - FIT
+  - ppm
+  - qualification life
+  - lifetime target
+  en_weak: []
+  cues:
+  - 年 / 万 km / h / ppm
+  std:
+  - Q/JLY J7111825B-2024 [清单]
+  - GB/T 29307（驱动电机系统可靠性试验）
+  exclude:
+  - 元器件寿命评估/电容寿命（E 列套话或器件级）
+  - 循环次数（电池）
+  see: []
+  notes: []
+  unverified: []
+  xlsx:
+    example: Q/JLY J7111825B-2024；质保：16万KM & 10年
+    desc: 需明确电控设计寿命及质保要求
+    impact: 影响元器件寿命评估、降额设计；不满足将导致提前失效
+- id: 108
+  name: 禁用、限用物质
+  group: 环境与材料
+  gloss: 禁用/限用物质清单与限值
+  zh_strong:
+  - 禁用物质
+  - 限用物质
+  - 禁用限用物质
+  - 禁限用物质
+  - 有害物质
+  - 有毒有害物质
+  - 环保物质
+  - 环保要求
+  - 材料申报
+  - 材料数据
+  - 重金属
+  - 铅
+  - 镉
+  - 汞
+  - 六价铬
+  - 多溴联苯
+  - 多溴二苯醚
+  - 邻苯二甲酸酯
+  - 全氟
+  - 卤素
+  - 无卤
+  zh_weak: []
+  en_strong:
+  - prohibited substances
+  - restricted substances
+  - hazardous substances
+  - substances of concern
+  - ELV
+  - ELV directive
+  - IMDS
+  - GADSL
+  - RoHS
+  - REACH
+  - SVHC
+  - PFAS
+  - lead
+  - cadmium
+  - mercury
+  - hexavalent chromium
+  - halogen-free
+  - CAMDS
+  - material declaration
+  en_weak: []
+  cues:
+  - ppm / wt% / 标准号
+  std:
+  - Q/JL J160001-2026 [清单]
+  - ELV 2000/53/EC
+  - GB/T 30512
+  - RoHS 2011/65/EU
+  - REACH
+  exclude:
+  - 冷却液成分
+  see: []
+  notes: []
+  unverified: []
+  xlsx:
+    example: Q/JL J160001-2026
+    desc: 需明确禁用和限用物质清单及限值要求
+    impact: 影响材料选型、供应链管控；不满足将导致法规不合规
+- id: 109
+  name: 高压连接器保护
+  group: 环境与材料
+  gloss: 高压连接器防直接接触（触指防护）要求
+  zh_strong:
+  - 高压连接器防护
+  - 高压连接器保护
+  - 触指防护
+  - 防触指
+  - 防直接接触
+  - 直接接触防护
+  - 手指探针
+  - 试指
+  - 高压防护
+  - 高压互锁
+  - 高压警示
+  - 高压标识
+  - 橙色标识
+  zh_weak: []
+  en_strong:
+  - HV connector protection
+  - finger protection
+  - touch protection
+  - finger proof
+  - direct contact protection
+  - IPXXB
+  - IPXXD
+  - jointed test finger
+  - test probe
+  - HVIL
+  - high voltage interlock
+  - HV warning label
+  en_weak: []
+  cues:
+  - IPXXB / IPXXD 代号
+  std:
+  - GB 18384
+  - ISO 6469-3
+  - ISO 20653（IPXXB 定义）
+  - GB/T 30038
+  exclude:
+  - 过压保护（→#9）
+  - 低压连接器
+  - IP67/IP6K9K 防水防尘（→#104）
+  see:
+  - 104
+  notes:
+  - HVIL（高压互锁）是相关但独立的功能，清单未列；作为上下文线索而非同义词
+  unverified: []
+  xlsx:
+    example: IPXXB（防直接接触高压）
+    desc: 需明确高压连接器防护要求
+    impact: 影响安全设计；不满足将导致高压安全风险
+- id: 77
+  name: 扭矩响应时间
+  group: 采样与控制
+  gloss: 扭矩指令到实际输出的阶跃响应时间（10%~90%）
+  zh_strong:
+  - 扭矩响应时间
+  - 转矩响应时间
+  - 扭矩响应
+  - 转矩响应
+  - 阶跃响应
+  - 响应时间（扭矩）
+  - 上升时间
+  - 扭矩上升时间
+  - 扭矩建立时间
+  - 扭矩动态响应
+  - 扭矩爬升
+  - 扭矩响应速度
+  - 转矩动态
+  zh_weak: []
+  en_strong:
+  - torque response time
+  - torque response
+  - step response
+  - rise time
+  - torque rise time
+  - torque build-up time
+  - torque dynamics
+  - settling time
+  - 10%-90%
+  - torque bandwidth
+  en_weak: []
+  cues:
+  - ms + 10%~90%
+  std: []
+  exclude:
+  - 扭矩精度（→#78/#89）
+  - 采样延时 ms（→#82–#88）
+  - Boost 响应时间（→#65）
+  - 通讯延时
+  see:
+  - 78
+  - 89
+  notes: []
+  unverified: []
+  xlsx:
+    example: 阶跃响应≤50ms（10%~90%）
+    desc: 需明确扭矩指令到实际输出的响应时间
+    impact: 决定控制带宽、驾驶性、模式切换平顺性
+- id: 78
+  name: 扭矩控制精度
+  group: 采样与控制
+  gloss: 扭矩控制精度，按稳态/动态给百分比
+  zh_strong: []
+  zh_weak:
+  - 扭矩控制精度
+  - 转矩控制精度
+  - 扭矩精度
+  - 转矩精度
+  - 扭矩误差
+  - 转矩误差
+  - 稳态精度
+  - 动态精度
+  - 稳态误差
+  - 动态误差
+  - 扭矩偏差
+  - 扭矩准确度
+  - 扭矩容差
+  - 扭矩输出精度
+  en_strong: []
+  en_weak:
+  - torque control accuracy
+  - torque accuracy
+  - torque error
+  - steady-state accuracy
+  - dynamic accuracy
+  - torque deviation
+  - torque tolerance
+  - torque precision
+  cues:
+  - ±% + 稳态/动态
+  std: []
+  exclude: &id017
+  - 扭矩估算精度/扭矩监控精度（功能安全语境，不同指标）
+  - 采样精度（→#90–#94）
+  - 扭矩响应（→#77）
+  see:
+  - 89
+  - 77
+  notes:
+  - '与 #89 区分规则：按稳态/动态分的百分比→#78；按扭矩区间分的绝对值 Nm→#89；若规格只给一种，两条同源填写并注明'
+  unverified: []
+  xlsx:
+    example: 稳态±3%，动态±5%
+    desc: 需明确各工况下扭矩控制精度要求
+    impact: 决定控制算法精度、传感器选型、驾驶性评价
+- id: 89
+  name: 转矩控制精度
+  group: 采样与控制
+  gloss: 转矩控制精度，按扭矩区间给绝对值/百分比
+  zh_strong: []
+  zh_weak:
+  - 扭矩控制精度
+  - 转矩控制精度
+  - 扭矩精度
+  - 转矩精度
+  - 扭矩误差
+  - 转矩误差
+  - 稳态精度
+  - 动态精度
+  - 稳态误差
+  - 动态误差
+  - 扭矩偏差
+  - 扭矩准确度
+  - 扭矩容差
+  - 扭矩输出精度
+  en_strong: []
+  en_weak:
+  - torque control accuracy
+  - torque accuracy
+  - torque error
+  - steady-state accuracy
+  - dynamic accuracy
+  - torque deviation
+  - torque tolerance
+  - torque precision
+  cues:
+  - ±Nm 分区间（0~5 / 5~10 / 10~100 / >100 Nm）
+  std: []
+  exclude: *id017
+  see:
+  - 78
+  notes:
+  - '见 #78'
+  unverified: []
+  xlsx:
+    example: ±1Nm(0~5Nm)；±2Nm(5~10Nm)；±3Nm(10~100Nm)；±3%Nm(>100Nm)
+    desc: 需明确不同转矩区间的控制精度要求
+    impact: 影响电流环控制算法、采样精度设计；不满足将导致驾驶性差
+- id: 82
+  name: 油温采样温度范围/采样精度/延时
+  group: 采样与控制
+  gloss: 变速箱油温采样：范围、分区精度、延时
+  zh_strong:
+  - 油温
+  - 油温采样
+  - 油温传感器
+  - 变速箱油温
+  - 油温范围
+  - 油温精度
+  - 油温延时
+  - 油温NTC
+  - 油温信号
+  - 油温采样精度
+  - 润滑油温度
+  zh_weak: []
+  en_strong:
+  - oil temperature
+  - oil temp sensor
+  - transmission oil temperature
+  - ATF temperature
+  - oil temperature sensing
+  - oil temp accuracy
+  - oil temp delay
+  - oil NTC
+  en_weak: []
+  cues:
+  - ℃ 区间 + ±℃ 分区 + ms
+  std: []
+  exclude:
+  - 电机温度（→#93）
+  - IGBT 温度（→#94）
+  - 环境温度（→#97）
+  - 水温（→#83/#84）
+  - 油压（→#88）
+  see:
+  - 83
+  - 88
+  notes: []
+  unverified: []
+  xlsx:
+    example: 范围：-50℃~130℃；延时≤9ms；采样精度[-50℃， 0℃)：±6℃；[0℃， 130℃]：±4℃
+    desc: 采样精度可分温度区间定义不同需求
+    impact: 影响硬件电路选型及参数设计
+- id: 83
+  name: 电驱回路水温/采样精度/延时
+  group: 采样与控制
+  gloss: 电驱冷却回路水温采样：范围、精度、延时
+  zh_strong:
+  - 电驱回路水温
+  - 电驱水温
+  - 电驱冷却回路温度
+  - 电机回路水温
+  - 电控回路水温
+  - 水温采样
+  - 水温传感器
+  - 冷却液温度采样
+  - 进水温度采样
+  - 水温精度
+  - 水温延时
+  - 水温信号
+  - 电驱回路温度
+  zh_weak: []
+  en_strong:
+  - e-drive coolant temperature
+  - drive loop coolant temperature
+  - coolant temperature sensing
+  - water temperature sensor
+  - coolant temp sensor
+  - coolant temp accuracy
+  - coolant temp delay
+  en_weak: []
+  cues:
+  - ℃ 区间 + ±℃ + ms
+  std: []
+  exclude:
+  - 电机温度（→#93）
+  - IGBT 温度（→#94）
+  - 环境温度（→#97）
+  - 电池回路（→#84）
+  - 冷却液温度工作范围（→#111，运行条件非采样）
+  see:
+  - 84
+  - 111
+  notes: []
+  unverified:
+  - EWP inlet temperature [原字典]（EWP=电子水泵，是否在电驱回路需看系统图）
+  xlsx:
+    example: 范围：-50℃~130℃；延时≤9ms；采样精度[-50℃， 0℃)：±6℃；[0℃， 130℃]：±4℃
+    desc: 采样精度可分温度区间定义不同需求
+    impact: 影响硬件电路选型及参数设计
+- id: 84
+  name: 电池回路出入水口水温/采样精度/延时
+  group: 采样与控制
+  gloss: 电池冷却回路进/出水口水温采样：范围、精度、延时
+  zh_strong:
+  - 电池回路水温
+  - 电池回路温度
+  - 电池冷却回路
+  - 电池冷却液温度
+  - 出水口温度
+  - 入水口温度
+  - 进出水口水温
+  - 电池回路进出口
+  - 电池水温
+  - 电池回路出入水口
+  zh_weak: []
+  en_strong:
+  - battery loop coolant temperature
+  - battery coolant temperature
+  - battery cooling loop
+  - inlet coolant temperature
+  - outlet coolant temperature
+  - battery loop inlet
+  - battery loop outlet
+  en_weak: []
+  cues:
+  - ℃ 区间 + ±℃ + ms（两路）
+  std: []
+  exclude:
+  - 电机温度（→#93）
+  - IGBT 温度（→#94）
+  - 环境温度（→#97）
+  - 电驱回路（→#83）
+  see:
+  - 83
+  notes: []
+  unverified: []
+  xlsx:
+    example: 范围：-50℃~130℃；延时≤9ms；采样精度[-50℃， 0℃)：±6℃；[0℃， 130℃]：±4℃
+    desc: 采样精度可分温度区间定义不同需求
+    impact: 影响硬件电路选型及参数设计
+- id: 85
+  name: CPSR电压范围/采样精度/延时
+  group: 采样与控制
+  gloss: CPSR 信号电压采样：范围（0~16V）、精度、延时；并要求区分"仅保证采样"与"正常使用"区段
+  zh_strong:
+  - CPSR电压
+  - CPSR采样
+  - CPSR范围
+  - CPSR精度
+  - CPSR延时
+  zh_weak: []
+  en_strong:
+  - CPSR
+  - CPSR voltage
+  - CPSR sense
+  - CPSR sensing accuracy
+  en_weak: []
+  cues:
+  - V 0~16 + max{V, %} + ms
+  std: []
+  exclude:
+  - 低压电源范围（→#20）
+  - 低压采样精度（→#92）
+  - 踏板电压（→#86）
+  see:
+  - 20
+  - 92
+  - 86
+  notes:
+  - CPSR 缩写清单未定义（0~16V 与 12V 域一致）；原字典 "analog supply sense" 为推测，建议向甲方确认后再扩展
+  unverified:
+  - analog supply sense [原字典]
+  xlsx:
+    example: 范围：0~16V；采样精度：max{0.4V,4.5%}；延时≤3ms
+    desc: 电压范围需要说明哪些区间段仅保证采样即可，以及哪些区段是正常使用的
+    impact: 影响硬件电路选型及参数设计
+- id: 86
+  name: 加速踏板模拟量电压范围/采样精度/延时
+  group: 采样与控制
+  gloss: 加速踏板模拟量输入：电压范围、精度、延时；区分仅采样区段与正常区段
+  zh_strong:
+  - 加速踏板
+  - 油门踏板
+  - 踏板模拟量
+  - 踏板电压
+  - 踏板模拟电压
+  - 踏板信号
+  - 踏板位置传感器
+  - 加速踏板位置
+  - 踏板开度
+  - 模拟量输入
+  - 模拟量采样
+  - 踏板双路
+  - 主副踏板
+  - 踏板采样精度
+  zh_weak: []
+  en_strong:
+  - accelerator pedal
+  - APP
+  - accelerator pedal position
+  - pedal analog voltage
+  - pedal signal
+  - analog input
+  - throttle pedal
+  - APS
+  - pedal sensor
+  - pedal analog
+  en_weak: []
+  cues:
+  - V 0~5(.5) + max{V, %} + ms
+  std: []
+  exclude:
+  - PWM 踏板（→#87）
+  - CPSR（→#85）
+  - 制动踏板 brake pedal
+  see:
+  - 87
+  notes: []
+  unverified: []
+  xlsx:
+    example: 范围：0~5.5V；采样精度：max{0.1V,1.5%}，延时≤9ms
+    desc: 电压范围需要说明哪些区间段仅保证采样即可，以及哪些区段是正常使用的
+    impact: 影响硬件电路选型及参数设计
+- id: 87
+  name: 加速踏板PWM频率/占空比/高低电平范围
+  group: 采样与控制
+  gloss: 加速踏板 PWM 输入：频率、占空比、高/低电平范围
+  zh_strong:
+  - 踏板PWM
+  - PWM踏板
+  - PWM信号
+  - PWM频率
+  - PWM占空比
+  - 占空比
+  - 占空比范围
+  - 高电平
+  - 低电平
+  - 高低电平
+  - 电平范围
+  - PWM输入
+  - 数字踏板信号
+  - 频率范围（PWM）
+  zh_weak: []
+  en_strong:
+  - pedal PWM
+  - PWM input
+  - PWM frequency
+  - duty cycle
+  - duty ratio
+  - high level
+  - low level
+  - logic high
+  - logic low
+  - PWM signal
+  - PWM pedal
+  en_weak: []
+  cues:
+  - Hz + % + V（高/低）
+  std: []
+  exclude:
+  - 升压开关频率 kHz（→#69）
+  - 电机 PWM/逆变器载波
+  - 油压高低电平（→#88）
+  see:
+  - 86
+  - 69
+  - 88
+  notes: []
+  unverified: []
+  xlsx:
+    example: 频率范围：130Hz~270Hz；高电平范围：8~16V，低电平范围0~0.5V,占空比范围6%~83%
+    desc: /
+    impact: 影响硬件电路选型及参数设计
+- id: 88
+  name: 油压采样高低电平范围/延时
+  group: 采样与控制
+  gloss: 油压开关（数字量）输入：高/低电平范围、延时
+  zh_strong:
+  - 油压
+  - 油压信号
+  - 油压开关
+  - 油压采样
+  - 油压高低电平
+  - 油压数字量
+  - 油压传感器
+  - 压力开关
+  - 油压输入
+  - 数字量输入
+  - 开关量输入
+  - 油压检测
+  zh_weak: []
+  en_strong:
+  - oil pressure
+  - oil pressure switch
+  - oil pressure signal
+  - pressure switch
+  - digital input
+  - oil pressure sensing
+  - oil pressure high/low level
+  en_weak: []
+  cues:
+  - V 高/低电平 + ms
+  std: []
+  exclude:
+  - 冷却回路压降（→#71）
+  - 油温（→#82）
+  - 电压压降
+  see:
+  - 82
+  - 87
+  notes: []
+  unverified: []
+  xlsx:
+    example: 高电平范围：4~4.5V，低电平范围0~0.5V,延时≤3ms
+    desc: /
+    impact: 影响硬件电路选型及参数设计
+- id: 90
+  name: 相电流采样精度
+  group: 采样与控制
+  gloss: 相电流采样精度（生命周期/下线标定后）
+  zh_strong:
+  - 相电流采样精度
+  - 相电流精度
+  - 电流采样精度
+  - 电流传感器精度
+  - 相电流误差
+  - 电流检测精度
+  - 电流采样误差
+  - 电流精度要求
+  - 霍尔电流传感器
+  - 电流传感器
+  - 下线标定
+  - 生命周期精度
+  - 相电流传感器
+  zh_weak: []
+  en_strong:
+  - phase current accuracy
+  - phase current sensing accuracy
+  - current sensor accuracy
+  - current measurement accuracy
+  - current sensing error
+  - Hall current sensor
+  - shunt
+  - end-of-line calibration
+  - EOL calibration
+  - over lifetime
+  - current sense accuracy
+  en_weak: []
+  cues:
+  - ±A / ±% 分电流区间
+  std: []
+  exclude:
+  - 母线电流检测（→#10）
+  - ASC/额定/峰值电流值本身（→#42/#43/#44）
+  see:
+  - 10
+  - 58
+  notes: []
+  unverified: []
+  xlsx:
+    example: ±3%(>100A)或±3A(0~100A)
+    desc: 需明确相电流采样精度要求（生命周期和下线标定后）
+    impact: 影响ADC选型、电流传感器精度；不满足将导致转矩控制精度下降
+- id: 91
+  name: 母线电压采样精度
+  group: 采样与控制
+  gloss: 高压母线电压采样精度（分电压区间）
+  zh_strong:
+  - 母线电压采样精度
+  - 母线电压精度
+  - 直流电压采样精度
+  - 高压采样精度
+  - 母线电压检测精度
+  - 电压采样误差
+  - 高压采样
+  - 母线电压传感器
+  - 电压检测精度
+  - 直流电压检测
+  - 高压电压采样
+  zh_weak: []
+  en_strong:
+  - DC link voltage sensing accuracy
+  - DC bus voltage accuracy
+  - HV voltage sensing accuracy
+  - voltage measurement accuracy
+  - HVDC sense accuracy
+  - DC voltage sense
+  - bus voltage accuracy
+  en_weak: []
+  cues:
+  - ±V / ±% 分电压区间
+  std: []
+  exclude:
+  - 工作电压范围（→#5）
+  - 低压采样（→#92）
+  - 过压阈值（→#9）
+  see:
+  - 5
+  - 92
+  notes: []
+  unverified: []
+  xlsx:
+    example: <100V：±3V；100~300V：±2%；>300V：±1%
+    desc: 需明确母线电压采样精度要求（分电压区间）
+    impact: 影响电压传感器选型、ADC精度；不满足将导致过压/欠压保护误动作
+- id: 92
+  name: 低压供电电源电压采样精度
+  group: 采样与控制
+  gloss: 低压（KL30）供电电压采样精度
+  zh_strong:
+  - 低压采样精度
+  - 低压电压采样精度
+  - 低压供电采样
+  - KL30采样精度
+  - 蓄电池电压采样
+  - 12V采样
+  - 电源电压检测精度
+  - 低压电压检测
+  - 低压监测精度
+  - 低压供电电压采样
+  - 电源电压采样
+  zh_weak: []
+  en_strong:
+  - LV supply voltage sensing accuracy
+  - KL30 sense accuracy
+  - 12 V sense
+  - battery voltage measurement accuracy
+  - supply voltage monitoring accuracy
+  - LV sense accuracy
+  en_weak: []
+  cues:
+  - ±V / ±% 分区间（4.5~10 / 10~30 V）
+  std: []
+  exclude:
+  - 低压工作范围（→#20）
+  - CPSR（→#85）
+  - 踏板电压（→#86）
+  see:
+  - 20
+  - 85
+  notes: []
+  unverified: []
+  xlsx:
+    example: 4.5V~10V：≤0.4V；10V~30V：±4%
+    desc: 需明确低压供电电源电压采样精度要求
+    impact: 影响低压ADC采样电路设计；不满足将导致欠压/过压判断错误
+- id: 93
+  name: 电机温度采样精度
+  group: 采样与控制
+  gloss: 电机（绕组/定子）温度采样精度
+  zh_strong:
+  - 电机温度采样精度
+  - 电机温度精度
+  - 电机温度采样
+  - 绕组温度
+  - 定子温度
+  - 电机温度传感器
+  - 电机NTC
+  - 绕组温度传感器
+  - 定子绕组温度
+  - 电机温度检测
+  - 电机温度采样误差
+  zh_weak: []
+  en_strong:
+  - motor temperature sensing accuracy
+  - motor temp accuracy
+  - winding temperature
+  - stator temperature
+  - motor temperature sensor
+  - PT1000
+  - PT100
+  - KTY
+  - NTC
+  - EM temperature
+  - stator winding temperature
+  en_weak: []
+  cues:
+  - ±℃ 分温度区间
+  std: []
+  exclude:
+  - IGBT/模块温度（→#94）
+  - 油温（→#82）
+  - 水温（→#83/#84）
+  - 转子温度估算
+  see:
+  - 94
+  - 82
+  notes: []
+  unverified: []
+  xlsx:
+    example: '>100℃：±3℃；-40℃~100℃：±5℃'
+    desc: 需明确电机温度采样精度要求（分温度区间）
+    impact: 影响温度传感器选型、采样电路设计；不满足将导致过温保护误动作
+- id: 94
+  name: IGBT温度采样精度
+  group: 采样与控制
+  gloss: 功率模块（IGBT/SiC）温度采样精度
+  zh_strong:
+  - IGBT温度
+  - IGBT温度采样精度
+  - IGBT温度采样
+  - 模块温度
+  - 功率模块温度
+  - 模块NTC
+  - IGBT NTC
+  - 芯片温度
+  - 结温估算
+  - 结温
+  - 功率器件温度
+  - SiC温度
+  - 模块温度采样
+  - 模块温度精度
+  zh_weak: []
+  en_strong:
+  - IGBT temperature sensing accuracy
+  - IGBT temperature
+  - module temperature
+  - power module temperature
+  - module NTC
+  - junction temperature
+  - Tj estimation
+  - Tvj
+  - chip temperature
+  - SiC module temperature
+  - NTC accuracy
+  en_weak: []
+  cues:
+  - ±℃ 分温度区间
+  std: []
+  exclude:
+  - 电机温度（→#93）
+  - 环境温度（→#97）
+  - 结温限值 Tjmax（器件限值，非采样精度）
+  see:
+  - 93
+  notes: []
+  unverified: []
+  xlsx:
+    example: '[25~135℃]：±3℃；[-10~25℃]：±5℃；[-40~-10℃]：±10℃'
+    desc: 需明确IGBT温度采样精度要求（分温度区间）
+    impact: 影响NTC选型、温度采样电路设计；不满足将导致结温估算偏差
+- id: 114
+  name: 通讯方式
+  group: 采样与控制
+  gloss: 电控支持的通讯接口/总线类型
+  zh_strong:
+  - 通讯方式
+  - 通信方式
+  - 通讯接口
+  - 通信接口
+  - 总线
+  - 总线类型
+  - 网络接口
+  - CAN总线
+  - 高速CAN
+  - 以太网
+  - 车载以太网
+  - 百兆以太网
+  - 通讯协议
+  - 通信协议
+  - 波特率
+  - 通讯需求
+  zh_weak: []
+  en_strong:
+  - communication interface
+  - communication protocol
+  - bus interface
+  - CAN
+  - CAN FD
+  - CAN-FD
+  - CANFD
+  - high-speed CAN
+  - LIN
+  - FlexRay
+  - Ethernet
+  - automotive Ethernet
+  - 100BASE-T1
+  - 1000BASE-T1
+  - baud rate
+  - bit rate
+  - network interface
+  en_weak: []
+  cues:
+  - 接口名列表 + kbps/Mbps
+  std:
+  - ISO 11898（CAN）
+  - ISO 17458（FlexRay）
+  - ISO 17987（LIN）
+  - IEEE 802.3bw（100BASE-T1）
+  exclude:
+  - 通讯保持电压 16~18V（→#20）
+  - 安全通信 SecOC（→#80）
+  - 诊断/标定协议 UDS/XCP（协议层，不是接口）
+  see:
+  - 20
+  - 80
+  notes: []
+  unverified: []
+  xlsx:
+    example: CAN / CAN FD / LIN / 以太网
+    desc: 需明确电控支持的通讯方式
+    impact: 影响硬件通信接口设计、软件协议栈开发；不匹配将导致通信失败
+- id: 79
+  name: 速比
+  group: 整机
+  gloss: P1/P3 到轮端的传动比
+  zh_strong:
+  - 速比
+  - 传动比
+  - 减速比
+  - 齿比
+  - P1传动比
+  - P3传动比
+  - 电机到轮端速比
+  - 总传动比
+  - 主减速比
+  - 减速器速比
+  - 总速比
+  zh_weak: []
+  en_strong:
+  - gear ratio
+  - transmission ratio
+  - reduction ratio
+  - speed ratio
+  - drive ratio
+  - final drive ratio
+  - motor-to-wheel ratio
+  - overall ratio
+  en_weak: []
+  cues:
+  - 无量纲 x.xx（分 P1/P3）
+  std: []
+  exclude:
+  - 占空比（→#87）
+  - 弱磁比
+  - 功率比
+  see: []
+  notes: []
+  unverified: []
+  xlsx:
+    example: P1传动比x.x，P3传动比y.y
+    desc: 需明确P1/P3到轮端的传动比
+    impact: 决定转速-车速映射关系、扭矩折算、换挡策略
+- id: 95
+  name: 电机类型
+  group: 整机
+  gloss: 电机类型（PMSM）及绝缘电压等级/电气间隙要求
+  zh_strong:
+  - 电机类型
+  - 电机型式
+  - 电机形式
+  - 永磁同步
+  - 永磁同步电机
+  - 永磁电机
+  - 内置式永磁
+  - 内嵌式永磁
+  - 表贴式永磁
+  - 感应电机
+  - 异步电机
+  - 励磁电机
+  - 电励磁同步
+  - 绕组形式
+  - 扁线
+  - 发卡绕组
+  - 极对数
+  - 极数
+  - 槽数
+  - 绝缘电压等级
+  - 绝缘等级
+  - 电气间隙
+  - 爬电距离
+  - 绕组绝缘
+  - 电机绝缘
+  zh_weak: []
+  en_strong:
+  - motor type
+  - PMSM
+  - IPM
+  - IPMSM
+  - SPM
+  - permanent magnet synchronous motor
+  - induction motor
+  - IM
+  - ACIM
+  - EESM
+  - wound rotor synchronous
+  - hairpin
+  - pole pairs
+  - number of poles
+  - slots
+  - insulation class
+  - insulation voltage level
+  - insulation voltage
+  - clearance
+  - creepage
+  - winding insulation
+  en_weak: []
+  cues:
+  - 类型词 + 绝缘电压 V
+  std: []
+  exclude:
+  - P1/P3 性能数值句（功率/扭矩/转速）
+  see:
+  - 14
+  - 13
+  notes: []
+  unverified: []
+  xlsx:
+    example: PMSM（650V）（电气间隙）
+    desc: 需明确电机类型（PMSM永磁同步电机），以及绝缘电压等级要求
+    impact: 电机类型决定控制策略、绕组设计和效率特性；
+- id: 80
+  name: 网络安全要求
+  group: 安全与功能
+  gloss: 网络安全等级（CAL）要求
+  zh_strong:
+  - 网络安全
+  - 信息安全
+  - 网络安全等级
+  - 网络安全要求
+  - 安全启动
+  - 安全通信
+  - 密钥管理
+  - 安全刷写
+  - 安全诊断
+  - 安全访问
+  - 入侵检测
+  - 硬件安全模块
+  - 防篡改
+  - 安全存储
+  - 网络安全认证
+  zh_weak: []
+  en_strong:
+  - cybersecurity
+  - cyber security
+  - CAL
+  - cybersecurity assurance level
+  - secure boot
+  - secure communication
+  - SecOC
+  - key management
+  - secure flash
+  - secure diagnostics
+  - HSM
+  - hardware security module
+  - TARA
+  - IDS
+  - intrusion detection
+  en_weak: []
+  cues: &id018
+  - CAL 等级 1~4
+  std: &id019
+  - ISO/SAE 21434
+  - UN R155
+  - GB 44495-2024
+  - GB/T 40861
+  exclude: &id020
+  - 功能安全 ASIL（→#81）
+  - 高压安全（→#12–#19）
+  see:
+  - 118
+  - 81
+  notes:
+  - '与 #118 同名同值'
+  unverified: []
+  xlsx:
+    example: CAL 3
+    desc: 需明确网络安全等级要求
+    impact: 影响安全启动、安全通信、密钥管理设计；不满足将导致网络安全认证失败
+- id: 118
+  name: 网络安全要求
+  group: 安全与功能
+  gloss: '同 #80'
+  zh_strong:
+  - 网络安全
+  - 信息安全
+  - 网络安全等级
+  - 网络安全要求
+  - 安全启动
+  - 安全通信
+  - 密钥管理
+  - 安全刷写
+  - 安全诊断
+  - 安全访问
+  - 入侵检测
+  - 硬件安全模块
+  - 防篡改
+  - 安全存储
+  - 网络安全认证
+  zh_weak: []
+  en_strong:
+  - cybersecurity
+  - cyber security
+  - CAL
+  - cybersecurity assurance level
+  - secure boot
+  - secure communication
+  - SecOC
+  - key management
+  - secure flash
+  - secure diagnostics
+  - HSM
+  - hardware security module
+  - TARA
+  - IDS
+  - intrusion detection
+  en_weak: []
+  cues: *id018
+  std: *id019
+  exclude: *id020
+  see:
+  - 80
+  notes:
+  - '与 #80 重复'
+  unverified: []
+  xlsx:
+    example: CAL 3
+    desc: 需明确网络安全等级要求
+    impact: 影响安全启动、安全通信、密钥管理设计；不满足将导致网络安全认证失败
+- id: 81
+  name: 功能安全
+  group: 安全与功能
+  gloss: 功能安全等级（ASIL）要求
+  zh_strong:
+  - 功能安全
+  - 功能安全等级
+  - 安全等级（ASIL）
+  - 安全目标
+  - 安全需求
+  - 安全机制
+  - 安全状态
+  - 危害分析
+  - 危害分析与风险评估
+  - 硬件冗余
+  - 双核锁步
+  - 监控层
+  - 三层监控
+  - 扭矩监控
+  - 安全扭矩关断
+  - 失效模式
+  - 功能安全认证
+  - 安全完整性等级
+  zh_weak: []
+  en_strong:
+  - functional safety
+  - ISO 26262
+  - ASIL
+  - ASIL A
+  - ASIL B
+  - ASIL C
+  - ASIL D
+  - QM
+  - safety goal
+  - safety requirement
+  - safety mechanism
+  - safe state
+  - HARA
+  - hazard analysis
+  - FMEA
+  - FMEDA
+  - FTA
+  - SPFM
+  - LFM
+  - PMHF
+  - lockstep
+  - E-Gas
+  - torque monitoring
+  - STO
+  - safe torque off
+  - FuSa
+  en_weak: []
+  cues:
+  - ASIL A/B/C/D / QM
+  std:
+  - ISO 26262
+  - GB/T 34590
+  exclude:
+  - 网络安全（→#80）
+  - 高压安全
+  - ASC 作为安全状态（→#40/#55，相关但不同条目）
+  see:
+  - 80
+  - 40
+  - 55
+  notes: []
+  unverified: []
+  xlsx:
+    example: ASIL C
+    desc: 需明确功能安全等级要求
+    impact: 影响硬件冗余设计、软件安全机制、开发流程；不满足将导致功能安全认证失败
+- id: 116
+  name: 主动保险功能
+  group: 安全与功能
+  gloss: 是否需要主动（烟火/电子）保险功能，控制器是否需设置 PSS 保险
+  zh_strong:
+  - 主动保险
+  - 主动熔断
+  - 智能熔断
+  - 烟火开关
+  - 烟火断路器
+  - 烟火保险
+  - 激励熔断器
+  - 主动断路
+  - PSS保险
+  - 高压熔断器
+  - 熔断器
+  - 保险丝
+  - 电子熔断
+  - 主动断电
+  zh_weak: []
+  en_strong:
+  - active fuse
+  - pyro fuse
+  - pyrofuse
+  - pyrotechnic fuse
+  - pyro switch
+  - pyrotechnic safety switch
+  - PSS
+  - smart fuse
+  - e-fuse
+  - electronic fuse
+  - active disconnect
+  - HV fuse
+  - fuse
+  en_weak: []
+  cues:
+  - 是/否
+  std: []
+  exclude:
+  - 质保/保险（warranty，→#107）
+  - 保险杠
+  see:
+  - 107
+  notes: []
+  unverified: []
+  xlsx:
+    example: 是否需主动保险功能
+    desc: 控制器是否需设置PSS保险
+    impact: 影响控制器结构方案确认
+- id: 117
+  name: 滑膜起步功能
+  group: 安全与功能
+  gloss: 是否需要离合器滑摩起步功能（影响保护策略）
+  zh_strong:
+  - 滑膜起步
+  - 滑摩起步
+  - 滑磨起步
+  - 离合器滑摩
+  - 滑摩控制
+  - 滑摩起步功能
+  - 起步功能
+  - 半联动
+  - 离合器起步
+  - 蠕行
+  - 蠕动起步
+  - 坡道起步
+  - 坡起
+  - 滑摩工况
+  zh_weak: []
+  en_strong:
+  - slip start
+  - slipping start
+  - clutch slip launch
+  - clutch slipping
+  - slip control
+  - launch control
+  - creep
+  - creeping
+  - hill start
+  - micro-slip
+  - clutch launch
+  en_weak: []
+  cues:
+  - 是/否
+  std: []
+  exclude:
+  - 滑模控制 sliding mode control（控制算法，字形相近但完全不同）
+  see:
+  - 53
+  notes:
+  - 「滑膜」疑为「滑摩」误写（离合器滑动摩擦），规格书大概率写「滑摩」；两种写法都要收，并排除「滑模」
+  unverified: []
+  xlsx:
+    example: 是否需滑膜起步功能
+    desc: /
+    impact: 影响控制器保护策略设定

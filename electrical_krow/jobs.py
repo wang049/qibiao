@@ -1,6 +1,7 @@
 """出表任务：全站同一时刻只跑一份（与协议「工位一份」一致）。流水线在 electrical。"""
 from __future__ import annotations
 
+import os
 import re
 import threading
 import uuid
@@ -9,7 +10,7 @@ from pathlib import Path
 from fastapi import HTTPException, UploadFile
 
 from electrical_krow.bridge import ensure_electrical
-from electrical_krow.paths import MAX_BYTES, MAX_MB, OUTPUT_DIR, SUPPORTED, UPLOAD_DIR
+from electrical_krow.paths import MAX_BYTES, MAX_MB, OUTPUT_DIR, PROJECT_ROOT, SUPPORTED, UPLOAD_DIR
 
 
 def retrieval_counts(cells: object) -> tuple[int, int, int]:
@@ -36,6 +37,9 @@ def _safe_stem(name: str) -> str:
 
 def _run_pipeline(incoming: Path, out: Path, *, model: str = ""):
     ensure_electrical()
+    lexicon = PROJECT_ROOT / "docs" / "clause_lexicon.json"
+    if lexicon.is_file():
+        os.environ.setdefault("SPEC_SHEET_CLAUSE_LEXICON", str(lexicon))
     from electrical.pipeline import run
 
     kwargs = {}

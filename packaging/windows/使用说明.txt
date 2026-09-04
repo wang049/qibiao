@@ -1,22 +1,22 @@
 电子电器 · SOR填表  Windows 客户端
 
-这是客户端正式交付。exe 启动本机 Python 服务，并用系统 Edge 开一个独立窗口
-（不是 Chrome，也不是 Electron）。登录和出表都在这个窗口里完成。
-规格书只在这台电脑上读，服务只绑 127.0.0.1，外网打不进来。
-关掉窗口即停止服务。
+这是客户端正式交付。exe 启动本机 Python 服务，并用系统 Edge 的应用模式
+开一个独立窗口（无地址栏、无标签，不是 Chrome，也不是 Electron）。
+登录和出表都在这个窗口里完成。规格书只在这台电脑上读，服务只绑 127.0.0.1，
+外网打不进来。关掉窗口即停止服务。
 
 给谁用
-  64 位 Windows 10 / 11。不必先装 Python。需要已安装 Edge / WebView2（系统通常自带）。
-  识别地址写在安装目录的 config.ini（server_url）。到客户现场只改这一项。
-  覆盖安装会使用安装包里的地址，旧 config.ini 备份为 config.ini.bak。
+  64 位 Windows 10 / 11。不必先装 Python。需要已安装 Microsoft Edge（系统通常自带，不是 Chrome）。
+  识别地址写在安装目录的 config.ini（server_url）。本包默认 https://api.krow.cn。
+  到客户现场再改成现场 Krow Server。覆盖安装会用安装包里的地址，旧文件备份为 config.ini.bak。
 
 推荐：安装包 exe
   1. 双击「电子电器SOR填表-windows-x64.exe」。
   2. 会安装到 %LOCALAPPDATA%\electrical-krow-app\，并在桌面生成快捷方式。
-  3. 第一次大约十几秒解压到当前用户目录，随后出现「电子电器 · SOR填表」
-     独立窗口。请等窗口出现，不要以为只生成了快捷方式就结束了。
-     若只有快捷方式、没有窗口：双击桌面「电子电器SOR填表」。
-     仍没有：双击安装目录里的 console.bat 看完整报错。
+  3. 第一次大约十几秒解压到当前用户目录。双击后应立刻出现「正在启动」小窗，
+     随后出现「电子电器 · SOR填表」独立窗口。请等窗口出现。
+     若只有快捷方式、没有窗口：先打开任务管理器，结束 python.exe / pythonw.exe，
+     再双击桌面「电子电器SOR填表」。仍没有：双击安装目录里的 console.bat 看报错。
   4. 用开通的邮箱和密码登录（不要填手机号）。
   5. 选择 chat 类识别模型（如 deepseek-v4-pro、ZHIPU/GLM-5.2），
      不要选 OCR/表格类（如 krow-ocr-table）。
@@ -26,9 +26,14 @@
   若杀毒软件拦截，把安装目录和 exe 加白名单。
   可直接反复双击 exe：会先停掉旧进程再覆盖安装。第一次大约十几秒，请等窗口出现。
   失败详情在 %TEMP%\electrical-krow-install.log。
-  若提示缺少 WebView2，安装 Microsoft Edge WebView2 运行时后再打开。
-  若窗口起来后过一会儿变成「未响应」：请换本包（本机服务已改到独立进程）。
-  关掉窗口后再开即可；若仍提示已在运行，用安装目录里的「停止SOR填表」后再开。
+  第一次解压可能要几十秒，请等窗口出现，不要结束任务。
+  新包用工位专用 Edge 应用窗口（无地址栏、无标签）。任务栏可能显示 Edge，
+  标题仍是「电子电器 · SOR填表」。登录页出来后应能马上点输入框。
+  若一点击标题就「未响应」，说明还在跑旧的内嵌窗口：请先关掉窗口，
+  在任务管理器结束 python.exe / pythonw.exe，删掉
+  %LOCALAPPDATA%\electrical-krow-app 后再用本 exe 安装。不要继续用旧目录。
+  关掉窗口后再开即可。双击应重新打开窗口。
+  若仍没有窗口，用安装目录里的「停止SOR填表」或任务管理器结束 python.exe 后再开。
   若第一次没有出窗口（杀毒拦截解压）或提示缺少 httpx：
     关掉窗口，删掉 %LOCALAPPDATA%\electrical-krow-app ，再用新的 exe 重装。
     不要继续用已经失败过的旧目录。

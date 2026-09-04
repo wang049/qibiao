@@ -10,7 +10,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from electrical_krow.errors import LoginError
-from electrical_krow.login import login_with_api_key, login_with_password
+from electrical_krow.login import login_with_api_key, login_with_password, refresh_sdk_key
 from electrical_krow.mock_server import DEMO_PASSWORD, DEMO_TOKEN, DEMO_USER, create_app
 
 
@@ -175,6 +175,59 @@ class LoginTests(unittest.TestCase):
         self.assertEqual(second.access_token, first.access_token)
         self.assertEqual(store.created, 1)
         shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_refresh_sdk_key_issues_new_key(self) -> None:
+        tmp = Path(tempfile.mkdtemp())
+        store = KeyStore()
+
+        class FakeClient:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def post(self, url, **kwargs):
+                if url.endswith("/auth/login"):
+                    return JsonResp(
+                        200,
+                        {
+                            "access_token": "eyJmock.token",
+                            "user": {"email": "demo@krow.cn"},
+                        },
+                    )
+                if url.rstrip("/").endswith("/api-keys"):
+                    return store.create()
+                return JsonResp(404, {})
+
+            def get(self, url, **kwargs):
+                if url.rstrip("/").endswith("/api-keys"):
+                    return JsonResp(200, {"keys": list(store.keys)})
+                return JsonResp(404, {})
+
+            def delete(self, url, **kwargs):
+                key_id = url.rstrip("/").rsplit("/", 1)[-1]
+                store.delete(key_id)
+                return JsonResp(200, {"success": True})
+
+        with (
+            patch("electrical_krow.login.httpx.Client", FakeClient),
+            patch("electrical_krow.login.data_root", return_value=tmp),
+        ):
+            first = login_with_password("https://api.krow.cn", "demo@krow.cn", "x")
+            refreshed = refresh_sdk_key("https://api.krow.cn", first)
+        self.assertTrue(refreshed.access_token.startswith("sk-user-"))
+        self.assertNotEqual(refreshed.access_token, first.access_token)
+        self.assertEqual(store.created, 2)
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_refresh_sdk_key_needs_jwt(self) -> None:
+        session = login_with_api_key("sk-user-jx3rv76no4v2rf2erqk0fj0d60tbbr0569vzoad9")
+        with self.assertRaises(LoginError):
+            refresh_sdk_key("https://api.krow.cn", session)
 
 
 class JsonResp:

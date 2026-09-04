@@ -1,0 +1,566 @@
+{
+  "version": "2026-09-03.4",
+  "retrieve_seqs": [
+    14,
+    19
+  ],
+  "fill_from_kb": false,
+  "leave_site": false,
+  "scope": {
+    "answers": [
+      "当份 DPR 句子/表格应对到 120 项清单的哪一条",
+      "易混条目如何互斥（P1/P3、升压/非升压、三种纹波等）",
+      "规格常见写法（强别名）与单位形态",
+      "物理量之间的关系：读表、校验；当份规格书已出现的量可按已登记公式推算缺项（局部对应）"
+    ],
+    "does_not": [
+      "用行业常识或清单「参考示例」填写抽出值",
+      "用知识库里的典型值填格",
+      "把「符合欧姆定律」等定律名称原句当成抽出值",
+      "开放问答、跨项目通用知识、甲方业务系统数据"
+    ],
+    "owner": "甲方确认口径；乙方整理卡片与发布",
+    "site": "指定场所内使用，整库与规格书均不出公网"
+  },
+  "sources": [
+    {
+      "id": "list-120",
+      "title": "电机控制需求清单（XCM控制器前期设计最小化输入清单）",
+      "version": "20260821V1",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "120 项卡片骨架、需求说明、必要性、参考示例（示例只说明长什么样）"
+    },
+    {
+      "id": "clause-yaml",
+      "title": "条款词典",
+      "provided_by": "乙方整理，待甲方确认",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "别名、禁配、易混、未核实栏"
+    },
+    {
+      "id": "physics",
+      "title": "电机控制器物理关系",
+      "provided_by": "乙方按电控常识整理，待甲方确认",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "读表与校验关系，fill 必须为 false"
+    },
+    {
+      "id": "enterprise-std",
+      "title": "甲方企标（第五节，待提供）",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "确认后补 std 与禁配，未提供前不进检索"
+    },
+    {
+      "id": "manuals",
+      "title": "手册/过往文档（第五节，待提供）",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "确认后补卡片，未提供前不进检索"
+    }
+  ],
+  "citation": {
+    "list": "电机控制需求清单 20260821V1",
+    "knowledge_version": "2026-09-03.4",
+    "rule": "抽出值只来自当份规格书；库只提供条目号与出处，不提供取值"
+  },
+  "physics_cards": [
+    {
+      "id": "ohm",
+      "title": "欧姆定律",
+      "law": "U = I R",
+      "fill": false,
+      "derive": true,
+      "gloss": "同条款内已给出测试电压与漏电流（或放电电压与电流）时，按 R=U/I 推算绝缘/放电电阻。不得用库典型值，也不得把「符合欧姆定律」原句当成抽出值。",
+      "see_seq": [
+        13,
+        18,
+        22,
+        25,
+        26
+      ]
+    },
+    {
+      "id": "kirchhoff",
+      "title": "基尔霍夫电压电流定律",
+      "law": "ΣV = 0；ΣI = 0",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于认电压电流关系、校核回路是否自洽。没有可代入的电压/电流数字时不填格，不把定律名称写成抽出值。",
+      "see_seq": [
+        5,
+        20,
+        22
+      ]
+    },
+    {
+      "id": "p_ui",
+      "title": "直流电功率",
+      "law": "P = U I",
+      "fill": false,
+      "derive": true,
+      "gloss": "同一工况已给出直流电压和电流、未写功率时，按 P=UI 推算。禁止串 P1/P3，禁止覆盖原文已写的功率。低压侧同理 P=UI@14V。",
+      "see_seq": [
+        5,
+        6,
+        7,
+        21,
+        28,
+        30,
+        45,
+        47,
+        62,
+        63,
+        68
+      ]
+    },
+    {
+      "id": "p_ac3",
+      "title": "三相交流功率",
+      "law": "P = √3 U I cosφ",
+      "fill": false,
+      "derive": true,
+      "gloss": "线电压与相电流（Arms）同工况且原文写三相/线电压时，可按 √3UI 估功率或反算相电流（默认 cosφ=1，局部对应）。功率因数未给出不得当成已检索到。",
+      "see_seq": [
+        28,
+        30,
+        43,
+        44,
+        45,
+        47,
+        58,
+        59
+      ]
+    },
+    {
+      "id": "p_tw",
+      "title": "机械功率",
+      "law": "P = T ω = T n / 9550",
+      "fill": false,
+      "derive": true,
+      "gloss": "扭矩(N·m)与转速(rpm)同工况时 P(kW)=T n/9550；亦可 T=9550 P/n。ω=2πn/60。禁止覆盖原文已写的功率或扭矩。",
+      "see_seq": [
+        28,
+        30,
+        31,
+        32,
+        45,
+        47,
+        48,
+        49
+      ]
+    },
+    {
+      "id": "omega",
+      "title": "角速度换算",
+      "law": "ω = 2 π n / 60",
+      "fill": false,
+      "derive": false,
+      "gloss": "转速 rpm 与机械角速度 rad/s 的换算，嵌在 P=Tω 中使用，不单独填格。",
+      "see_seq": [
+        31,
+        32,
+        33,
+        48,
+        49,
+        50
+      ]
+    },
+    {
+      "id": "eta",
+      "title": "效率",
+      "law": "η = P_out / P_in",
+      "fill": false,
+      "derive": true,
+      "gloss": "同一工况已给出输入与输出功率时，效率=输出/输入。用于逆变器效率、升压效率。禁止用库里的 99.5% 典型值。",
+      "see_seq": [
+        41,
+        56,
+        66
+      ]
+    },
+    {
+      "id": "rc_discharge",
+      "title": "电容放电",
+      "law": "V(t) = V0 e^{-t/RC}；t = RC ln(V0/V1)",
+      "fill": false,
+      "derive": true,
+      "gloss": "母线薄膜电容、放电电阻与降至 60V 的时间满足指数放电。已给出其中三个量时可推算第四个（局部对应）。Y 电容(nF)不得拿来算 DC-link 放电时间。",
+      "see_seq": [
+        24,
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "id": "cap_energy",
+      "title": "电容储能",
+      "law": "E = 1/2 C V²",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂 Y 电容/薄膜电容与残余能量条款。电压或容值未写全时不算能量去填。",
+      "see_seq": [
+        17,
+        24
+      ]
+    },
+    {
+      "id": "i2r",
+      "title": "电阻损耗",
+      "law": "P = I² R",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于理解热损失与绕组/线路发热。控制器热损失还含开关损耗，禁止只用 I²R 冒充整机热损失填格。",
+      "see_seq": [
+        120
+      ]
+    },
+    {
+      "id": "rms_peak",
+      "title": "有效值与峰值",
+      "law": "I_peak = √2 I_rms",
+      "fill": false,
+      "derive": false,
+      "gloss": "正弦波峰值与有效值换算。清单里的峰值电流与持续电流是不同工况能力，禁止把峰值除以 √2 当成持续电流去填。",
+      "see_seq": [
+        43,
+        44,
+        58,
+        59
+      ]
+    },
+    {
+      "id": "back_emf",
+      "title": "反电动势",
+      "law": "E = k_e ω",
+      "fill": false,
+      "derive": false,
+      "gloss": "反电动势与转速成正比。未给出 ke 或最高转速下的 E 时不得外推。P1/P3 反电势必须分列。",
+      "see_seq": [
+        11,
+        37
+      ]
+    },
+    {
+      "id": "kt",
+      "title": "转矩常数",
+      "law": "T = k_t I",
+      "fill": false,
+      "derive": false,
+      "gloss": "堵转/峰值扭矩与电流相关。未给出 kt 时不得用电流反推扭矩填格。",
+      "see_seq": [
+        31,
+        36,
+        40,
+        48,
+        53
+      ]
+    },
+    {
+      "id": "boost_d",
+      "title": "升压占空比",
+      "law": "V_out / V_in = 1 / (1-D)",
+      "fill": false,
+      "derive": false,
+      "gloss": "理想 Boost 变比。规格通常直接给输入/输出电压与功率，占空比未写时不得反推输出电压。",
+      "see_seq": [
+        61,
+        64,
+        67,
+        68
+      ]
+    },
+    {
+      "id": "ripple",
+      "title": "电容纹波",
+      "law": "ΔV ≈ I / (f C)",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂母线纹波、升压纹波与电容/开关频率的关系。频率或电流未同时给出时不算 ΔV 去填纹波条目。",
+      "see_seq": [
+        8,
+        12,
+        24,
+        69,
+        70
+      ]
+    },
+    {
+      "id": "hipot_2u",
+      "title": "耐电压常用式",
+      "law": "U_test = 2U + 1000 V",
+      "fill": false,
+      "derive": false,
+      "gloss": "GB/T 18488 / ISO 6469 等常见工频耐压算法。仅当原文写明该试验或该公式时才填耐电压；禁止用工作电压自行套 2U+1000。",
+      "see_seq": [
+        14,
+        19
+      ]
+    },
+    {
+      "id": "idc",
+      "title": "直流电流",
+      "law": "I = P / U",
+      "fill": false,
+      "derive": true,
+      "gloss": "直流工况已给出功率与电压、未写电流时，按 I=P/U 推算（升压输入电流等）。禁止拿交流相电流公式去填直流，也禁止用峰值功率去填额定电流。",
+      "see_seq": [
+        63,
+        64,
+        68
+      ]
+    },
+    {
+      "id": "ploss_eta",
+      "title": "损耗与效率",
+      "law": "P_loss = P_in (1 − η)",
+      "fill": false,
+      "derive": true,
+      "gloss": "同一段已写输入功率与效率、并出现热损失/散热能力时，可按 P(1−η) 估损耗（局部对应）。禁止只用 I²R 或库里的 0.8 kW 典型值。",
+      "see_seq": [
+        41,
+        56,
+        66,
+        72,
+        120
+      ]
+    },
+    {
+      "id": "elec_freq",
+      "title": "电频率与转速",
+      "law": "f = n p / 60（p 为极对数）",
+      "fill": false,
+      "derive": false,
+      "gloss": "同步转速/电频率换算。极对数未写时不得用开关频率或基波去反推额定转速。注意极对数 p 与极数 2p：n=120f/P。",
+      "see_seq": [
+        33,
+        35,
+        50,
+        52,
+        69
+      ]
+    },
+    {
+      "id": "star_delta",
+      "title": "线电压与相电压",
+      "law": "U_ll = √3 U_ph",
+      "fill": false,
+      "derive": false,
+      "gloss": "星形接法下线电压为相电压的 √3 倍。未写清线/相时不得换算后填相电流或功率。",
+      "see_seq": [
+        43,
+        44,
+        58,
+        59
+      ]
+    },
+    {
+      "id": "apparent_s",
+      "title": "视在功率",
+      "law": "S = √3 U I",
+      "fill": false,
+      "derive": false,
+      "gloss": "三相视在功率。有功还需乘 cosφ，未给功率因数时不得把 S 当成 P 填额定功率。",
+      "see_seq": [
+        28,
+        45,
+        58
+      ]
+    },
+    {
+      "id": "pf",
+      "title": "功率因数",
+      "law": "cosφ = P / S",
+      "fill": false,
+      "derive": false,
+      "gloss": "有功与视在功率之比。原文未给 cosφ 或 S 时不推算。",
+      "see_seq": [
+        28,
+        45
+      ]
+    },
+    {
+      "id": "energy_pt",
+      "title": "电能",
+      "law": "E = P t",
+      "fill": false,
+      "derive": false,
+      "gloss": "放电能量、峰值持续时间与能量相关。峰值 10s 不得拿来算额定能量去填。",
+      "see_seq": [
+        26,
+        27,
+        29,
+        46
+      ]
+    },
+    {
+      "id": "tau_l",
+      "title": "电感时间常数",
+      "law": "τ = L / R",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂升压电感、放电回路。L 未给出时不算 τ。",
+      "see_seq": [
+        25,
+        63,
+        69
+      ]
+    },
+    {
+      "id": "faraday",
+      "title": "法拉第电磁感应",
+      "law": "e = − dφ / dt",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于理解反电动势随转速变化。未给磁链或 ke 时不得外推反电势峰值。",
+      "see_seq": [
+        11,
+        37,
+        54
+      ]
+    },
+    {
+      "id": "inductance_v",
+      "title": "电感电压",
+      "law": "v = L di/dt",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂开关瞬态与升压电感应力。di/dt 或 L 缺一不算。",
+      "see_seq": [
+        63,
+        69
+      ]
+    },
+    {
+      "id": "resonance",
+      "title": "LC 谐振",
+      "law": "f0 = 1 / (2π √(L C))",
+      "fill": false,
+      "derive": false,
+      "gloss": "母线电容与寄生/升压电感的谐振。L、C 未同时给出时不算开关频率或纹波。",
+      "see_seq": [
+        8,
+        24,
+        69,
+        70
+      ]
+    },
+    {
+      "id": "filter_fc",
+      "title": "RC 截止频率",
+      "law": "fc = 1 / (2π R C)",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂采样滤波、Y 电容网络。不得用 nF 级 Y 电容去算 DC-link 放电。",
+      "see_seq": [
+        17,
+        91,
+        92
+      ]
+    },
+    {
+      "id": "pwm_mod",
+      "title": "调制度",
+      "law": "V_ph ≈ m V_dc / 2（SPWM）；SVPWM 最大 m=2/√3",
+      "fill": false,
+      "derive": false,
+      "gloss": "直流母线电压与交流相电压的调制关系。未写调制度时不得用母线电压反推相电压去填。",
+      "see_seq": [
+        5,
+        43,
+        58
+      ]
+    },
+    {
+      "id": "dq_torque",
+      "title": "矢量控制转矩",
+      "law": "T = (3/2) p λ I_q",
+      "fill": false,
+      "derive": false,
+      "gloss": "永磁同步电机交轴电流与转矩。未给极对数、磁链时不得用相电流反推扭矩（与 kt 同禁）。",
+      "see_seq": [
+        31,
+        36,
+        48,
+        53
+      ]
+    },
+    {
+      "id": "coolant_heat",
+      "title": "冷却带走热量",
+      "law": "P = ṁ c ΔT（水约 P(kW) ≈ 0.07 Q(L/min) ΔT(K)）",
+      "fill": false,
+      "derive": false,
+      "gloss": "流量、温升与散热能力的关系。冷却液比热/密度因水/乙二醇而异，未写清时不得用流量反推热损失或散热能力。",
+      "see_seq": [
+        72,
+        112,
+        113,
+        120
+      ]
+    },
+    {
+      "id": "slip",
+      "title": "转差率",
+      "law": "s = (n_s − n) / n_s",
+      "fill": false,
+      "derive": false,
+      "gloss": "异步机转差。清单以永磁/混动电控为主，未写同步转速时不套用。",
+      "see_seq": [
+        33,
+        50
+      ]
+    },
+    {
+      "id": "series_parallel",
+      "title": "串并联",
+      "law": "串联 R=ΣR_i；并联 1/R=Σ(1/R_i)；电容相反",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂放电电阻串并联、薄膜电容并联容值。未写清串并联只数时不得把单只容值当成整机容值。",
+      "see_seq": [
+        17,
+        24,
+        25
+      ]
+    },
+    {
+      "id": "nyquist",
+      "title": "采样定理",
+      "law": "f_s > 2 f_max",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于理解采样精度/延时条款。不得用开关频率去填采样精度。",
+      "see_seq": [
+        90,
+        91,
+        92
+      ]
+    },
+    {
+      "id": "column_split",
+      "title": "升压与非升压分列",
+      "law": "同一物理量在不同工况下列值不同，不得串列",
+      "fill": false,
+      "derive": false,
+      "gloss": "HVDC 电压、功率等常分非升压/升压两列。读表时按列归属条目，不得把非升压列填进升压条目。",
+      "see_seq": [
+        5,
+        6,
+        7,
+        61,
+        62,
+        63,
+        64,
+        115
+      ]
+    }
+  ]
+}

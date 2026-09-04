@@ -55,11 +55,6 @@ if not exist "!SITE!\httpx\__init__.py" (
   echo 请删掉本目录后用新的 exe 重装，不要继续用旧安装目录。
   goto :fail
 )
-"!PY!" -c "import webview"
-if errorlevel 1 (
-  echo ERROR: pywebview import failed. Send this window text to us.
-  goto :fail
-)
 echo Opening app window...
 start "" /D "!ROOT!" "!PYW!" "!ROOT!\run.py"
 "!PY!" "!ROOT!\run.py" --wait-gateway

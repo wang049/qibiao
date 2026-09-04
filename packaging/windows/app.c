@@ -76,6 +76,15 @@ static int wsa_ready(void)
     return ok;
 }
 
+static void pump_ui(void)
+{
+    MSG msg;
+    while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
+        TranslateMessage(&msg);
+        DispatchMessageW(&msg);
+    }
+}
+
 static int port_accepts(void)
 {
     SOCKET s;
@@ -196,6 +205,7 @@ static void stop_dir_processes(const wchar_t *dest)
         } while (Process32NextW(snap, &pe));
     }
     CloseHandle(snap);
+    pump_ui();
     Sleep(400);
 }
 
@@ -233,7 +243,8 @@ static int run_hidden_wait(wchar_t *cmdline, const wchar_t *cwd, int hide, int w
     if (!CreateProcessW(NULL, cmdline, NULL, NULL, log ? TRUE : FALSE, flags, NULL, cwd, &si, &pi))
         return 1;
     if (wait) {
-        WaitForSingleObject(pi.hProcess, INFINITE);
+        while (WaitForSingleObject(pi.hProcess, 200) == WAIT_TIMEOUT)
+            pump_ui();
         if (!GetExitCodeProcess(pi.hProcess, &code))
             code = 1;
     } else {
@@ -244,21 +255,86 @@ static int run_hidden_wait(wchar_t *cmdline, const wchar_t *cwd, int hide, int w
     return code == 0 ? 0 : 1;
 }
 
+static HWND g_status = NULL;
+static HWND g_status_text = NULL;
+
+static void status_close(void)
+{
+    if (g_status) {
+        DestroyWindow(g_status);
+        g_status = NULL;
+        g_status_text = NULL;
+        pump_ui();
+    }
+}
+
+static void status_show(const wchar_t *text)
+{
+    if (!g_status) {
+        WNDCLASSW wc;
+        HFONT font;
+        ZeroMemory(&wc, sizeof(wc));
+        wc.lpfnWndProc = DefWindowProcW;
+        wc.hInstance = GetModuleHandleW(NULL);
+        wc.hCursor = LoadCursorW(NULL, IDC_WAIT);
+        wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+        wc.lpszClassName = L"ElectricalKrowStatus";
+        RegisterClassW(&wc);
+        g_status = CreateWindowExW(
+            WS_EX_TOPMOST | WS_EX_APPWINDOW,
+            L"ElectricalKrowStatus",
+            TITLE,
+            WS_OVERLAPPED | WS_CAPTION | WS_VISIBLE,
+            CW_USEDEFAULT,
+            CW_USEDEFAULT,
+            460,
+            150,
+            NULL,
+            NULL,
+            GetModuleHandleW(NULL),
+            NULL);
+        if (!g_status)
+            return;
+        g_status_text = CreateWindowW(
+            L"STATIC",
+            text,
+            WS_CHILD | WS_VISIBLE | SS_LEFT,
+            20,
+            24,
+            410,
+            70,
+            g_status,
+            NULL,
+            GetModuleHandleW(NULL),
+            NULL);
+        font = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        if (g_status_text && font)
+            SendMessageW(g_status_text, WM_SETFONT, (WPARAM)font, TRUE);
+    } else if (g_status_text) {
+        SetWindowTextW(g_status_text, text);
+    }
+    if (g_status) {
+        ShowWindow(g_status, SW_SHOWNORMAL);
+        SetForegroundWindow(g_status);
+    }
+    pump_ui();
+}
+
 static HANDLE start_gui(wchar_t *cmdline, const wchar_t *cwd)
 {
     STARTUPINFOW si;
     PROCESS_INFORMATION pi;
-    DWORD flags = CREATE_BREAKAWAY_FROM_JOB | CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS;
+    DWORD flags = CREATE_BREAKAWAY_FROM_JOB | CREATE_NEW_PROCESS_GROUP;
     ZeroMemory(&si, sizeof(si));
     ZeroMemory(&pi, sizeof(pi));
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;
     si.wShowWindow = SW_SHOWNORMAL;
-    /* 不要 CREATE_NO_WINDOW / SW_HIDE：pythonw 的出表窗口会被一起藏掉。 */
     if (!CreateProcessW(NULL, cmdline, NULL, NULL, FALSE, flags, NULL, cwd, &si, &pi)) {
-        if (!CreateProcessW(NULL, cmdline, NULL, NULL, FALSE, CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS, NULL, cwd, &si, &pi))
+        if (!CreateProcessW(NULL, cmdline, NULL, NULL, FALSE, CREATE_NEW_PROCESS_GROUP, NULL, cwd, &si, &pi))
             return NULL;
     }
+    AllowSetForegroundWindow(pi.dwProcessId);
     CloseHandle(pi.hThread);
     return pi.hProcess;
 }
@@ -272,6 +348,7 @@ static int wait_ready(HANDLE proc, int ms)
             return 0;
         if (proc && WaitForSingleObject(proc, 0) == WAIT_OBJECT_0)
             return 1;
+        pump_ui();
         Sleep(200);
     }
     if (service_up())
@@ -289,6 +366,7 @@ static int start_from_dir(const wchar_t *dir)
     join2(runpy, MAXP, dir, L"run.py");
     join2(bat, MAXP, dir, L"start.bat");
     if (!file_exists(runpy) || !file_exists(pyw)) {
+        status_close();
         MessageBoxW(NULL, L"程序文件不完整。请重新安装或解压完整压缩包。", TITLE, MB_OK | MB_ICONERROR);
         return 1;
     }
@@ -296,6 +374,7 @@ static int start_from_dir(const wchar_t *dir)
         wchar_t httpx[MAXP];
         join2(httpx, MAXP, dir, L"python\\Lib\\site-packages\\httpx\\__init__.py");
         if (!file_exists(httpx)) {
+            status_close();
             MessageBoxW(
                 NULL,
                 L"安装不完整，缺少依赖 httpx。\n\n"
@@ -309,6 +388,7 @@ static int start_from_dir(const wchar_t *dir)
     }
     if (!file_exists(marker)) {
         if (!file_exists(bat)) {
+            status_close();
             MessageBoxW(NULL, L"找不到 start.bat。", TITLE, MB_OK | MB_ICONERROR);
             return 1;
         }
@@ -316,20 +396,21 @@ static int start_from_dir(const wchar_t *dir)
         cmd[MAXP * 2 - 1] = 0;
         return run_hidden_wait(cmd, dir, 0, 1, NULL);
     }
-    if (service_up())
-        return 0;
+    status_show(L"正在打开出表窗口，请稍候…");
     _snwprintf(cmd, MAXP * 2, L"\"%s\" \"%s\"", pyw, runpy);
     cmd[MAXP * 2 - 1] = 0;
     {
         HANDLE proc = start_gui(cmd, dir);
         int ready;
         if (!proc) {
+            status_close();
             MessageBoxW(NULL, L"无法启动出表窗口。", TITLE, MB_OK | MB_ICONERROR);
             return 1;
         }
         /* 现场杀毒会扫几千个 py 文件，第一次启动经常超过 45 秒。 */
         ready = wait_ready(proc, 120000);
         CloseHandle(proc);
+        status_close();
         if (ready == 0)
             return 0;
         if (ready == 2)
@@ -377,6 +458,7 @@ static void append_logw(const wchar_t *log_path, const wchar_t *text)
 
 static int fail_install(const wchar_t *log_path, const wchar_t *reason)
 {
+    status_close();
     append_logw(log_path, reason);
     wchar_t msg[1600];
     _snwprintf(
@@ -561,6 +643,7 @@ static int copy_tree(const wchar_t *src, const wchar_t *dst)
             rc = 1;
             break;
         }
+        pump_ui();
     } while (FindNextFileW(h, &fd));
     FindClose(h);
     return rc;
@@ -764,18 +847,20 @@ static int install_from_self(const wchar_t *self)
     append_logw(log_path, dest);
 
     CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
-    SetCursor(LoadCursorW(NULL, IDC_WAIT));
+    status_show(L"正在安装到本机，第一次大约几十秒，请不要关闭。");
 
     if (find_zip_payload(self, &zip_off, &zip_len) != 0) {
         CoUninitialize();
         return fail_install(log_path, L"安装包格式不对。请改用 zip 解压安装，或重新下载完整 exe。");
     }
     append_log(log_path, "found zip payload");
+    status_show(L"正在写出安装文件…");
     if (copy_range(self, zip_off, zip_len, zip_path) != 0) {
         CoUninitialize();
         return fail_install(log_path, L"无法写出解压文件。请检查磁盘空间，或把杀毒软件加白后重试。");
     }
 
+    status_show(L"正在解压安装文件，请稍候…");
     if (extract_payload(zip_path, unpack, log_path) != 0) {
         DeleteFileW(zip_path);
         CoUninitialize();
@@ -860,12 +945,14 @@ static int start_or_install(void)
     wchar_t self[MAXP], dir[MAXP], runpy[MAXP];
     if (!GetModuleFileNameW(NULL, self, MAXP))
         return 1;
+    status_show(L"正在启动，请稍候…");
     dirname_of(dir, MAXP, self);
     join2(runpy, MAXP, dir, L"run.py");
     if (file_exists(runpy))
         return start_from_dir(dir);
     if (file_size_of(self) > 1024ull * 1024ull)
         return install_from_self(self);
+    status_close();
     MessageBoxW(NULL, L"请使用完整安装包（exe）或解压 zip 后启动。", TITLE, MB_OK | MB_ICONERROR);
     return 1;
 }

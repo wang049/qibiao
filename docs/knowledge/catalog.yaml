@@ -1,0 +1,61 @@
+# 知识库目录：范围、来源、密级。出表程序读发布产物，不直接读本文件。
+scope:
+  answers:
+    - 当份 DPR 句子/表格应对到 120 项清单的哪一条
+    - 易混条目如何互斥（P1/P3、升压/非升压、三种纹波等）
+    - 规格常见写法（强别名）与单位形态
+    - 物理量之间的关系：读表、校验；当份规格书已出现的量可按已登记公式推算缺项（局部对应）
+  does_not:
+    - 用行业常识或清单「参考示例」填写抽出值
+    - 用知识库里的典型值填格
+    - 把「符合欧姆定律」等定律名称原句当成抽出值
+    - 开放问答、跨项目通用知识、甲方业务系统数据
+  owner: 甲方确认口径；乙方整理卡片与发布
+  site: 指定场所内使用，整库与规格书均不出公网
+
+sources:
+  - id: list-120
+    title: 电机控制需求清单（XCM控制器前期设计最小化输入清单）
+    version: 20260821V1
+    provided_by: 甲方
+    classification: 内部
+    leave_site: false
+    used_for: 120 项卡片骨架、需求说明、必要性、参考示例（示例只说明长什么样）
+  - id: clause-yaml
+    title: docs/clause_lexicon.yaml
+    provided_by: 乙方整理，待甲方确认
+    classification: 内部
+    leave_site: false
+    used_for: 别名、禁配、易混、未核实栏
+  - id: physics
+    title: docs/knowledge/physics.yaml
+    provided_by: 乙方按电控常识整理，待甲方确认
+    classification: 内部
+    leave_site: false
+    used_for: 读表与校验关系，fill 必须为 false
+  - id: enterprise-std
+    title: 甲方企标（第五节，待提供）
+    provided_by: 甲方
+    classification: 内部
+    leave_site: false
+    used_for: 确认后补 std 与禁配，未提供前不进检索
+  - id: manuals
+    title: 手册/过往文档（第五节，待提供）
+    provided_by: 甲方
+    classification: 内部
+    leave_site: false
+    used_for: 确认后补卡片，未提供前不进检索
+
+topics:
+  - 设计范围
+  - 直流高压
+  - 高压安全
+  - 低压
+  - P1
+  - P3
+  - 升压
+  - 冷却
+  - 环境与材料
+  - 采样与控制
+  - 整机
+  - 安全与功能

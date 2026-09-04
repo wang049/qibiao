@@ -6,7 +6,7 @@ YAML 是词条真源；JSON 给 electrical_krow.clause_lexicon 读。
 """
 from __future__ import annotations
 
-import json
+import importlib.util
 import re
 import sys
 from pathlib import Path
@@ -243,28 +243,16 @@ def build_frames(payload: dict) -> list[dict]:
 
 
 def main() -> None:
-    if not YAML_PATH.is_file():
-        raise SystemExit(f"找不到词典 YAML: {YAML_PATH}")
-    payload = yaml.safe_load(YAML_PATH.read_text(encoding="utf-8"))
-    frames = build_frames(payload)
-    if len(frames) != 120:
-        raise SystemExit(f"条目数不是 120：{len(frames)}")
-    names = [row["name"] for row in frames]
-    if len(set(names)) < 110:
-        raise SystemExit("条目名去重后过少，YAML 可能没读全")
-    meta = dict(payload.get("meta") or {})
-    meta["generated_from"] = "docs/clause_lexicon.yaml"
-    meta["retrieve"] = "只开耐电压（#14/#19）；弱别名不计分、不进选段"
-    out = {"meta": meta, "frames": frames}
-    JSON_PATH.write_text(
-        json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    """兼容旧命令；完整发布（索引、图谱、快照）见 publish_knowledge.py。"""
+    spec = importlib.util.spec_from_file_location(
+        "publish_knowledge",
+        Path(__file__).with_name("publish_knowledge.py"),
     )
-    n_strong = sum(len(row["aliases"]) for row in frames)
-    n_weak = sum(len(row["weak_aliases"]) for row in frames)
-    print(
-        f"wrote {JSON_PATH.relative_to(ROOT)} | frames={len(frames)} "
-        f"| strong={n_strong} | weak={n_weak}"
-    )
+    if spec is None or spec.loader is None:
+        raise SystemExit("找不到 scripts/publish_knowledge.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.publish()
 
 
 if __name__ == "__main__":

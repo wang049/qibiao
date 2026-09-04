@@ -46,6 +46,7 @@ let llmOk = false;
 let currentJob = null;
 let runPaused = false;
 let delivery = "client";
+let workPanel = "extract";
 
 function isSite() {
   return delivery === "site";
@@ -164,23 +165,45 @@ async function loadModels() {
 
 async function showWork(on, username) {
   loggedIn = on;
+  if (!on) workPanel = "extract";
   $("login-card").hidden = on;
-  $("work-card").hidden = !on;
   $("who-wrap").hidden = !on;
   $("logout").hidden = !on;
-  document.querySelector("main")?.classList.toggle("is-work", on);
+  $("nav-work").hidden = !on;
   if (on) $("who").textContent = username || "";
-  $("kicker").textContent = on ? "出表核对" : (isSite() ? "场所登录" : "工位登录");
-  $("title").innerHTML = on
-    ? "导入规格书，<span>出核对表</span>"
-    : "登录后<span>出表</span>";
-  $("lead").textContent = on
-    ? (isSite()
-        ? "将 PDF、Word 或 Excel 拖入下方。文件上传到本场所服务器，不出公网。"
-        : "将 PDF、Word 或 Excel 拖入下方。文件只在本机读取。")
-    : "请使用开通的邮箱和密码，不要填手机号。";
+  applyWorkPanel();
   go.disabled = !(chosen && llmOk && loggedIn);
   if (on) await loadModels();
+}
+
+function applyWorkPanel() {
+  const on = loggedIn;
+  const kb = on && workPanel === "kb";
+  $("work-card").hidden = !on || kb;
+  $("kb-card").hidden = !kb;
+  document.querySelector("main")?.classList.toggle("is-work", on);
+  document.querySelector("main")?.classList.toggle("is-kb", kb);
+  document.body.classList.toggle("is-kb", kb);
+  $("nav-extract")?.classList.toggle("is-on", !kb);
+  $("nav-kb")?.classList.toggle("is-on", kb);
+  if (!on) {
+    $("kicker").textContent = isSite() ? "场所登录" : "工位登录";
+    $("title").innerHTML = "登录后<span>出表</span>";
+    $("lead").textContent = "请使用开通的邮箱和密码，不要填手机号。";
+    return;
+  }
+  if (kb) {
+    $("kicker").textContent = "场所知识库";
+    $("title").innerHTML = "电机控制器<span>知识库</span>";
+    $("lead").textContent = "条款、物理关系与禁配已建图谱。抽出值只来自当份规格书，库不提供取值。";
+    if (typeof window.kbEnsure === "function") window.kbEnsure();
+    return;
+  }
+  $("kicker").textContent = "出表核对";
+  $("title").innerHTML = "导入规格书，<span>出核对表</span>";
+  $("lead").textContent = isSite()
+    ? "将 PDF、Word 或 Excel 拖入下方。文件上传到本场所服务器，不出公网。"
+    : "将 PDF、Word 或 Excel 拖入下方。文件只在本机读取。";
 }
 
 async function refresh() {
@@ -238,8 +261,18 @@ $("logout").onclick = async () => {
   await json("/api/logout", { method: "POST", body: "{}" });
   setFile(null);
   fileInput.value = "";
+  workPanel = "extract";
   await showWork(false, "");
   await refresh();
+};
+
+$("nav-extract").onclick = () => {
+  workPanel = "extract";
+  applyWorkPanel();
+};
+$("nav-kb").onclick = () => {
+  workPanel = "kb";
+  applyWorkPanel();
 };
 
 function revealResult() {
@@ -388,7 +421,13 @@ go.addEventListener("click", async () => {
           tip = "已结束抽取。核对表按当前已抽出内容生成，未抽完的条目仍为空。";
         } else if (!extract && data.kind_note) {
           tip = data.kind_note;
+        } else if (extract && Number(data.llm_calls || 0) < 1 && Number(miss) > 0) {
+          tip = "识别没有成功调用。请退出后重新登录再出表。";
         }
+        const kbVer = String(data.knowledge_version || "").trim();
+        const kbNote = kbVer
+          ? "知识库 " + kbVer + "。抽出值只来自当份规格书，库不提供取值。"
+          : "";
         const heading = data.stopped_early ? "已按已抽出内容出表" : "核对表已生成";
         result.className = "result show";
         result.innerHTML =
@@ -402,7 +441,9 @@ go.addEventListener("click", async () => {
           "<div class='stat'><b>" + partial + "</b><span>局部对应</span></div>" +
           "<div class='stat'><b>" + miss + "</b><span>未检索到</span></div>" +
           "</div>" +
-          (tip ? "<p class='result-note'>" + tip + "</p>" : "");
+          (kbNote || tip
+            ? "<p class='result-note'>" + [kbNote, tip].filter(Boolean).join(" ") + "</p>"
+            : "");
         revealResult();
         break;
       }

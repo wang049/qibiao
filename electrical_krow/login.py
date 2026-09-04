@@ -135,8 +135,35 @@ def revoke_sdk_key(base_url: str, session: AuthSession, *, timeout: float = 15.0
         _write_key_cache({})
 
 
+def refresh_sdk_key(
+    base_url: str, session: AuthSession, *, timeout: float = 30.0
+) -> AuthSession:
+    """chat 401 时作废缓存的 sk-user-，用登录 JWT 再发一把。"""
+    raw = dict(session.raw or {})
+    jwt = str(raw.get("jwt") or "").strip()
+    if not jwt:
+        raise LoginError("识别未授权，请重新登录。")
+    origin = origin_of(base_url)
+    jwt_session = AuthSession(
+        access_token=jwt,
+        username=session.username,
+        source="password",
+        raw=raw,
+    )
+    with httpx.Client(timeout=timeout, follow_redirects=False) as client:
+        refreshed = _with_sdk_key(client, origin, jwt_session, force_new=True)
+    token = refreshed.access_token
+    if not (token.startswith("sk-") or token.startswith("pk-pilot-")):
+        raise LoginError("识别密钥已失效，请重新登录。")
+    return refreshed
+
+
 def _with_sdk_key(
-    client: httpx.Client, origin: str, session: AuthSession
+    client: httpx.Client,
+    origin: str,
+    session: AuthSession,
+    *,
+    force_new: bool = False,
 ) -> AuthSession:
     """JWT 不能给 SDK / 长期抽取用。复用已落盘的 sk-user-，没有再创建。"""
     if session.access_token.startswith("sk-") or session.access_token.startswith(
@@ -150,7 +177,8 @@ def _with_sdk_key(
     listed = _list_keys(client, origin, headers)
     cached = _read_key_cache()
     cached_ok = (
-        cached.get("origin") == origin
+        not force_new
+        and cached.get("origin") == origin
         and cached.get("username") == session.username
         and str(cached.get("id") or "") in {str(item.get("id") or "") for item in listed}
     )

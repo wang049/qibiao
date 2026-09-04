@@ -1,0 +1,13 @@
+# 确认与发布登记。未列入 published_retrieve 的条目不进选段检索。
+version: "2026-09-03.4"
+default_status: draft
+# 甲方已确认卡片口径（仍默认不开选段）
+confirmed: []
+# 已确认且允许选段检索的清单序号
+published_retrieve:
+  - 14
+  - 19
+notes:
+  - 14/19 耐电压：选段别名已验证（耐压 / hipot），连续耐压/器件耐压走禁配
+  - 其余 118 条仅强别名进认条提示，不进选段打分
+  - 改本文件后必须 python scripts/publish_knowledge.py

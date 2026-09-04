@@ -1,0 +1,98 @@
+{
+  "version": "2026-09-03.1",
+  "retrieve_seqs": [
+    14,
+    19
+  ],
+  "fill_from_kb": false,
+  "leave_site": false,
+  "scope": {
+    "answers": [
+      "当份 DPR 句子/表格应对到 120 项清单的哪一条",
+      "易混条目如何互斥（P1/P3、升压/非升压、三种纹波等）",
+      "规格常见写法（强别名）与单位形态",
+      "物理量之间的关系，用于读表和校验（如 P=UI），不用于填数"
+    ],
+    "does_not": [
+      "用行业常识或清单「参考示例」填写抽出值",
+      "用欧姆定律、P=UI 等算出规格未写明的参数并入库格",
+      "开放问答、跨项目通用知识、甲方业务系统数据"
+    ],
+    "owner": "甲方确认口径；乙方整理卡片与发布",
+    "site": "指定场所内使用，整库与规格书均不出公网"
+  },
+  "sources": [
+    {
+      "id": "list-120",
+      "title": "电机控制需求清单（XCM控制器前期设计最小化输入清单）",
+      "version": "20260821V1",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "120 项卡片骨架、需求说明、必要性、参考示例（示例只说明长什么样）"
+    },
+    {
+      "id": "clause-yaml",
+      "title": "docs/clause_lexicon.yaml",
+      "provided_by": "乙方整理，待甲方确认",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "别名、禁配、易混、未核实栏"
+    },
+    {
+      "id": "physics",
+      "title": "docs/knowledge/physics.yaml",
+      "provided_by": "乙方按电控常识整理，待甲方确认",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "读表与校验关系，fill 必须为 false"
+    },
+    {
+      "id": "enterprise-std",
+      "title": "甲方企标（第五节，待提供）",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "确认后补 std 与禁配，未提供前不进检索"
+    },
+    {
+      "id": "manuals",
+      "title": "手册/过往文档（第五节，待提供）",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "确认后补卡片，未提供前不进检索"
+    }
+  ],
+  "citation": {
+    "list": "电机控制需求清单 20260821V1",
+    "knowledge_version": "2026-09-03.1",
+    "rule": "抽出值只来自当份规格书；库只提供条目号与出处，不提供取值"
+  },
+  "physics_cards": [
+    {
+      "id": "ohm",
+      "title": "欧姆定律",
+      "law": "U = I R",
+      "fill": false
+    },
+    {
+      "id": "p_ui",
+      "title": "电功率",
+      "law": "P = U I",
+      "fill": false
+    },
+    {
+      "id": "p_tw",
+      "title": "机械功率",
+      "law": "P = T ω",
+      "fill": false
+    },
+    {
+      "id": "column_split",
+      "title": "升压与非升压分列",
+      "law": "同一物理量在不同工况下列值不同，不得串列",
+      "fill": false
+    }
+  ]
+}

@@ -9,6 +9,7 @@ import argparse
 import asyncio
 import os
 import sys
+import threading
 import webbrowser
 from dataclasses import replace
 
@@ -24,8 +25,9 @@ from electrical_krow.bridge import wire_extract_endpoint
 from electrical_krow.config import Settings, allows_page_images, apply_macos_client_server, load_settings, require_gateway_bind
 from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.jobs import JobStore
+from electrical_krow.knowledge import browse_catalog
 from electrical_krow.llm import complete, list_models
-from electrical_krow.login import login_with_password, revoke_sdk_key
+from electrical_krow.login import login_with_password, refresh_sdk_key, revoke_sdk_key
 from electrical_krow.ocr import decode_image_payload, prepare_page_ocr, recognize_page
 from electrical_krow.paths import FRONTEND_DIR, OUTPUT_DIR
 from electrical_krow.session import SessionStore, StoredSession
@@ -33,6 +35,12 @@ from electrical_krow.vision import is_text_chat_model, message_has_image, pick_v
 
 COOKIE = "electrical_krow_sid"
 FRONTEND = FRONTEND_DIR
+_AUTH_REFRESH = threading.Lock()
+
+
+def _looks_like_auth_error(exc: BaseException) -> bool:
+    text = str(exc)
+    return any(mark in text for mark in ("未授权", "请重新登录", "Unauthorized", "401"))
 
 
 def prepare_page_vision(settings: Settings, item: StoredSession | None) -> str:
@@ -187,6 +195,17 @@ def create_app(
             "model": _active_model(item),
         }
 
+    @app.get("/api/knowledge")
+    def knowledge_view(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        data = browse_catalog()
+        if not data.get("version"):
+            raise HTTPException(503, "知识库尚未发布")
+        return data
+
     @app.get("/api/models")
     def models(
         request: Request,
@@ -249,17 +268,39 @@ def create_app(
                         "页图请使用看图模型。deepseek-v4-pro / GLM-5.2 文本版不用于扫描页。",
                     )
                 model = vision
-        try:
-            result = complete(
+
+        def _call(auth):
+            return complete(
                 cfg.server_url,
-                item.auth,
+                auth,
                 messages,
                 model=model,
                 temperature=body.temperature,
                 timeout=cfg.timeout_sec,
             )
-        except (LLMError, ConfigError) as exc:
+
+        try:
+            result = _call(item.auth)
+        except ConfigError as exc:
             raise HTTPException(502, str(exc)) from exc
+        except LLMError as exc:
+            if not _looks_like_auth_error(exc):
+                raise HTTPException(502, str(exc)) from exc
+            try:
+                with _AUTH_REFRESH:
+                    try:
+                        result = _call(item.auth)
+                    except LLMError as inner:
+                        if not _looks_like_auth_error(inner):
+                            raise
+                        item.auth = refresh_sdk_key(cfg.server_url, item.auth)
+                        result = _call(item.auth)
+            except LoginError as exc2:
+                raise HTTPException(401, str(exc2)) from exc2
+            except LLMError as exc2:
+                if _looks_like_auth_error(exc2):
+                    raise HTTPException(401, "识别未授权，请重新登录。") from exc2
+                raise HTTPException(502, str(exc2)) from exc2
         return result.raw
 
     @app.post("/v1/ocr")

@@ -5,11 +5,13 @@ import os
 import re
 import threading
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
 
 from electrical_krow.bridge import ensure_electrical
+from electrical_krow.knowledge import knowledge_version
 from electrical_krow.paths import MAX_BYTES, MAX_MB, OUTPUT_DIR, PROJECT_ROOT, SUPPORTED, UPLOAD_DIR
 
 
@@ -35,11 +37,22 @@ def _safe_stem(name: str) -> str:
     return stem[:80]
 
 
+def review_sheet_name(original_name: str, when: datetime | None = None) -> str:
+    """核对表文件名：原文件名 + 出表时间（年月日时分秒）。"""
+    stamp = (when or datetime.now()).strftime("%Y%m%d%H%M%S")
+    return f"{_safe_stem(original_name or 'upload')}_{stamp}.xlsx"
+
+
 def _run_pipeline(incoming: Path, out: Path, *, model: str = ""):
     ensure_electrical()
     lexicon = PROJECT_ROOT / "docs" / "clause_lexicon.json"
     if lexicon.is_file():
         os.environ.setdefault("SPEC_SHEET_CLAUSE_LEXICON", str(lexicon))
+    version = knowledge_version()
+    if version:
+        os.environ["SPEC_SHEET_KB_VERSION"] = version
+    else:
+        os.environ.pop("SPEC_SHEET_KB_VERSION", None)
     from electrical.pipeline import run
 
     kwargs = {}
@@ -96,7 +109,7 @@ class JobStore:
         token = uuid.uuid4().hex[:8]
         incoming = UPLOAD_DIR / f"{token}_{_safe_stem(file.filename or 'upload')}{suffix}"
         incoming.write_bytes(data)
-        out = OUTPUT_DIR / f"{incoming.stem}_核对表.xlsx"
+        out = OUTPUT_DIR / review_sheet_name(file.filename or "upload")
         return incoming, out
 
     def start(
@@ -128,6 +141,7 @@ class JobStore:
                 "source": filename,
                 "model": (model or "").strip(),
                 "stopped_early": False,
+                "knowledge_version": knowledge_version(),
             }
         worker = threading.Thread(
             target=self._run,
@@ -187,6 +201,7 @@ class JobStore:
                 rule_filled=getattr(result, "rule_filled", 0),
                 chunk_count=getattr(result, "chunk_count", 0),
                 topup_count=getattr(result, "topup_count", 0),
+                knowledge_version=knowledge_version(),
             )
         except (FileNotFoundError, ValueError) as exc:
             self.update(job_id, status="error", detail=str(exc), message="出表失败")

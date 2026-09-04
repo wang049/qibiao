@@ -1160,7 +1160,9 @@
       ]
     },
     "generated_from": "docs/clause_lexicon.yaml",
-    "retrieve": "只开耐电压（#14/#19）；弱别名不计分、不进选段"
+    "knowledge_version": "2026-09-03.4",
+    "retrieve": "只开 registry.published_retrieve：#14,#19；弱别名不计分、不进选段",
+    "fill_from_kb": false
   },
   "frames": [
     {
@@ -1210,7 +1212,8 @@
       "retrieve_aliases": [],
       "split_harm": "OD 缩写在清单中未定义；由 #2「油泵上移」与 #22「XCM休眠，包含OD」可判断 OD 为一个带静态功耗的电气单元，很可能与油泵驱动相关，但原字典的 \"oil distribution\" 是推测，未经核实",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 2,
@@ -1258,7 +1261,8 @@
       "retrieve_aliases": [],
       "split_harm": "OD本体物理集成（→#1）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 3,
@@ -1308,7 +1312,8 @@
       "retrieve_aliases": [],
       "split_harm": "充电升压/charge boost（→#4/#115）；Boost 数值参数 V/A/kW/kHz（→#62–#70）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 4,
@@ -1356,7 +1361,8 @@
       "retrieve_aliases": [],
       "split_harm": "#4 与 #115 同义（范围判断 vs 功能要求）；#115 的 D 列多要求充电电压/电流/时长",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 5,
@@ -1439,7 +1445,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #5 示例含「全性能200~450V」，而 #6 满功率电压示例为 340~450V，#7 降额为 160~340V——「全性能」与「满功率」口径不一致，应向甲方确认",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 6,
@@ -1495,7 +1502,8 @@
       "retrieve_aliases": [],
       "split_harm": "「全性能」在源表 #5 的示例里出现，因此把「全性能」作为 #6 别名会与 #5 冲突——建议只在 #5 未命中时作为 #6 的弱别名",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 7,
@@ -1551,7 +1559,8 @@
       "retrieve_aliases": [],
       "split_harm": "温度降额/thermal derating；功率降额策略（E列套话）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 8,
@@ -1610,7 +1619,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #8（<32 Vpp 峰值 / <16 Vpp 额定）与 #12（连接≤16 / 断开≤30）数字口径不同，抽取时不得互相覆盖",
       "retrieve": false,
-      "conflict": "bus_ripple"
+      "conflict": "bus_ripple",
+      "status": "draft"
     },
     {
       "seq": 9,
@@ -1669,7 +1679,8 @@
       "retrieve_aliases": [],
       "split_harm": "欠压 undervoltage（对偶项，清单未列）；低压 16~18V（→#20）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 10,
@@ -1725,7 +1736,8 @@
       "retrieve_aliases": [],
       "split_harm": "相电流（→#43/#44/#58/#90）；ASC 电流",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 11,
@@ -1782,7 +1794,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #37/#54 共享全部核心别名；建议规则：句中含 P1→#37，含 P3→#54，两者都含或都不含→#11",
       "retrieve": false,
-      "conflict": "back_emf"
+      "conflict": "back_emf",
+      "status": "draft"
     },
     {
       "seq": 12,
@@ -1830,7 +1843,8 @@
       "retrieve_aliases": [],
       "split_harm": "原字典把 ≤16 Vpp / ≤30 Vpp 写进别名，属于示例数值，违背文件自身\"只收整词\"的规则，且 16 Vpp 也出现在 #8、#70 中",
       "retrieve": false,
-      "conflict": "hv_safety_ripple"
+      "conflict": "hv_safety_ripple",
+      "status": "draft"
     },
     {
       "seq": 13,
@@ -1893,7 +1907,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #18 完全同名同值，可共用一套写法并同值填写",
       "retrieve": false,
-      "conflict": "insulation"
+      "conflict": "insulation",
+      "status": "draft"
     },
     {
       "seq": 14,
@@ -1993,7 +2008,8 @@
       ],
       "split_harm": "与 #19 完全同名同值",
       "retrieve": true,
-      "conflict": "dielectric"
+      "conflict": "dielectric",
+      "status": "published"
     },
     {
       "seq": 15,
@@ -2043,7 +2059,8 @@
       "retrieve_aliases": [],
       "split_harm": "被动放电（→#16/#27）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 16,
@@ -2088,7 +2105,8 @@
       "retrieve_aliases": [],
       "split_harm": "主动放电（→#15/#26）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 17,
@@ -2146,7 +2164,8 @@
       "retrieve_aliases": [],
       "split_harm": "原字典 \"X/Y capacitor\" 会把 X 电容值带进来，建议改为只收 Y",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 18,
@@ -2209,7 +2228,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #13 重复",
       "retrieve": false,
-      "conflict": "insulation"
+      "conflict": "insulation",
+      "status": "draft"
     },
     {
       "seq": 19,
@@ -2308,7 +2328,8 @@
       ],
       "split_harm": "与 #14 重复",
       "retrieve": true,
-      "conflict": "dielectric"
+      "conflict": "dielectric",
+      "status": "published"
     },
     {
       "seq": 20,
@@ -2388,7 +2409,8 @@
       "retrieve_aliases": [],
       "split_harm": "低压采样精度（→#92）；低压功耗（→#21）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 21,
@@ -2440,7 +2462,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #21 示例含「静态≤0.5mA」，而 #22 静态电流示例为「≤500mA(XCM休眠，包含OD)」，相差 1000 倍，源表自身冲突，须向甲方确认",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 22,
@@ -2501,7 +2524,8 @@
       "retrieve_aliases": [],
       "split_harm": "原字典把 Dark Current 列为\"误配\"，但暗电流/dark current 正是汽车行业对整车静置状态 ECU 静态电流的标准叫法，应收为别名",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 23,
@@ -2558,7 +2582,8 @@
       "retrieve_aliases": [],
       "split_harm": "低压电源范围（→#20）；主动放电时间 2 s（→#26）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 24,
@@ -2617,7 +2642,8 @@
       "retrieve_aliases": [],
       "split_harm": "Y电容（→#17）；电容耐压 V",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 25,
@@ -2667,7 +2693,8 @@
       "retrieve_aliases": [],
       "split_harm": "原字典把 bleeder resistor 放在 #25，但 bleeder 通常指常接的被动泄放电阻，与 #16 被动放电更贴近，建议标注歧义",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 26,
@@ -2712,7 +2739,8 @@
       "retrieve_aliases": [],
       "split_harm": "被动放电时间（→#27）；备份电源维持时间 2 min（→#23）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 27,
@@ -2753,7 +2781,8 @@
       "retrieve_aliases": [],
       "split_harm": "主动放电时间（→#26）；备份电源 2 min（→#23，数字相近易混）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 28,
@@ -2811,7 +2840,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；持续时间 s（→峰值持续时间）",
       "retrieve": false,
-      "conflict": "p1_peak_power"
+      "conflict": "p1_peak_power",
+      "status": "draft"
     },
     {
       "seq": 29,
@@ -2860,7 +2890,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；扭矩响应时间 ms（→#77）",
       "retrieve": false,
-      "conflict": "p1_peak_power_duration"
+      "conflict": "p1_peak_power_duration",
+      "status": "draft"
     },
     {
       "seq": 30,
@@ -2909,7 +2940,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；峰值功率",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 31,
@@ -2971,7 +3003,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；额定扭矩",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 32,
@@ -3014,7 +3047,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；峰值扭矩",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 33,
@@ -3059,7 +3093,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；最高转速",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 34,
@@ -3110,7 +3145,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；最高转速单值",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 35,
@@ -3164,7 +3200,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；额定转速",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 36,
@@ -3221,7 +3258,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；峰值扭矩",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 37,
@@ -3257,7 +3295,8 @@
       "retrieve_aliases": [],
       "split_harm": "裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条",
       "retrieve": false,
-      "conflict": "p1_back_emf"
+      "conflict": "p1_back_emf",
+      "status": "draft"
     },
     {
       "seq": 38,
@@ -3314,7 +3353,8 @@
       "retrieve_aliases": [],
       "split_harm": "充电升压（→#4/#115）；制动能量回收（P3 侧，清单未列）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 39,
@@ -3372,7 +3412,8 @@
       "retrieve_aliases": [],
       "split_harm": "清单只列了 P1 位置传感器，没有 P3 位置传感器条目，疑为甲方遗漏，建议确认",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 40,
@@ -3432,7 +3473,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 41,
@@ -3493,7 +3535,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；升压效率（→#66）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 42,
@@ -3538,7 +3581,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→P3 对应条目）；稳态/瞬态成对 A/s（→ ASC 能力条目）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 43,
@@ -3593,7 +3637,8 @@
       "retrieve_aliases": [],
       "split_harm": "P3 语境（→#58）；峰值电流（→#44）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 44,
@@ -3652,7 +3697,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #44 示例值为「100KW@340V / 120KW@450V；Back EMF <820V-peak」，无电流值；抽取时不得把 kW 或 V 当作电流",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 45,
@@ -3714,7 +3760,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；持续时间 s（→峰值持续时间）",
       "retrieve": false,
-      "conflict": "p3_peak_power"
+      "conflict": "p3_peak_power",
+      "status": "draft"
     },
     {
       "seq": 46,
@@ -3763,7 +3810,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；扭矩响应时间 ms（→#77）",
       "retrieve": false,
-      "conflict": "p3_peak_power_duration"
+      "conflict": "p3_peak_power_duration",
+      "status": "draft"
     },
     {
       "seq": 47,
@@ -3812,7 +3860,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；峰值功率",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 48,
@@ -3874,7 +3923,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；额定扭矩",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 49,
@@ -3917,7 +3967,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；峰值扭矩",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 50,
@@ -3962,7 +4013,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；最高转速",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 51,
@@ -4013,7 +4065,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；最高转速单值",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 52,
@@ -4067,7 +4120,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；额定转速",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 53,
@@ -4129,7 +4183,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #53 示例为电流（峰值520A/3s，持续260A），#59 堵转电流示例却是 130 N·m——两格内容疑似互换或口径混用，须向甲方确认",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 54,
@@ -4165,7 +4220,8 @@
       "retrieve_aliases": [],
       "split_harm": "裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条",
       "retrieve": false,
-      "conflict": "p3_back_emf"
+      "conflict": "p3_back_emf",
+      "status": "draft"
     },
     {
       "seq": 55,
@@ -4226,7 +4282,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 56,
@@ -4287,7 +4344,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；升压效率（→#66）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 57,
@@ -4332,7 +4390,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→P1 对应条目）；稳态/瞬态成对 A/s（→ ASC 能力条目）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 58,
@@ -4385,7 +4444,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1 语境（→#43）；峰值电流（→#60）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 59,
@@ -4438,7 +4498,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #59 示例为 130 N·m（TBD），是扭矩不是电流；与 #53 疑似互换，须向甲方确认",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 60,
@@ -4497,7 +4558,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #60 示例把功率与反电势拼在电流格里，只应抽 520 Arms",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 61,
@@ -4561,7 +4623,8 @@
       "retrieve_aliases": [],
       "split_harm": "原字典把裸词 BOOST 作为 #61 别名，会吸收全部 Boost 句子；建议裸词 BOOST/Boost/升压 只作\"段落定位词\"，不计分",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 62,
@@ -4611,7 +4674,8 @@
       "retrieve_aliases": [],
       "split_harm": "HVDC 工作范围（→#5）；极限电压 500 V（→#5）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 63,
@@ -4657,7 +4721,8 @@
       "retrieve_aliases": [],
       "split_harm": "额定/持续（→#64）；逆变器相电流（→#44/#60）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 64,
@@ -4710,7 +4775,8 @@
       "retrieve_aliases": [],
       "split_harm": "Bypass 数字与 Boost 数字并列出现，抽取需保留模式标签",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 65,
@@ -4761,7 +4827,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表示例是 #62/#63/#64 的拼接（输入侧），而 D 列要求输出电压范围/功率/响应时间（输出侧）——示例与说明不一致；建议以 D 列语义为准，并把响应时间作为本条独有线索",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 66,
@@ -4808,7 +4875,8 @@
       "retrieve_aliases": [],
       "split_harm": "逆变器效率（→#41/#56）；系统效率",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 67,
@@ -4862,7 +4930,8 @@
       "retrieve_aliases": [],
       "split_harm": "最高工作电压单值（→#62）；HVDC 范围（→#5）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 68,
@@ -4911,7 +4980,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1/P3 峰值功率（→#28/#45；源表用「升压@450V」修饰 P1/P3 功率，需靠 P1/P3 前缀区分）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 69,
@@ -4958,7 +5028,8 @@
       "retrieve_aliases": [],
       "split_harm": "逆变器开关频率/载波频率（清单未列但规格常见，勿混）；踏板 PWM 频率 Hz（→#87）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 70,
@@ -5001,7 +5072,8 @@
       "retrieve_aliases": [],
       "split_harm": "母线纹波（→#8/#12）；电感纹波电流 inductor ripple current",
       "retrieve": false,
-      "conflict": "boost_ripple"
+      "conflict": "boost_ripple",
+      "status": "draft"
     },
     {
       "seq": 71,
@@ -5058,7 +5130,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #119 同名同值",
       "retrieve": false,
-      "conflict": "coolant_drop"
+      "conflict": "coolant_drop",
+      "status": "draft"
     },
     {
       "seq": 72,
@@ -5107,7 +5180,8 @@
       "retrieve_aliases": [],
       "split_harm": "#72 与 #120 数值相同、语义互为镜像（系统能带走多少 vs 控制器产生多少）；\"dissipation\" 在原字典同时出现在两条，属别名冲突。建议作为一对处理：同值、分别标注口径",
       "retrieve": false,
-      "conflict": "heat_dissipation"
+      "conflict": "heat_dissipation",
+      "status": "draft"
     },
     {
       "seq": 73,
@@ -5161,7 +5235,8 @@
       "retrieve_aliases": [],
       "split_harm": "源表 #73（≤19.5/≤16 kg）与 #101（25 kg）数值不同，口径可能不同（含/不含 Boost、是否含线束）；不应强制对齐",
       "retrieve": false,
-      "conflict": "weight_controller"
+      "conflict": "weight_controller",
+      "status": "draft"
     },
     {
       "seq": 74,
@@ -5227,7 +5302,8 @@
       "retrieve_aliases": [],
       "split_harm": "#74 示例给等级，#102 示例给标准号，二者互补而非重复",
       "retrieve": false,
-      "conflict": "corrosion_class"
+      "conflict": "corrosion_class",
+      "status": "draft"
     },
     {
       "seq": 75,
@@ -5291,7 +5367,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #103 同名",
       "retrieve": false,
-      "conflict": "vibration"
+      "conflict": "vibration",
+      "status": "draft"
     },
     {
       "seq": 76,
@@ -5366,7 +5443,8 @@
       "retrieve_aliases": [],
       "split_harm": "网络安全（→#80）；功能安全（→#81）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 77,
@@ -5424,7 +5502,8 @@
       "retrieve_aliases": [],
       "split_harm": "扭矩精度（→#78/#89）；采样延时 ms（→#82–#88）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 78,
@@ -5482,7 +5561,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #89 区分规则：按稳态/动态分的百分比→#78；按扭矩区间分的绝对值 Nm→#89；若规格只给一种，两条同源填写并注明",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 79,
@@ -5531,7 +5611,8 @@
       "retrieve_aliases": [],
       "split_harm": "占空比（→#87）；弱磁比",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 80,
@@ -5599,7 +5680,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #118 同名同值",
       "retrieve": false,
-      "conflict": "cybersecurity"
+      "conflict": "cybersecurity",
+      "status": "draft"
     },
     {
       "seq": 81,
@@ -5680,7 +5762,8 @@
       "retrieve_aliases": [],
       "split_harm": "网络安全（→#80）；高压安全",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 82,
@@ -5736,7 +5819,8 @@
       "retrieve_aliases": [],
       "split_harm": "电机温度（→#93）；IGBT 温度（→#94）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 83,
@@ -5795,7 +5879,8 @@
       "retrieve_aliases": [],
       "split_harm": "电机温度（→#93）；IGBT 温度（→#94）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 84,
@@ -5846,7 +5931,8 @@
       "retrieve_aliases": [],
       "split_harm": "电机温度（→#93）；IGBT 温度（→#94）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 85,
@@ -5893,7 +5979,8 @@
       "retrieve_aliases": [],
       "split_harm": "CPSR 缩写清单未定义（0~16V 与 12V 域一致）；原字典 \"analog supply sense\" 为推测，建议向甲方确认后再扩展",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 86,
@@ -5949,7 +6036,8 @@
       "retrieve_aliases": [],
       "split_harm": "PWM 踏板（→#87）；CPSR（→#85）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 87,
@@ -6009,7 +6097,8 @@
       "retrieve_aliases": [],
       "split_harm": "升压开关频率 kHz（→#69）；电机 PWM/逆变器载波",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 88,
@@ -6061,7 +6150,8 @@
       "retrieve_aliases": [],
       "split_harm": "冷却回路压降（→#71）；油温（→#82）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 89,
@@ -6118,7 +6208,8 @@
       "retrieve_aliases": [],
       "split_harm": "见 #78",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 90,
@@ -6175,7 +6266,8 @@
       "retrieve_aliases": [],
       "split_harm": "母线电流检测（→#10）；ASC/额定/峰值电流值本身（→#42/#43/#44）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 91,
@@ -6226,7 +6318,8 @@
       "retrieve_aliases": [],
       "split_harm": "工作电压范围（→#5）；低压采样（→#92）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 92,
@@ -6276,7 +6369,8 @@
       "retrieve_aliases": [],
       "split_harm": "低压工作范围（→#20）；CPSR（→#85）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 93,
@@ -6334,7 +6428,8 @@
       "retrieve_aliases": [],
       "split_harm": "IGBT/模块温度（→#94）；油温（→#82）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 94,
@@ -6391,7 +6486,8 @@
       "retrieve_aliases": [],
       "split_harm": "电机温度（→#93）；环境温度（→#97）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 95,
@@ -6467,7 +6563,8 @@
       "retrieve_aliases": [],
       "split_harm": "P1/P3 性能数值句（功率/扭矩/转速）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 96,
@@ -6513,7 +6610,8 @@
       "retrieve_aliases": [],
       "split_harm": "工作温度（→#97）；冷却液温度（→#111）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 97,
@@ -6574,7 +6672,8 @@
       "retrieve_aliases": [],
       "split_harm": "存储温度（→#96）；冷却液温度（→#111）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 98,
@@ -6621,7 +6720,8 @@
       "retrieve_aliases": [],
       "split_harm": "离地高度；安装高度",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 99,
@@ -6658,7 +6758,8 @@
       "retrieve_aliases": [],
       "split_harm": "工作湿度（→#100）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 100,
@@ -6712,7 +6813,8 @@
       "retrieve_aliases": [],
       "split_harm": "存储湿度（→#99）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 101,
@@ -6766,7 +6868,8 @@
       "retrieve_aliases": [],
       "split_harm": "见 #73",
       "retrieve": false,
-      "conflict": "weight_requirement"
+      "conflict": "weight_requirement",
+      "status": "draft"
     },
     {
       "seq": 102,
@@ -6832,7 +6935,8 @@
       "retrieve_aliases": [],
       "split_harm": "见 #74",
       "retrieve": false,
-      "conflict": "corrosion_std"
+      "conflict": "corrosion_std",
+      "status": "draft"
     },
     {
       "seq": 103,
@@ -6896,7 +7000,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #75 重复",
       "retrieve": false,
-      "conflict": "vibration"
+      "conflict": "vibration",
+      "status": "draft"
     },
     {
       "seq": 104,
@@ -6976,7 +7081,8 @@
       "retrieve_aliases": [],
       "split_harm": "原字典 #104 与 #109 共用 IPXXB，属别名冲突；IPXXB 是防触指代号，应只归 #109",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 105,
@@ -7033,7 +7139,8 @@
       "retrieve_aliases": [],
       "split_harm": "表面清洁/清洗工艺；冷却液清洁度",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 106,
@@ -7092,7 +7199,8 @@
       "retrieve_aliases": [],
       "split_harm": "热失控 thermal runaway（电池）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 107,
@@ -7158,7 +7266,8 @@
       "retrieve_aliases": [],
       "split_harm": "元器件寿命评估/电容寿命（E 列套话或器件级）；循环次数（电池）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 108,
@@ -7230,7 +7339,8 @@
       "retrieve_aliases": [],
       "split_harm": "冷却液成分",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 109,
@@ -7295,7 +7405,8 @@
       "retrieve_aliases": [],
       "split_harm": "HVIL（高压互锁）是相关但独立的功能，清单未列；作为上下文线索而非同义词",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 110,
@@ -7360,7 +7471,8 @@
       "retrieve_aliases": [],
       "split_harm": "高压连接器（→#109）；低压插件",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 111,
@@ -7410,7 +7522,8 @@
       "retrieve_aliases": [],
       "split_harm": "水温采样精度/延时（→#83/#84）；环境温度（→#97）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 112,
@@ -7458,7 +7571,8 @@
       "retrieve_aliases": [],
       "split_harm": "额定流量单值（→#113）；压降条件中的 @10 L/min（→#71）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 113,
@@ -7500,7 +7614,8 @@
       "retrieve_aliases": [],
       "split_harm": "流量范围（→#112）；压降条件里的流量（→#71）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 114,
@@ -7573,7 +7688,8 @@
       "retrieve_aliases": [],
       "split_harm": "通讯保持电压 16~18V（→#20）；安全通信 SecOC（→#80）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 115,
@@ -7623,7 +7739,8 @@
       "retrieve_aliases": [],
       "split_harm": "驱动升压（→#3）",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 116,
@@ -7681,7 +7798,8 @@
       "retrieve_aliases": [],
       "split_harm": "质保/保险（warranty，→#107）；保险杠",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 117,
@@ -7736,7 +7854,8 @@
       "retrieve_aliases": [],
       "split_harm": "「滑膜」疑为「滑摩」误写（离合器滑动摩擦），规格书大概率写「滑摩」；两种写法都要收，并排除「滑模」",
       "retrieve": false,
-      "conflict": ""
+      "conflict": "",
+      "status": "draft"
     },
     {
       "seq": 118,
@@ -7803,7 +7922,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #80 重复",
       "retrieve": false,
-      "conflict": "cybersecurity"
+      "conflict": "cybersecurity",
+      "status": "draft"
     },
     {
       "seq": 119,
@@ -7858,7 +7978,8 @@
       "retrieve_aliases": [],
       "split_harm": "与 #71 重复",
       "retrieve": false,
-      "conflict": "coolant_drop"
+      "conflict": "coolant_drop",
+      "status": "draft"
     },
     {
       "seq": 120,
@@ -7908,7 +8029,8 @@
       "retrieve_aliases": [],
       "split_harm": "见 #72 备注",
       "retrieve": false,
-      "conflict": "heat_dissipation"
+      "conflict": "heat_dissipation",
+      "status": "draft"
     }
   ]
 }

@@ -110,6 +110,12 @@ rsync -a \
   --exclude '*.so' \
   "$MODULES/document_reader/" "$STAGE/app/modules/document_reader/"
 cp "$MODULES/__init__.py" "$STAGE/app/modules/__init__.py"
+mkdir -p "$STAGE/app/docs"
+cp "$ROOT/docs/clause_lexicon.json" "$STAGE/app/docs/clause_lexicon.json"
+mkdir -p "$STAGE/app/docs/knowledge/published"
+cp "$ROOT/docs/knowledge/published/manifest.json" "$STAGE/app/docs/knowledge/published/manifest.json"
+cp "$ROOT/docs/knowledge/published/graph.json" "$STAGE/app/docs/knowledge/published/graph.json"
+cp "$ROOT/docs/knowledge/published/keyword_index.json" "$STAGE/app/docs/knowledge/published/keyword_index.json"
 
 cp "$WIN/config.ini" "$STAGE/config.ini"
 if [ -n "${PACK_SERVER_URL:-}" ]; then
@@ -267,14 +273,14 @@ fi
   -target x86_64-windows-gnu \
   -O ReleaseSmall \
   --subsystem windows \
-  -lc -lshell32 -luser32 -lkernel32 -liphlpapi -lws2_32 -lole32 -luuid \
+  -lc -lshell32 -luser32 -lkernel32 -lgdi32 -liphlpapi -lws2_32 -lole32 -luuid \
   -femit-bin="$STAGE/SORFill.exe"
 "$ZIG_BIN" build-exe "$WIN/app.c" \
   -target x86_64-windows-gnu \
   -O ReleaseSmall \
   --subsystem windows \
   -cflags -DSTOP_APP -- \
-  -lc -lshell32 -luser32 -lkernel32 -liphlpapi -lws2_32 -lole32 -luuid \
+  -lc -lshell32 -luser32 -lkernel32 -lgdi32 -liphlpapi -lws2_32 -lole32 -luuid \
   -femit-bin="$STAGE/SORStop.exe"
 cp "$STAGE/SORFill.exe" "$STAGE/启动SOR填表.exe"
 cp "$STAGE/SORStop.exe" "$STAGE/停止SOR填表.exe"
@@ -326,6 +332,12 @@ with zipfile.ZipFile(io.BytesIO(blob), "r") as zf:
     names = zf.namelist()
     if "run.py" not in names:
         raise SystemExit("exe overlay zip missing run.py: " + ", ".join(names[:12]))
+    if "app/docs/clause_lexicon.json" not in names:
+        raise SystemExit("exe overlay zip missing clause_lexicon.json")
+    if "app/docs/knowledge/published/manifest.json" not in names:
+        raise SystemExit("exe overlay zip missing knowledge manifest")
+    if "app/docs/knowledge/published/graph.json" not in names:
+        raise SystemExit("exe overlay zip missing knowledge graph")
     if "SORFill.exe" not in names:
         raise SystemExit("exe overlay zip missing SORFill.exe")
     if "python/.deps-ok" not in names:

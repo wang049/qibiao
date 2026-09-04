@@ -3,6 +3,7 @@ from __future__ import annotations
 import threading
 import time
 import unittest
+from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -10,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from electrical_krow.config import load_settings
 from electrical_krow.gateway import create_app
-from electrical_krow.jobs import retrieval_counts
+from electrical_krow.jobs import retrieval_counts, review_sheet_name
 from electrical_krow.login import AuthSession
 from electrical_krow.mock_server import DEMO_USER
 from electrical_krow.paths import OUTPUT_DIR
@@ -31,6 +32,22 @@ class RetrievalCountTests(unittest.TestCase):
     def test_ignores_plain_values(self) -> None:
         self.assertEqual(retrieval_counts([1, 2, 3]), (0, 0, 0))
         self.assertEqual(retrieval_counts(None), (0, 0, 0))
+
+
+class ReviewSheetNameTests(unittest.TestCase):
+    def test_original_name_and_export_time(self) -> None:
+        when = datetime(2026, 9, 4, 10, 25, 33)
+        self.assertEqual(
+            review_sheet_name("DHTS160规格书.pdf", when),
+            "DHTS160规格书_20260904102533.xlsx",
+        )
+
+    def test_strips_unsafe_chars_and_extension(self) -> None:
+        when = datetime(2026, 1, 2, 3, 4, 5)
+        self.assertEqual(
+            review_sheet_name("foo bar.docx", when),
+            "foo_bar_20260102030405.xlsx",
+        )
 
 
 class JobTests(unittest.TestCase):
@@ -85,7 +102,10 @@ class JobTests(unittest.TestCase):
         self.assertEqual(data["partial"], 0)
         self.assertEqual(data["miss"], 0)
         self.assertTrue(str(data["download"]).startswith("/files/"))
+        self.assertTrue(str(data.get("knowledge_version") or "").strip())
+        self.assertNotIn(".yaml", str(data.get("knowledge_version") or ""))
         name = str(data["download"]).rsplit("/", 1)[-1]
+        self.assertRegex(name, r"^spec_\d{14}\.xlsx$")
         dl = self.client.get(f"/files/{name}")
         self.assertEqual(dl.status_code, 200)
         self.assertEqual(dl.content, b"xlsx-ok")

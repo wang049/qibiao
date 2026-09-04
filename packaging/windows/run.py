@@ -1,6 +1,6 @@
 """Windows 绿色包入口。不依赖 PYTHONPATH / python -m。
 
-默认打开原生窗口（WebView2），不再跳系统浏览器。
+默认打开独立工位窗口（系统 Edge 应用模式），不再跳系统浏览器，也不再走 pywebview。
 """
 from __future__ import annotations
 
@@ -29,12 +29,12 @@ def _prepare() -> None:
         str(Path(os.environ.get("LOCALAPPDATA", str(ROOT / "data"))) / "electrical-krow"),
     )
     os.environ.setdefault("KROW_UVICORN_LOG", "info")
-    os.environ.setdefault("ELECTRICAL_KROW_GW_THREAD", "1")
+    os.environ["ELECTRICAL_KROW_GW_THREAD"] = "0"
 
 
 def _missing_deps() -> list[str]:
     site = ROOT / "python" / "Lib" / "site-packages"
-    need = ("httpx", "httpcore", "anyio", "certifi", "webview", "fastapi")
+    need = ("httpx", "httpcore", "anyio", "certifi", "fastapi")
     return [name for name in need if not (site / name).exists()]
 
 
@@ -84,7 +84,7 @@ def _wait_gateway() -> int:
     if host in {"0.0.0.0", "::", "*"}:
         host = "127.0.0.1"
     origin = f"http://{host}:{settings.gateway_port}"
-    return 0 if wait_until_ready(host, settings.gateway_port, origin, seconds=20) else 1
+    return 0 if wait_until_ready(host, settings.gateway_port, origin, seconds=45) else 1
 
 
 def _run_gateway() -> int:

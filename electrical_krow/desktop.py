@@ -32,9 +32,9 @@ from electrical_krow.gateway import (
 )
 from electrical_krow.paths import OUTPUT_DIR, data_root
 
-WEBVIEW2_HINT = (
-    "无法打开窗口。请安装 Microsoft Edge WebView2 运行时后重试：\n"
-    "https://developer.microsoft.com/microsoft-edge/webview2/"
+EDGE_HINT = (
+    "找不到 Microsoft Edge，无法打开工位窗口。\n"
+    "请安装 Microsoft Edge 后再打开（不是 Chrome）。"
 )
 
 
@@ -91,14 +91,170 @@ def webview_installed() -> bool:
     return importlib.util.find_spec("webview") is not None
 
 
-def gateway_in_thread() -> bool:
-    raw = os.environ.get("ELECTRICAL_KROW_GW_THREAD", "").strip().lower()
-    if raw in {"0", "false", "no"}:
+def edge_app_profile() -> Path:
+    return data_root() / "edge-app"
+
+
+def msedge_path() -> str | None:
+    override = (os.environ.get("ELECTRICAL_KROW_EDGE") or "").strip()
+    if override:
+        return override if Path(override).is_file() else None
+    homes: list[Path] = []
+    for key in ("PROGRAMFILES(X86)", "PROGRAMFILES", "LOCALAPPDATA"):
+        root = (os.environ.get(key) or "").strip()
+        if root:
+            homes.append(Path(root) / "Microsoft" / "Edge" / "Application" / "msedge.exe")
+    homes.append(
+        Path.home() / "AppData" / "Local" / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+    )
+    for path in homes:
+        if path.is_file():
+            return str(path)
+    found = shutil.which("msedge")
+    return found
+
+
+def edge_profile_busy(profile: Path) -> bool:
+    """只看真正的实例锁。SingletonCookie 关掉窗口后仍会留在目录里。"""
+    for name in ("SingletonLock", "lockfile"):
+        if (profile / name).exists():
+            return True
+    return False
+
+
+def _msedge_cmd_uses_profile(profile: Path) -> bool:
+    if sys.platform != "win32":
         return False
-    if raw in {"1", "true", "yes"}:
+    needle = str(profile).replace("/", "\\").lower()
+    flags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:
+        out = subprocess.run(
+            ["wmic", "process", "where", "name='msedge.exe'", "get", "CommandLine"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            creationflags=flags,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    text = (out.stdout or "").replace("/", "\\").lower()
+    return needle in text
+
+
+def edge_app_running(profile: Path, *, probe_process: bool = True) -> bool:
+    if edge_profile_busy(profile):
         return True
-    # Windows 工位包默认同一进程起网关，避免再冷启动一次 pythonw。
-    return sys.platform == "win32"
+    if probe_process:
+        return _msedge_cmd_uses_profile(profile)
+    return False
+
+
+def wait_edge_app_closed(
+    proc: subprocess.Popen, profile: Path, *, seconds: float | None = None
+) -> None:
+    """Edge --app 常把窗口交给独立进程，Popen 的 stub 可能马上退出。
+
+    seconds 只给测试用。生产环境一直等到窗口退出；若检测不到锁文件，
+    也不提前停网关，避免窗口刚出来页面就断。
+    """
+    appear = 60.0 if seconds is None else max(0.05, float(seconds))
+    close_budget = None if seconds is None else max(0.05, float(seconds))
+    seen = False
+    deadline = time.time() + appear
+    last_probe = 0.0
+    while time.time() < deadline:
+        now = time.time()
+        probe = now - last_probe >= 1.0
+        if probe:
+            last_probe = now
+        if edge_app_running(profile, probe_process=probe):
+            seen = True
+            break
+        if proc.poll() not in (None, 0):
+            raise RuntimeError(EDGE_HINT)
+        time.sleep(0.1)
+    if proc.poll() is None:
+        if close_budget is None:
+            proc.wait()
+        else:
+            try:
+                proc.wait(timeout=close_budget)
+            except subprocess.TimeoutExpired:
+                pass
+    if proc.poll() not in (None, 0) and not edge_app_running(
+        profile, probe_process=True
+    ):
+        raise RuntimeError(EDGE_HINT)
+    if close_budget is not None:
+        stop = time.time() + close_budget
+        while time.time() < stop and edge_app_running(profile, probe_process=False):
+            time.sleep(0.05)
+        return
+    if not seen:
+        extra = time.time() + 30.0
+        while time.time() < extra:
+            if edge_app_running(profile, probe_process=True):
+                seen = True
+                break
+            time.sleep(0.2)
+    last_probe = 0.0
+    while True:
+        now = time.time()
+        probe = now - last_probe >= 1.0
+        if probe:
+            last_probe = now
+        running = edge_app_running(profile, probe_process=probe)
+        if running:
+            seen = True
+        elif seen:
+            return
+        time.sleep(0.8)
+
+
+def open_edge_app_window(url: str) -> None:
+    """Windows 用工位专用 Edge 应用窗口，不再走 pywebview/pythonnet。"""
+    edge = msedge_path()
+    if not edge:
+        raise RuntimeError(EDGE_HINT)
+    profile = edge_app_profile()
+    profile.mkdir(parents=True, exist_ok=True)
+    profile = profile.resolve()
+    args = [
+        edge,
+        f"--app={url}",
+        f"--user-data-dir={profile}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-extensions",
+        "--disable-sync",
+        "--window-size=1180,840",
+        "--disable-features=TranslateUI,MediaRouter",
+    ]
+    kwargs: dict[str, object] = {}
+    if sys.platform == "win32":
+        info = subprocess.STARTUPINFO()
+        info.dwFlags |= int(getattr(subprocess, "STARTF_USESHOWWINDOW", 1))
+        info.wShowWindow = 1
+        kwargs["startupinfo"] = info
+        kwargs["creationflags"] = int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+    proc = subprocess.Popen(args, **kwargs)
+    wait_edge_app_closed(proc, profile)
+
+
+def gateway_in_thread() -> bool:
+    """默认独立进程。和 WebView2 同进程会把窗口拖成「未响应」。"""
+    raw = os.environ.get("ELECTRICAL_KROW_GW_THREAD", "").strip().lower()
+    return raw in {"1", "true", "yes"}
+
+
+def gateway_python() -> str:
+    """子进程用 python.exe，避免再开一个 pythonw 和窗口抢消息泵。"""
+    exe = Path(runtime_python())
+    if sys.platform == "win32" and exe.name.lower() == "pythonw.exe":
+        console = exe.with_name("python.exe")
+        if console.is_file():
+            return str(console)
+    return str(exe)
 
 
 def gateway_pid_path() -> Path:
@@ -108,7 +264,7 @@ def gateway_pid_path() -> Path:
 def gateway_command(host: str, port: int) -> list[str]:
     extra = ["--host", str(host), "--port", str(port)]
     argv0 = Path(sys.argv[0]).resolve()
-    python = runtime_python()
+    python = gateway_python()
     if argv0.name.lower() == "run.py":
         return [python, str(argv0), "--gateway", *extra]
     return [
@@ -166,6 +322,38 @@ def reap_stale_gateway(host: str, port: int) -> None:
     deadline = time.time() + 2.0
     while time.time() < deadline and port_is_open(host, port):
         time.sleep(0.05)
+
+
+def _kill_port_listener(port: int) -> None:
+    """端口被占但页面打不开时，清掉监听进程。"""
+    if sys.platform != "win32":
+        return
+    try:
+        out = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            text=True,
+            check=False,
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
+        )
+    except OSError:
+        return
+    needle = f":{int(port)}"
+    seen: set[int] = set()
+    for line in (out.stdout or "").splitlines():
+        if "LISTENING" not in line.upper() or needle not in line:
+            continue
+        parts = line.split()
+        if not parts:
+            continue
+        try:
+            pid = int(parts[-1])
+        except ValueError:
+            continue
+        if pid in seen or pid <= 0:
+            continue
+        seen.add(pid)
+        _kill_pid(pid)
 
 
 class WinJob:
@@ -410,6 +598,7 @@ def spawn_gateway(host: str, port: int) -> GatewayHandle:
         kwargs["creationflags"] = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
     env = os.environ.copy()
     env["ELECTRICAL_KROW_NESTED"] = "1"
+    env["ELECTRICAL_KROW_GW_THREAD"] = "0"
     proc = subprocess.Popen(cmd, env=env, **kwargs)
     job = WinJob()
     raw = getattr(proc, "_handle", None)
@@ -468,8 +657,9 @@ def _prepare_webview_runtime() -> None:
 
 
 def window_starts_hidden() -> bool:
-    """网关已在独立进程，窗口直接显示，避免安装后只剩快捷方式看不见页面。"""
-    return False
+    """默认不要藏窗口。hidden=True 时 WebView2 的 show() 常不在 UI 线程，双击会像没反应。"""
+    raw = os.environ.get("ELECTRICAL_KROW_HIDE_UNTIL_READY", "").strip().lower()
+    return raw in {"1", "true", "yes"}
 
 
 def bind_show_when_ready(window, *, fallback_sec: float = 6.0) -> None:
@@ -504,6 +694,9 @@ def bind_show_when_ready(window, *, fallback_sec: float = 6.0) -> None:
 
 
 def open_window(url: str) -> None:
+    if sys.platform == "win32":
+        open_edge_app_window(url)
+        return
     _prepare_webview_runtime()
     _set_native_app_identity()
     webview = _load_webview()
@@ -515,12 +708,13 @@ def open_window(url: str) -> None:
     window = webview.create_window(
         TITLE,
         url,
-        width=1080,
-        height=820,
+        width=1180,
+        height=840,
         min_size=(760, 600),
         text_select=True,
         confirm_close=False,
         hidden=hidden,
+        easy_drag=False,
         background_color="#F4F1EA",
         js_api=api,
     )
@@ -542,9 +736,7 @@ def open_window(url: str) -> None:
     try:
         webview.start(**kwargs)
     except Exception as exc:
-        if sys.platform == "win32":
-            raise RuntimeError(WEBVIEW2_HINT + "\n\n" + str(exc)) from exc
-        raise
+        raise RuntimeError("无法打开窗口。\n\n" + str(exc)) from exc
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -558,10 +750,6 @@ def main(argv: list[str] | None = None) -> int:
     if settings.delivery == "site":
         _alert("场所网页请用浏览器打开内网地址，不要用桌面窗口。")
         return 1
-    reap_stale_gateway(host, port)
-    if port_is_open(host, port):
-        _alert(f"{TITLE} 已在运行。")
-        return 0
     if handoff_macos_app(list(argv or [])):
         announce(settings, host, origin)
         print("客户端窗口已用应用身份打开，Dock 不再显示 python3.12。", flush=True)
@@ -571,30 +759,48 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     announce(settings, host, origin)
     print("客户端窗口：登录和出表都在本窗口完成，不再打开系统浏览器。", flush=True)
-    if not webview_installed():
-        _alert("未安装窗口组件 pywebview。开发机可执行：pip install pywebview")
-        return 1
-    _prepare_webview_runtime()
-    _set_native_app_identity()
-    handle = start_gateway(settings, host, port, origin)
-    try:
+    if sys.platform == "win32":
+        _set_native_app_identity()
+        if not msedge_path():
+            _alert(EDGE_HINT)
+            return 1
+    else:
+        if not webview_installed():
+            _alert("未安装窗口组件 pywebview。开发机可执行：pip install pywebview")
+            return 1
+        _prepare_webview_runtime()
+        _set_native_app_identity()
         try:
             _load_webview()
         except RuntimeError as exc:
             _alert(str(exc))
             return 1
-        if not wait_until_ready(host, port, origin):
-            _alert("本机服务没有启动成功。请查看 gateway.log。")
-            return 1
+    page = f"{origin}/"
+
+    def _open() -> int:
         try:
-            open_window(f"{origin}/")
+            open_window(page)
+            return 0
         except RuntimeError as exc:
             _alert(str(exc))
             return 1
         except Exception as exc:
             _alert(f"无法打开窗口：{exc}")
             return 1
-        return 0
+
+    if wait_until_ready(host, port, origin, seconds=1.2):
+        print("本机服务已在运行，重新打开窗口。", flush=True)
+        return _open()
+    reap_stale_gateway(host, port)
+    if port_is_open(host, port) and not wait_until_ready(host, port, origin, seconds=0.6):
+        _kill_port_listener(port)
+    handle = start_gateway(settings, host, port, origin)
+    try:
+        ready_sec = 45.0 if sys.platform == "win32" else 20.0
+        if not wait_until_ready(host, port, origin, seconds=ready_sec):
+            _alert("本机服务没有启动成功。请查看 gateway.log。")
+            return 1
+        return _open()
     finally:
         handle.stop()
 

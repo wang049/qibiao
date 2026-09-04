@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器 · SOR填表</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260831c" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260904k" />
 </head>
 <body>
   <div class="app">
@@ -19,6 +19,10 @@
           </div>
         </div>
         <div class="header-right">
+          <nav id="nav-work" class="work-nav" hidden>
+            <button type="button" id="nav-extract" class="work-nav-btn is-on">出表</button>
+            <button type="button" id="nav-kb" class="work-nav-btn">知识库</button>
+          </nav>
           <span id="who-wrap" class="who-chip" hidden>
             <span class="who-label">账号</span>
             <strong id="who"></strong>
@@ -133,8 +137,54 @@
         </div>
         <div id="result" class="result"></div>
       </div>
+
+      <div id="kb-card" class="card kb-card" hidden>
+        <div class="kb-toolbar">
+          <div class="kb-meta">
+            <span id="kb-version" class="kb-chip">版本</span>
+            <span class="kb-chip">密级 内部</span>
+            <span class="kb-chip">场所内</span>
+            <span class="kb-chip warn">禁止用库填数</span>
+          </div>
+          <label class="kb-search">检索
+            <input id="kb-q" type="search" placeholder="条款号、名称、别名、公式…" autocomplete="off" />
+          </label>
+        </div>
+        <div id="kb-stats" class="kb-stats"></div>
+        <p id="kb-banner" class="kb-banner">抽出值只来自当份规格书。知识库提供条目、互斥与公式关系，不提供取值。</p>
+        <div class="kb-tabs" role="tablist">
+          <button type="button" class="kb-tab is-on" data-tab="dir" role="tab">条款目录</button>
+          <button type="button" class="kb-tab" data-tab="graph" role="tab">知识图谱</button>
+          <button type="button" class="kb-tab" data-tab="physics" role="tab">物理关系</button>
+          <button type="button" class="kb-tab" data-tab="scope" role="tab">范围与来源</button>
+        </div>
+        <div id="kb-panel-dir" class="kb-panel">
+          <div class="kb-layout">
+            <aside class="kb-side">
+              <div id="kb-groups" class="kb-groups"></div>
+              <div id="kb-list" class="kb-list"></div>
+            </aside>
+            <section class="kb-main">
+              <div id="kb-mini-graph" class="kb-graph-wrap"></div>
+              <article id="kb-detail" class="kb-detail"></article>
+            </section>
+          </div>
+        </div>
+        <div id="kb-panel-graph" class="kb-panel" hidden>
+          <div id="kb-graph" class="kb-graph-wrap kb-graph-lg"></div>
+          <article id="kb-graph-detail" class="kb-detail"></article>
+        </div>
+        <div id="kb-panel-physics" class="kb-panel" hidden>
+          <div id="kb-physics" class="kb-phys-grid"></div>
+          <article id="kb-phys-detail" class="kb-detail"></article>
+        </div>
+        <div id="kb-panel-scope" class="kb-panel" hidden>
+          <div id="kb-scope" class="kb-scope"></div>
+        </div>
+      </div>
     </main>
   </div>
-  <script src="/static/app.js?v=20260831c" defer></script>
+  <script src="/static/app.js?v=20260904n" defer></script>
+  <script src="/static/kb.js?v=20260904k" defer></script>
 </body>
 </html>

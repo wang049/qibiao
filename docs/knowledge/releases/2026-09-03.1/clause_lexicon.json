@@ -1,0 +1,8036 @@
+{
+  "meta": {
+    "version": "2026-09-02 扩展版 v0.1",
+    "source_list": "电机控制需求清单_20260821V1.xlsx（120 项）",
+    "alias_levels": {
+      "strong": "整词、跨条目唯一，可直接计分",
+      "weak": "整词但多条目共享，须配合判别词（P1/P3、Boost、电池连接/断开、稳态/动态 等）或单位闸门才计分",
+      "anchor": "裸词如 BOOST/P1/P3/冷却/温度，只用于缩小段落范围，不计分"
+    },
+    "weak_alias_index": {
+      "3-phase short": [
+        40,
+        55
+      ],
+      "active short circuit": [
+        40,
+        55
+      ],
+      "active short circuit current": [
+        42,
+        57
+      ],
+      "apk": [
+        44,
+        60
+      ],
+      "arms peak": [
+        44,
+        60
+      ],
+      "asc arms": [
+        42,
+        57
+      ],
+      "asc capability": [
+        40,
+        55
+      ],
+      "asc current": [
+        42,
+        57
+      ],
+      "asc current capability": [
+        40,
+        55
+      ],
+      "asc phase current": [
+        42,
+        57
+      ],
+      "asc rms current": [
+        42,
+        57
+      ],
+      "asc steady state": [
+        40,
+        55
+      ],
+      "asc transient": [
+        40,
+        55
+      ],
+      "asc电流": [
+        42,
+        57
+      ],
+      "asc电流能力": [
+        40,
+        55
+      ],
+      "asc相电流": [
+        42,
+        57
+      ],
+      "asc瞬态": [
+        40,
+        55
+      ],
+      "asc稳态": [
+        40,
+        55
+      ],
+      "asc稳态电流": [
+        42,
+        57
+      ],
+      "assembly weight": [
+        73,
+        101
+      ],
+      "base speed": [
+        31,
+        33,
+        48,
+        50
+      ],
+      "bidirectional speed": [
+        34,
+        51
+      ],
+      "boost charging": [
+        4,
+        115
+      ],
+      "boost mode": [
+        61,
+        67
+      ],
+      "boost peak power": [
+        28,
+        45,
+        68
+      ],
+      "boost topology": [
+        3,
+        61
+      ],
+      "cct": [
+        74,
+        102
+      ],
+      "charge boost": [
+        4,
+        115
+      ],
+      "charging boost": [
+        4,
+        115
+      ],
+      "charging topology": [
+        4,
+        115
+      ],
+      "cltc efficiency": [
+        41,
+        56
+      ],
+      "constant torque region": [
+        31,
+        48
+      ],
+      "continuous phase current": [
+        43,
+        58
+      ],
+      "continuous power": [
+        30,
+        47
+      ],
+      "continuous rating": [
+        30,
+        47
+      ],
+      "continuous torque": [
+        32,
+        49
+      ],
+      "controller weight": [
+        73,
+        101
+      ],
+      "corner speed": [
+        31,
+        33,
+        48,
+        50
+      ],
+      "corrosion class": [
+        74,
+        102
+      ],
+      "corrosion grade": [
+        74,
+        102
+      ],
+      "corrosion protection level": [
+        74,
+        102
+      ],
+      "corrosion resistance": [
+        74,
+        102
+      ],
+      "corrosion test": [
+        74,
+        102
+      ],
+      "cyclic corrosion": [
+        74,
+        102
+      ],
+      "dynamic accuracy": [
+        78,
+        89
+      ],
+      "efficiency at operating point": [
+        41,
+        56
+      ],
+      "efficiency map": [
+        41,
+        56
+      ],
+      "efficiency target": [
+        41,
+        56
+      ],
+      "external characteristic": [
+        31,
+        48
+      ],
+      "high-efficiency region": [
+        41,
+        56
+      ],
+      "inverter efficiency": [
+        41,
+        56
+      ],
+      "inverter weight": [
+        73,
+        101
+      ],
+      "locked rotor torque": [
+        36,
+        53
+      ],
+      "mass": [
+        73,
+        101
+      ],
+      "max operating speed": [
+        35,
+        52
+      ],
+      "max phase current": [
+        44,
+        60
+      ],
+      "max rpm": [
+        35,
+        52
+      ],
+      "maximum efficiency": [
+        41,
+        56
+      ],
+      "maximum phase current": [
+        44,
+        60
+      ],
+      "maximum power": [
+        28,
+        45
+      ],
+      "maximum speed": [
+        35,
+        52
+      ],
+      "maximum torque": [
+        31,
+        48
+      ],
+      "mechanical speed limit": [
+        35,
+        52
+      ],
+      "neutral salt spray": [
+        74,
+        102
+      ],
+      "nominal power": [
+        30,
+        47
+      ],
+      "nominal speed": [
+        33,
+        50
+      ],
+      "nominal torque": [
+        32,
+        49
+      ],
+      "non-boost peak power": [
+        28,
+        45
+      ],
+      "nss": [
+        74,
+        102
+      ],
+      "operating speed range": [
+        34,
+        51
+      ],
+      "overload current": [
+        44,
+        60
+      ],
+      "overload time": [
+        29,
+        46
+      ],
+      "overspeed": [
+        35,
+        52
+      ],
+      "peak ac current": [
+        44,
+        60
+      ],
+      "peak current": [
+        44,
+        60
+      ],
+      "peak duration": [
+        29,
+        46
+      ],
+      "peak efficiency": [
+        41,
+        56
+      ],
+      "peak hold time": [
+        29,
+        46
+      ],
+      "peak output current": [
+        44,
+        60
+      ],
+      "peak phase current": [
+        44,
+        60
+      ],
+      "peak power": [
+        28,
+        45
+      ],
+      "peak power duration": [
+        29,
+        46
+      ],
+      "peak time": [
+        29,
+        46
+      ],
+      "peak torque": [
+        31,
+        48
+      ],
+      "rated phase current": [
+        43,
+        58
+      ],
+      "rated power": [
+        30,
+        47
+      ],
+      "rated rpm": [
+        33,
+        50
+      ],
+      "rated speed": [
+        33,
+        50
+      ],
+      "rated torque": [
+        32,
+        49
+      ],
+      "reverse speed": [
+        34,
+        51
+      ],
+      "rpm range": [
+        34,
+        51
+      ],
+      "s1 power": [
+        30,
+        47
+      ],
+      "s1 torque": [
+        32,
+        49
+      ],
+      "s1功率": [
+        30,
+        47
+      ],
+      "s1扭矩": [
+        32,
+        49
+      ],
+      "s2 duty": [
+        29,
+        46
+      ],
+      "salt fog": [
+        74,
+        102
+      ],
+      "salt spray": [
+        74,
+        102
+      ],
+      "short-circuit current rms": [
+        42,
+        57
+      ],
+      "short-circuit withstand": [
+        40,
+        55
+      ],
+      "short-time power": [
+        28,
+        45
+      ],
+      "speed limit": [
+        35,
+        52
+      ],
+      "speed range": [
+        34,
+        51
+      ],
+      "speed requirement": [
+        34,
+        51
+      ],
+      "stall condition": [
+        36,
+        53
+      ],
+      "stall duration": [
+        36,
+        53
+      ],
+      "stall entry": [
+        36,
+        53
+      ],
+      "stall exit": [
+        36,
+        53
+      ],
+      "stall protection": [
+        36,
+        53
+      ],
+      "stall time": [
+        36,
+        53
+      ],
+      "stall torque": [
+        36,
+        53
+      ],
+      "standstill torque": [
+        36,
+        53
+      ],
+      "steady-state accuracy": [
+        78,
+        89
+      ],
+      "steady-state short circuit current": [
+        40,
+        55
+      ],
+      "target weight": [
+        73,
+        101
+      ],
+      "three-phase short circuit": [
+        40,
+        55
+      ],
+      "top speed": [
+        35,
+        52
+      ],
+      "torque accuracy": [
+        78,
+        89
+      ],
+      "torque control accuracy": [
+        78,
+        89
+      ],
+      "torque deviation": [
+        78,
+        89
+      ],
+      "torque error": [
+        78,
+        89
+      ],
+      "torque precision": [
+        78,
+        89
+      ],
+      "torque tolerance": [
+        78,
+        89
+      ],
+      "torque vs speed": [
+        31,
+        48
+      ],
+      "torque-speed envelope": [
+        31,
+        48
+      ],
+      "total weight": [
+        73,
+        101
+      ],
+      "transient short circuit current": [
+        40,
+        55
+      ],
+      "weight": [
+        73,
+        101
+      ],
+      "weight target": [
+        73,
+        101
+      ],
+      "wltc efficiency": [
+        41,
+        56
+      ],
+      "zero speed torque": [
+        36,
+        53
+      ],
+      "三相主动短路": [
+        40,
+        55
+      ],
+      "三相短路电流": [
+        40,
+        55
+      ],
+      "不含boost重量": [
+        73,
+        101
+      ],
+      "中性盐雾": [
+        74,
+        102
+      ],
+      "主动短路工况": [
+        40,
+        55
+      ],
+      "主动短路电流": [
+        42,
+        57
+      ],
+      "主动短路电流能力": [
+        40,
+        55
+      ],
+      "主动短路相电流": [
+        42,
+        57
+      ],
+      "主动短路能力": [
+        40,
+        55
+      ],
+      "交流主动短路电流": [
+        42,
+        57
+      ],
+      "交流峰值电流": [
+        44,
+        60
+      ],
+      "交流电流峰值": [
+        44,
+        60
+      ],
+      "低速大扭矩": [
+        36,
+        53
+      ],
+      "充电升压": [
+        4,
+        115
+      ],
+      "充电拓扑": [
+        4,
+        115
+      ],
+      "动态精度": [
+        78,
+        89
+      ],
+      "动态误差": [
+        78,
+        89
+      ],
+      "区间效率": [
+        41,
+        56
+      ],
+      "升压充电": [
+        4,
+        115
+      ],
+      "升压峰值功率": [
+        28,
+        45,
+        68
+      ],
+      "升压拓扑": [
+        3,
+        61
+      ],
+      "反转转速": [
+        34,
+        51
+      ],
+      "含boost重量": [
+        73,
+        101
+      ],
+      "基速": [
+        33,
+        50
+      ],
+      "堵转保护": [
+        36,
+        53
+      ],
+      "堵转判定": [
+        36,
+        53
+      ],
+      "堵转工况": [
+        36,
+        53
+      ],
+      "堵转扭矩": [
+        36,
+        53
+      ],
+      "堵转持续时间": [
+        36,
+        53
+      ],
+      "堵转时间": [
+        36,
+        53
+      ],
+      "堵转能力": [
+        36,
+        53
+      ],
+      "堵转触发条件": [
+        36,
+        53
+      ],
+      "堵转转矩": [
+        36,
+        53
+      ],
+      "堵转退出条件": [
+        36,
+        53
+      ],
+      "外特性": [
+        31,
+        48
+      ],
+      "外特性曲线": [
+        31,
+        48
+      ],
+      "峰值保持时间": [
+        29,
+        46
+      ],
+      "峰值功率": [
+        28,
+        45
+      ],
+      "峰值功率持续时间": [
+        29,
+        46
+      ],
+      "峰值工作时间": [
+        29,
+        46
+      ],
+      "峰值扭矩": [
+        31,
+        48
+      ],
+      "峰值扭矩持续时间": [
+        31,
+        48
+      ],
+      "峰值扭矩转速范围": [
+        31,
+        48
+      ],
+      "峰值持续时间": [
+        29,
+        46
+      ],
+      "峰值效率": [
+        41,
+        56
+      ],
+      "峰值时间": [
+        29,
+        46
+      ],
+      "峰值电流能力": [
+        44,
+        60
+      ],
+      "峰值相电流": [
+        44,
+        60
+      ],
+      "峰值维持时间": [
+        29,
+        46
+      ],
+      "峰值转矩": [
+        31,
+        48
+      ],
+      "峰值输出电流": [
+        44,
+        60
+      ],
+      "工作转速范围": [
+        34,
+        51
+      ],
+      "工况点效率": [
+        41,
+        56
+      ],
+      "常用转速": [
+        34,
+        51
+      ],
+      "循环腐蚀": [
+        74,
+        102
+      ],
+      "快充升压": [
+        4,
+        115
+      ],
+      "总成重量": [
+        73,
+        101
+      ],
+      "恒功率起点": [
+        33,
+        50
+      ],
+      "恒扭矩区": [
+        31,
+        48
+      ],
+      "扭矩偏差": [
+        78,
+        89
+      ],
+      "扭矩准确度": [
+        78,
+        89
+      ],
+      "扭矩容差": [
+        78,
+        89
+      ],
+      "扭矩控制精度": [
+        78,
+        89
+      ],
+      "扭矩精度": [
+        78,
+        89
+      ],
+      "扭矩误差": [
+        78,
+        89
+      ],
+      "扭矩转速曲线": [
+        31,
+        48
+      ],
+      "扭矩输出精度": [
+        78,
+        89
+      ],
+      "拐点": [
+        31,
+        48
+      ],
+      "拐点转速": [
+        33,
+        50
+      ],
+      "持续功率": [
+        30,
+        47
+      ],
+      "持续扭矩": [
+        32,
+        49
+      ],
+      "持续电流能力": [
+        43,
+        58
+      ],
+      "持续相电流": [
+        43,
+        58
+      ],
+      "控制器效率": [
+        41,
+        56
+      ],
+      "控制器重量": [
+        73,
+        101
+      ],
+      "效率map": [
+        41,
+        56
+      ],
+      "效率地图": [
+        41,
+        56
+      ],
+      "效率指标": [
+        41,
+        56
+      ],
+      "效率要求": [
+        41,
+        56
+      ],
+      "整机重量": [
+        73,
+        101
+      ],
+      "旁路模式": [
+        64,
+        67
+      ],
+      "最大功率": [
+        28,
+        45
+      ],
+      "最大扭矩": [
+        31,
+        48
+      ],
+      "最大电流": [
+        44,
+        60
+      ],
+      "最大相电流": [
+        44,
+        60
+      ],
+      "最大转矩": [
+        31,
+        48
+      ],
+      "最大转速": [
+        35,
+        52
+      ],
+      "最高工作转速": [
+        35,
+        52
+      ],
+      "最高持续转速": [
+        35,
+        52
+      ],
+      "最高效率": [
+        41,
+        56
+      ],
+      "最高转速": [
+        35,
+        52
+      ],
+      "机械极限转速": [
+        35,
+        52
+      ],
+      "极限转速": [
+        35,
+        52
+      ],
+      "正反转": [
+        34,
+        51
+      ],
+      "涂层": [
+        74,
+        102
+      ],
+      "电控总成重量": [
+        73,
+        101
+      ],
+      "电控效率": [
+        41,
+        56
+      ],
+      "电控重量": [
+        73,
+        101
+      ],
+      "盐雾": [
+        74,
+        102
+      ],
+      "盐雾等级": [
+        74,
+        102
+      ],
+      "盐雾试验": [
+        74,
+        102
+      ],
+      "目标重量": [
+        73,
+        101
+      ],
+      "直流充电升压": [
+        4,
+        115
+      ],
+      "直通模式": [
+        64,
+        67
+      ],
+      "相电流峰值": [
+        44,
+        60
+      ],
+      "短时功率": [
+        28,
+        45
+      ],
+      "短时峰值": [
+        29,
+        46
+      ],
+      "短时电流": [
+        44,
+        60
+      ],
+      "短路电流有效值": [
+        42,
+        57
+      ],
+      "短路电流耐受": [
+        40,
+        55
+      ],
+      "短路瞬态电流": [
+        40,
+        55
+      ],
+      "短路稳态电流": [
+        40,
+        55
+      ],
+      "短路耐受": [
+        40,
+        55
+      ],
+      "稳态精度": [
+        78,
+        89
+      ],
+      "稳态误差": [
+        78,
+        89
+      ],
+      "耐腐蚀": [
+        74,
+        102
+      ],
+      "腐蚀等级": [
+        74,
+        102
+      ],
+      "腐蚀试验": [
+        74,
+        102
+      ],
+      "腐蚀防护等级": [
+        74,
+        102
+      ],
+      "表面处理": [
+        74,
+        102
+      ],
+      "质量": [
+        73,
+        101
+      ],
+      "超速": [
+        35,
+        52
+      ],
+      "超速转速": [
+        35,
+        52
+      ],
+      "转矩控制精度": [
+        78,
+        89
+      ],
+      "转矩精度": [
+        78,
+        89
+      ],
+      "转矩误差": [
+        78,
+        89
+      ],
+      "转速上限": [
+        35,
+        52
+      ],
+      "转速区间": [
+        34,
+        51
+      ],
+      "转速范围": [
+        34,
+        51
+      ],
+      "转速要求": [
+        34,
+        51
+      ],
+      "转速需求": [
+        34,
+        51
+      ],
+      "连续功率": [
+        30,
+        47
+      ],
+      "连续扭矩": [
+        32,
+        49
+      ],
+      "连续相电流": [
+        43,
+        58
+      ],
+      "逆变器效率": [
+        41,
+        56
+      ],
+      "重量目标": [
+        73,
+        101
+      ],
+      "重量要求": [
+        73,
+        101
+      ],
+      "重量限值": [
+        73,
+        101
+      ],
+      "防腐": [
+        74,
+        102
+      ],
+      "防腐等级": [
+        74,
+        102
+      ],
+      "防腐蚀": [
+        74,
+        102
+      ],
+      "防腐蚀等级": [
+        74,
+        102
+      ],
+      "防腐要求": [
+        74,
+        102
+      ],
+      "零转速扭矩": [
+        36,
+        53
+      ],
+      "零速扭矩": [
+        36,
+        53
+      ],
+      "非升压峰值功率": [
+        28,
+        45
+      ],
+      "额定功率": [
+        30,
+        47
+      ],
+      "额定扭矩": [
+        32,
+        49
+      ],
+      "额定点转速": [
+        33,
+        50
+      ],
+      "额定相电流": [
+        43,
+        58
+      ],
+      "额定转矩": [
+        32,
+        49
+      ],
+      "额定转速": [
+        33,
+        50
+      ],
+      "额定输出功率": [
+        30,
+        47
+      ],
+      "高效区": [
+        41,
+        56
+      ],
+      "高效区占比": [
+        41,
+        56
+      ]
+    },
+    "generated_from": "docs/clause_lexicon.yaml",
+    "knowledge_version": "2026-09-03.1",
+    "retrieve": "只开 registry.published_retrieve：#14,#19；弱别名不计分、不进选段",
+    "fill_from_kb": false
+  },
+  "frames": [
+    {
+      "seq": 1,
+      "name": "设计范围是否包含OD本体物理集成",
+      "group": "设计范围",
+      "gloss": "是否把 OD 单元的本体在物理上集成进 XCM 控制器（影响控制器架构）",
+      "aliases": [
+        "OD本体",
+        "OD集成",
+        "OD物理集成",
+        "物理集成",
+        "本体集成",
+        "集成OD",
+        "OD一体化",
+        "OD integration",
+        "integrated OD",
+        "physical integration",
+        "OD physically integrated"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "是/否",
+        "Y/N",
+        "yes/no"
+      ],
+      "exclude": [
+        "静态电流 ≤xxx mA 包含OD（→#22）",
+        "油泵上移（→#2）"
+      ],
+      "unverified": [
+        "oil distribution [原字典]"
+      ],
+      "std": [],
+      "see": [
+        2,
+        22
+      ],
+      "notes": [
+        "OD 缩写在清单中未定义；由 #2「油泵上移」与 #22「XCM休眠，包含OD」可判断 OD 为一个带静态功耗的电气单元，很可能与油泵驱动相关，但原字典的 \"oil distribution\" 是推测，未经核实",
+        "建议向甲方确认 OD 全称后再补英文长别名；当前只用 \"OD\" 作段落定位词"
+      ],
+      "reject_patterns": [
+        "静态电流 ≤xxx mA 包含OD",
+        "油泵上移"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "OD 缩写在清单中未定义；由 #2「油泵上移」与 #22「XCM休眠，包含OD」可判断 OD 为一个带静态功耗的电气单元，很可能与油泵驱动相关，但原字典的 \"oil distribution\" 是推测，未经核实",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 2,
+      "name": "设计范围是否包含OD上移功能",
+      "group": "设计范围",
+      "gloss": "是否把 OD 的驱动/控制功能上移到 XCM（需推荐电路或确认平台电路可复用）",
+      "aliases": [
+        "OD上移",
+        "上移功能",
+        "油泵上移",
+        "油泵驱动上移",
+        "上移电路",
+        "推荐电路",
+        "平台电路",
+        "功能上移",
+        "上移方案",
+        "OD relocation",
+        "relocated OD",
+        "OD moved into",
+        "function relocation",
+        "reference circuit",
+        "recommended circuit",
+        "platform circuit"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "是/否",
+        "电路 circuit"
+      ],
+      "exclude": [
+        "OD本体物理集成（→#1）"
+      ],
+      "unverified": [
+        "OD shift [原字典]",
+        "oil pump relocation [原字典]（若 OD≠油泵则不成立）"
+      ],
+      "std": [],
+      "see": [
+        1
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "OD本体物理集成"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "OD本体物理集成（→#1）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 3,
+      "name": "设计范围是否包含驱动升压功能",
+      "group": "设计范围",
+      "gloss": "设计范围是否含行车（驱动）工况的母线升压功能，是否有推荐拓扑",
+      "aliases": [
+        "驱动升压",
+        "升压驱动",
+        "驱动Boost",
+        "行车升压",
+        "驱动模式升压",
+        "驱动工况升压",
+        "推荐拓扑",
+        "drive boost",
+        "traction boost",
+        "boost for drive",
+        "boost in driving mode",
+        "propulsion boost",
+        "recommended topology"
+      ],
+      "weak_aliases": [
+        "升压拓扑",
+        "boost topology"
+      ],
+      "unit_cues": [
+        "是/否",
+        "拓扑 topology"
+      ],
+      "exclude": [
+        "充电升压/charge boost（→#4/#115）",
+        "Boost 数值参数 V/A/kW/kHz（→#62–#70）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        4,
+        61,
+        115
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "充电升压",
+        "charge boost",
+        "Boost 数值参数 V"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "充电升压/charge boost（→#4/#115）；Boost 数值参数 V/A/kW/kHz（→#62–#70）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 4,
+      "name": "设计范围是否包含充电升压功能",
+      "group": "设计范围",
+      "gloss": "设计范围是否含充电工况的升压功能（如低电压充电桩给高电压电池充电）",
+      "aliases": [
+        "充电Boost",
+        "充电模式升压",
+        "DC charging boost",
+        "boost mode charging"
+      ],
+      "weak_aliases": [
+        "充电升压",
+        "升压充电",
+        "直流充电升压",
+        "快充升压",
+        "充电拓扑",
+        "charge boost",
+        "charging boost",
+        "boost charging",
+        "charging topology"
+      ],
+      "unit_cues": [
+        "是/否",
+        "拓扑 topology"
+      ],
+      "exclude": [
+        "驱动升压（→#3）"
+      ],
+      "unverified": [
+        "OBC boost [原字典]（OBC 为交流车载充电机，直流快充升压通常不经 OBC，语义偏窄）"
+      ],
+      "std": [],
+      "see": [
+        3,
+        115
+      ],
+      "notes": [
+        "#4 与 #115 同义（范围判断 vs 功能要求）；#115 的 D 列多要求充电电压/电流/时长"
+      ],
+      "reject_patterns": [
+        "驱动升压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "#4 与 #115 同义（范围判断 vs 功能要求）；#115 的 D 列多要求充电电压/电流/时长",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 5,
+      "name": "直流工作电压范围",
+      "group": "直流高压",
+      "gloss": "高压直流母线工作电压范围（含冷启动/全性能/极限三段）；决定器件耐压、DC-link 电容与绝缘设计",
+      "aliases": [
+        "直流工作电压",
+        "直流工作电压范围",
+        "高压直流母线",
+        "母线工作电压",
+        "母线电压范围",
+        "直流母线电压",
+        "直流母线电压范围",
+        "高压工作电压",
+        "高压电压范围",
+        "HV工作电压",
+        "工作电压范围",
+        "冷启动电压",
+        "极限电压",
+        "最低工作电压",
+        "最高工作电压",
+        "电压区间",
+        "输入电压范围",
+        "HVDC voltage range",
+        "HV DC voltage",
+        "DC link voltage range",
+        "DC-link voltage",
+        "DC bus voltage",
+        "DC bus voltage range",
+        "HV operating voltage",
+        "operating voltage range",
+        "input voltage range",
+        "Umin",
+        "Umax",
+        "Vdc min",
+        "Vdc max",
+        "cold start voltage",
+        "voltage class B",
+        "nominal DC voltage"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V / Vdc",
+        "区间 a~b、a–b、a to b",
+        "常带三段：冷启动/全性能/极限"
+      ],
+      "exclude": [
+        "过压阈值（→#9）",
+        "耐压/hipot 测试电压（→#14/#19）",
+        "采样精度（→#91）",
+        "低压 9~16V（→#20）",
+        "Boost 电压（→#62/#67）",
+        "器件耐压等级 SiC/IGBT（E列套话）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 21498-1（B级电压等级与工作电压范围定义）",
+        "GB/T 18488（驱动电机系统 电压范围）"
+      ],
+      "see": [
+        6,
+        7,
+        9,
+        62
+      ],
+      "notes": [
+        "源表 #5 示例含「全性能200~450V」，而 #6 满功率电压示例为 340~450V，#7 降额为 160~340V——「全性能」与「满功率」口径不一致，应向甲方确认"
+      ],
+      "reject_patterns": [
+        "过压阈值",
+        "耐压",
+        "hipot 测试电压",
+        "采样精度",
+        "低压 9~16V",
+        "Boost 电压",
+        "器件耐压等级 SiC",
+        "IGBT"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #5 示例含「全性能200~450V」，而 #6 满功率电压示例为 340~450V，#7 降额为 160~340V——「全性能」与「满功率」口径不一致，应向甲方确认",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 6,
+      "name": "满功率(电流)工作电压",
+      "group": "直流高压",
+      "gloss": "能够输出满功率/满电流、不降额的母线电压区间",
+      "aliases": [
+        "满功率电压",
+        "满功率工作电压",
+        "满功率母线电压",
+        "满电流电压",
+        "满电流工作电压",
+        "全功率电压",
+        "全性能电压",
+        "不降额电压",
+        "不降额区间",
+        "满功率区间",
+        "额定功率电压范围",
+        "峰值功率电压范围",
+        "full power voltage",
+        "full power DC voltage",
+        "full power voltage range",
+        "full performance voltage",
+        "minimum voltage for full power",
+        "min level for full power",
+        "no derating voltage",
+        "full current voltage"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Vdc 区间",
+        "常与 kW/A 同句"
+      ],
+      "exclude": [
+        "峰值功率 kW 本身（→#28/#45）",
+        "降额区间（→#7）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        5,
+        7,
+        28,
+        45
+      ],
+      "notes": [
+        "「全性能」在源表 #5 的示例里出现，因此把「全性能」作为 #6 别名会与 #5 冲突——建议只在 #5 未命中时作为 #6 的弱别名"
+      ],
+      "reject_patterns": [
+        "峰值功率 kW 本身",
+        "降额区间"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "「全性能」在源表 #5 的示例里出现，因此把「全性能」作为 #6 别名会与 #5 冲突——建议只在 #5 未命中时作为 #6 的弱别名",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 7,
+      "name": "降额工作电压范围",
+      "group": "直流高压",
+      "gloss": "可工作但需功率/电流降额的母线电压区间",
+      "aliases": [
+        "降额电压",
+        "降额工作电压",
+        "降额区间",
+        "降额电压范围",
+        "性能限制",
+        "受限性能",
+        "限功率电压",
+        "功率降额电压",
+        "降功率区间",
+        "低压降额",
+        "电压降额",
+        "降额曲线",
+        "derating voltage range",
+        "derated operation",
+        "derated voltage",
+        "limited performance",
+        "reduced performance",
+        "power derating vs voltage",
+        "derating curve",
+        "voltage derating",
+        "undervoltage derating"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Vdc 区间（下限低于 #6）",
+        "常带 % 或曲线"
+      ],
+      "exclude": [
+        "温度降额/thermal derating",
+        "功率降额策略（E列套话）",
+        "满功率区间（→#6）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        5,
+        6
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "温度降额",
+        "thermal derating",
+        "功率降额策略",
+        "满功率区间"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "温度降额/thermal derating；功率降额策略（E列套话）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 8,
+      "name": "直流母线纹波电压要求",
+      "group": "直流高压",
+      "gloss": "直流母线上允许的电压纹波（峰峰值），分峰值/额定工况",
+      "aliases": [
+        "母线纹波",
+        "母线纹波电压",
+        "直流母线纹波",
+        "直流纹波",
+        "纹波电压",
+        "母线电压纹波",
+        "峰峰值纹波",
+        "电压纹波",
+        "母线电压波动",
+        "纹波峰峰值",
+        "DC link ripple",
+        "DC-link ripple voltage",
+        "HVDC ripple",
+        "bus ripple",
+        "ripple voltage",
+        "voltage ripple",
+        "peak-to-peak ripple",
+        "Vpp",
+        "Vp-p",
+        "ripple requirement"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Vpp / Vp-p / V峰峰值",
+        "峰值工况/额定工况"
+      ],
+      "exclude": [
+        "Boost 输出纹波（→#70）",
+        "纹波电流 ripple current（电容参数，不是电压）",
+        "电池连接/断开 语境（→#12）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 21498-1/-2（母线纹波/电压波动定义与测试）"
+      ],
+      "see": [
+        12,
+        70,
+        24
+      ],
+      "notes": [
+        "源表 #8（<32 Vpp 峰值 / <16 Vpp 额定）与 #12（连接≤16 / 断开≤30）数字口径不同，抽取时不得互相覆盖"
+      ],
+      "reject_patterns": [
+        "Boost 输出纹波",
+        "纹波电流 ripple current",
+        "电池连接"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #8（<32 Vpp 峰值 / <16 Vpp 额定）与 #12（连接≤16 / 断开≤30）数字口径不同，抽取时不得互相覆盖",
+      "retrieve": false,
+      "conflict": "bus_ripple",
+      "status": "draft"
+    },
+    {
+      "seq": 9,
+      "name": "直流电压过压保护",
+      "group": "直流高压",
+      "gloss": "母线过压保护阈值（软件/硬件）",
+      "aliases": [
+        "过压保护",
+        "过压阈值",
+        "过压保护阈值",
+        "过压点",
+        "过压保护点",
+        "母线过压",
+        "直流过压",
+        "高压过压",
+        "硬件过压",
+        "软件过压",
+        "过压关断",
+        "过压保护电压",
+        "过压限值",
+        "overvoltage protection",
+        "OVP",
+        "over-voltage protection",
+        "overvoltage threshold",
+        "DC overvoltage",
+        "HW OVP",
+        "SW OVP",
+        "overvoltage limit",
+        "overvoltage trip",
+        "OV threshold"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Vdc 单值",
+        "SW/HW 分列"
+      ],
+      "exclude": [
+        "欠压 undervoltage（对偶项，清单未列）",
+        "低压 16~18V（→#20）",
+        "过压/欠压保护误动作（E列套话）",
+        "器件耐压"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        5
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "欠压 undervoltage",
+        "低压 16~18V",
+        "过压",
+        "欠压保护误动作",
+        "器件耐压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "欠压 undervoltage（对偶项，清单未列）；低压 16~18V（→#20）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 10,
+      "name": "母线直流电流检测",
+      "group": "直流高压",
+      "gloss": "是否检测母线直流电流（传感器/软件估算）",
+      "aliases": [
+        "母线电流",
+        "母线电流检测",
+        "母线电流采样",
+        "母线电流传感器",
+        "直流电流检测",
+        "直流电流采样",
+        "直流电流传感器",
+        "直流侧电流",
+        "母线电流估算",
+        "电流软件估算",
+        "无电流传感器",
+        "直流母线电流",
+        "DC current sensing",
+        "DC link current",
+        "DC bus current",
+        "bus current sensor",
+        "HVDC current measurement",
+        "DC current estimation",
+        "software estimated current",
+        "DC current sensorless",
+        "Idc"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "有/无 传感器",
+        "软件估算"
+      ],
+      "exclude": [
+        "相电流（→#43/#44/#58/#90）",
+        "ASC 电流",
+        "Boost 输入电流（→#63/#64）"
+      ],
+      "unverified": [
+        "软件估算 [原字典]（是示例值不是术语，仅作弱线索）"
+      ],
+      "std": [],
+      "see": [
+        90
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "相电流",
+        "ASC 电流",
+        "Boost 输入电流"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "相电流（→#43/#44/#58/#90）；ASC 电流",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 11,
+      "name": "反电动势峰值",
+      "group": "直流高压",
+      "gloss": "电机最高转速下的反电动势峰值（线电压），决定逆变器耐压与 ASC 策略；总条目，P1/P3 各有子项",
+      "aliases": [
+        "反电动势",
+        "反电势",
+        "反电势峰值",
+        "反电动势峰值",
+        "线反电势",
+        "线电压峰值",
+        "空载反电势",
+        "空载线电压",
+        "反电动势线电压",
+        "最高转速反电势",
+        "反电势限值",
+        "back EMF",
+        "back-EMF",
+        "BEMF",
+        "back EMF peak",
+        "line-to-line back EMF",
+        "no-load back EMF",
+        "no-load voltage",
+        "peak line voltage",
+        "V-peak",
+        "Vpk",
+        "Vll peak"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V-peak / Vpp / V（线电压）+ @rpm"
+      ],
+      "exclude": [
+        "峰值功率/电流峰值（→#28/#44）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        37,
+        54,
+        44,
+        60
+      ],
+      "notes": [
+        "与 #37/#54 共享全部核心别名；建议规则：句中含 P1→#37，含 P3→#54，两者都含或都不含→#11",
+        "源表 #44/#60 示例把 Back EMF 拼进了电流峰值格，抽取时 BEMF 值不应写入电流项"
+      ],
+      "reject_patterns": [
+        "峰值功率",
+        "电流峰值"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #37/#54 共享全部核心别名；建议规则：句中含 P1→#37，含 P3→#54，两者都含或都不含→#11",
+      "retrieve": false,
+      "conflict": "back_emf",
+      "status": "draft"
+    },
+    {
+      "seq": 12,
+      "name": "高压安全-纹波电压",
+      "group": "高压安全",
+      "gloss": "高压安全口径下的纹波限值：电池连接/断开两种状态",
+      "aliases": [
+        "电池连接纹波",
+        "电池断开纹波",
+        "连接状态纹波",
+        "断开状态纹波",
+        "高压安全纹波",
+        "继电器闭合纹波",
+        "继电器断开纹波",
+        "接触器断开",
+        "ripple with battery connected",
+        "ripple with battery disconnected",
+        "battery connected",
+        "battery disconnected",
+        "contactor open ripple",
+        "HV safety ripple"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Vpp 两个值（连接/断开）"
+      ],
+      "exclude": [
+        "单一峰值/额定工况纹波（→#8）",
+        "Boost 纹波（→#70）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        8,
+        70
+      ],
+      "notes": [
+        "原字典把 ≤16 Vpp / ≤30 Vpp 写进别名，属于示例数值，违背文件自身\"只收整词\"的规则，且 16 Vpp 也出现在 #8、#70 中"
+      ],
+      "reject_patterns": [
+        "单一峰值",
+        "额定工况纹波",
+        "Boost 纹波"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "原字典把 ≤16 Vpp / ≤30 Vpp 写进别名，属于示例数值，违背文件自身\"只收整词\"的规则，且 16 Vpp 也出现在 #8、#70 中",
+      "retrieve": false,
+      "conflict": "hv_safety_ripple",
+      "status": "draft"
+    },
+    {
+      "seq": 13,
+      "name": "高压安全-绝缘电阻",
+      "group": "高压安全",
+      "gloss": "高压对地绝缘电阻要求（冷态/热态）",
+      "aliases": [
+        "绝缘电阻",
+        "绝缘阻值",
+        "绝缘电阻值",
+        "冷态绝缘电阻",
+        "热态绝缘电阻",
+        "绝缘电阻测试",
+        "绝缘电阻要求",
+        "兆欧",
+        "绝缘性能",
+        "高压对地绝缘",
+        "insulation resistance",
+        "IR",
+        "insulation resistance test",
+        "megohm",
+        "MΩ",
+        "Mohm",
+        "insulation measurement",
+        "megger",
+        "IR test"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "MΩ",
+        "冷态/热态",
+        "测试电压 500 Vdc / 1000 Vdc"
+      ],
+      "exclude": [
+        "放电电阻（→#25）",
+        "绝缘监测/IMD（整车功能）",
+        "爬电距离/电气间隙（E列/→#95）",
+        "绝缘电压等级（→#95）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（绝缘电阻）",
+        "GB 18384（电动汽车安全要求 绝缘电阻）",
+        "ISO 6469-3"
+      ],
+      "see": [
+        18
+      ],
+      "notes": [
+        "与 #18 完全同名同值，可共用一套写法并同值填写"
+      ],
+      "reject_patterns": [
+        "放电电阻",
+        "绝缘监测",
+        "IMD",
+        "爬电距离",
+        "电气间隙",
+        "绝缘电压等级"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #18 完全同名同值，可共用一套写法并同值填写",
+      "retrieve": false,
+      "conflict": "insulation",
+      "status": "draft"
+    },
+    {
+      "seq": 14,
+      "name": "高压安全-耐电压",
+      "group": "高压安全",
+      "gloss": "耐电压（hipot）测试要求：电压、时长、漏电流、无闪络击穿",
+      "aliases": [
+        "耐电压",
+        "耐压",
+        "耐压测试",
+        "耐压试验",
+        "耐压要求",
+        "介电强度",
+        "电气强度",
+        "绝缘强度",
+        "高压绝缘测试",
+        "闪络",
+        "击穿",
+        "无击穿",
+        "漏电流",
+        "工频耐压",
+        "交流耐压",
+        "直流耐压",
+        "打耐压",
+        "耐压值",
+        "withstand voltage",
+        "dielectric withstand",
+        "dielectric strength",
+        "electric strength",
+        "hipot",
+        "hi-pot",
+        "high potential test",
+        "dielectric test",
+        "breakdown",
+        "flashover",
+        "leakage current",
+        "AC withstand",
+        "DC withstand"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kV 或 V + 时间(1 min/60 s) + 漏电流 mA",
+        "无闪络/无击穿"
+      ],
+      "exclude": [
+        "器件耐压/耐压等级/耐压选型（功率器件参数，E列套话）",
+        "withstand 用于持续供电/温度语境",
+        "绝缘电压等级 650V（→#95）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（耐电压）",
+        "GB 18384",
+        "ISO 6469-3",
+        "ISO 21498-2"
+      ],
+      "see": [
+        19,
+        95
+      ],
+      "notes": [
+        "与 #19 完全同名同值"
+      ],
+      "reject_patterns": [
+        "器件耐压",
+        "耐压等级",
+        "耐压选型",
+        "withstand 用于持续供电",
+        "绝缘电压等级 650V",
+        "continuous supply",
+        "withstand continuous",
+        "持续供电",
+        "持续耐受",
+        "on the HVDC bus without",
+        "maximum 500\\s*V on the HVDC",
+        "绝缘电压等级"
+      ],
+      "retrieve_aliases": [
+        "耐电压",
+        "耐压",
+        "耐压测试",
+        "耐压试验",
+        "介电强度",
+        "工频耐压",
+        "交流耐压",
+        "直流耐压",
+        "withstand voltage",
+        "dielectric withstand",
+        "dielectric strength",
+        "hipot",
+        "hi-pot",
+        "high potential test",
+        "dielectric test",
+        "AC withstand",
+        "DC withstand",
+        "dielectric"
+      ],
+      "split_harm": "与 #19 完全同名同值",
+      "retrieve": true,
+      "conflict": "dielectric",
+      "status": "published"
+    },
+    {
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
+      "group": "高压安全",
+      "gloss": "下电后主动把母线电压放至安全电压（60V）以下的功能",
+      "aliases": [
+        "主动放电",
+        "主动泄放",
+        "主动卸荷",
+        "高压主动放电",
+        "快速放电",
+        "快速泄放",
+        "主动放电功能",
+        "主动放电要求",
+        "放电至60V",
+        "放电到安全电压",
+        "active discharge",
+        "active bleed",
+        "active bleeding",
+        "fast discharge",
+        "rapid discharge",
+        "HV active discharge",
+        "active discharge function"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "s + 60 V"
+      ],
+      "exclude": [
+        "被动放电（→#16/#27）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB 18384（放电至60V要求）",
+        "ISO 6469-3"
+      ],
+      "see": [
+        25,
+        26,
+        23
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "被动放电"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "被动放电（→#16/#27）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
+      "group": "高压安全",
+      "gloss": "无控制情况下经泄放电阻自然放电至 60V 以下的功能",
+      "aliases": [
+        "被动放电",
+        "被动泄放",
+        "自然放电",
+        "慢速放电",
+        "泄放电阻放电",
+        "被动放电功能",
+        "常泄放",
+        "passive discharge",
+        "passive bleed",
+        "bleeder discharge",
+        "slow discharge",
+        "natural discharge",
+        "passive discharge function"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "min / s + 60 V"
+      ],
+      "exclude": [
+        "主动放电（→#15/#26）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB 18384",
+        "ISO 6469-3"
+      ],
+      "see": [
+        27,
+        25
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "主动放电"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "主动放电（→#15/#26）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 17,
+      "name": "高压安全-Y电容指标",
+      "group": "高压安全",
+      "gloss": "高压对地（Y）电容总量限值，影响下电残余电压与漏电流",
+      "aliases": [
+        "Y电容",
+        "Y电容容值",
+        "Y电容总量",
+        "对地电容",
+        "高压对地电容",
+        "共模电容",
+        "正对地电容",
+        "负对地电容",
+        "Y电容限值",
+        "Y容",
+        "Y capacitor",
+        "Y-cap",
+        "Y-capacitor",
+        "Cy",
+        "capacitance to ground",
+        "capacitance to chassis",
+        "common mode capacitor",
+        "line-to-chassis capacitance",
+        "Y capacitance limit"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "nF / µF（小值）",
+        "对地"
+      ],
+      "exclude": [
+        "X电容/差模电容（不同器件）",
+        "薄膜电容/DC-link（→#24）",
+        "电容漏电流",
+        "电容耐压"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        24
+      ],
+      "notes": [
+        "原字典 \"X/Y capacitor\" 会把 X 电容值带进来，建议改为只收 Y"
+      ],
+      "reject_patterns": [
+        "X电容",
+        "差模电容",
+        "薄膜电容",
+        "DC-link",
+        "电容漏电流",
+        "电容耐压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "原字典 \"X/Y capacitor\" 会把 X 电容值带进来，建议改为只收 Y",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 18,
+      "name": "高压安全-绝缘电阻",
+      "group": "高压安全",
+      "gloss": "同 #13",
+      "aliases": [
+        "绝缘电阻",
+        "绝缘阻值",
+        "绝缘电阻值",
+        "冷态绝缘电阻",
+        "热态绝缘电阻",
+        "绝缘电阻测试",
+        "绝缘电阻要求",
+        "兆欧",
+        "绝缘性能",
+        "高压对地绝缘",
+        "insulation resistance",
+        "IR",
+        "insulation resistance test",
+        "megohm",
+        "MΩ",
+        "Mohm",
+        "insulation measurement",
+        "megger",
+        "IR test"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "MΩ",
+        "冷态/热态",
+        "测试电压 500 Vdc / 1000 Vdc"
+      ],
+      "exclude": [
+        "放电电阻（→#25）",
+        "绝缘监测/IMD（整车功能）",
+        "爬电距离/电气间隙（E列/→#95）",
+        "绝缘电压等级（→#95）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（绝缘电阻）",
+        "GB 18384（电动汽车安全要求 绝缘电阻）",
+        "ISO 6469-3"
+      ],
+      "see": [
+        13
+      ],
+      "notes": [
+        "与 #13 重复"
+      ],
+      "reject_patterns": [
+        "放电电阻",
+        "绝缘监测",
+        "IMD",
+        "爬电距离",
+        "电气间隙",
+        "绝缘电压等级"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #13 重复",
+      "retrieve": false,
+      "conflict": "insulation",
+      "status": "draft"
+    },
+    {
+      "seq": 19,
+      "name": "高压安全-耐电压",
+      "group": "高压安全",
+      "gloss": "同 #14",
+      "aliases": [
+        "耐电压",
+        "耐压",
+        "耐压测试",
+        "耐压试验",
+        "耐压要求",
+        "介电强度",
+        "电气强度",
+        "绝缘强度",
+        "高压绝缘测试",
+        "闪络",
+        "击穿",
+        "无击穿",
+        "漏电流",
+        "工频耐压",
+        "交流耐压",
+        "直流耐压",
+        "打耐压",
+        "耐压值",
+        "withstand voltage",
+        "dielectric withstand",
+        "dielectric strength",
+        "electric strength",
+        "hipot",
+        "hi-pot",
+        "high potential test",
+        "dielectric test",
+        "breakdown",
+        "flashover",
+        "leakage current",
+        "AC withstand",
+        "DC withstand"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kV 或 V + 时间(1 min/60 s) + 漏电流 mA",
+        "无闪络/无击穿"
+      ],
+      "exclude": [
+        "器件耐压/耐压等级/耐压选型（功率器件参数，E列套话）",
+        "withstand 用于持续供电/温度语境",
+        "绝缘电压等级 650V（→#95）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（耐电压）",
+        "GB 18384",
+        "ISO 6469-3",
+        "ISO 21498-2"
+      ],
+      "see": [
+        14
+      ],
+      "notes": [
+        "与 #14 重复"
+      ],
+      "reject_patterns": [
+        "器件耐压",
+        "耐压等级",
+        "耐压选型",
+        "withstand 用于持续供电",
+        "绝缘电压等级 650V",
+        "continuous supply",
+        "withstand continuous",
+        "持续供电",
+        "持续耐受",
+        "on the HVDC bus without",
+        "maximum 500\\s*V on the HVDC",
+        "绝缘电压等级"
+      ],
+      "retrieve_aliases": [
+        "耐电压",
+        "耐压",
+        "耐压测试",
+        "耐压试验",
+        "介电强度",
+        "工频耐压",
+        "交流耐压",
+        "直流耐压",
+        "withstand voltage",
+        "dielectric withstand",
+        "dielectric strength",
+        "hipot",
+        "hi-pot",
+        "high potential test",
+        "dielectric test",
+        "AC withstand",
+        "DC withstand",
+        "dielectric"
+      ],
+      "split_harm": "与 #14 重复",
+      "retrieve": true,
+      "conflict": "dielectric",
+      "status": "published"
+    },
+    {
+      "seq": 20,
+      "name": "低压电源电压工作范围",
+      "group": "低压",
+      "gloss": "12V 低压供电（KL30/KL15）的工作电压范围，含仅通讯/正常工作/功能安全边界",
+      "aliases": [
+        "低压电源",
+        "低压供电",
+        "低压电源电压",
+        "低压工作电压",
+        "低压电压范围",
+        "低压供电范围",
+        "12V电源",
+        "12V供电",
+        "蓄电池电压",
+        "蓄电池电压范围",
+        "常电",
+        "常火",
+        "点火电",
+        "供电电压范围",
+        "通讯保持电压",
+        "正常工作电压",
+        "工作电压区间",
+        "电源电压范围",
+        "低压侧电压",
+        "LV supply voltage",
+        "LV power supply",
+        "LV supply range",
+        "low voltage supply",
+        "12 V supply",
+        "12V battery voltage",
+        "battery voltage range",
+        "KL30",
+        "KL15",
+        "KL.30",
+        "KL.15",
+        "T30",
+        "T15",
+        "terminal 30",
+        "terminal 15",
+        "supply voltage range",
+        "operating voltage range 9-16 V",
+        "extended voltage range",
+        "functional status",
+        "functional class"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V（6~9 / 9~16 / 16~18 分段）",
+        "功能状态等级 A/B/C/D/E"
+      ],
+      "exclude": [
+        "低压采样精度（→#92）",
+        "低压功耗（→#21）",
+        "CPSR（→#85）",
+        "高压母线电压（→#5）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 16750-2（电气负荷：供电电压范围、功能状态分级）",
+        "GB/T 28046.2"
+      ],
+      "see": [
+        21,
+        22,
+        92,
+        85
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "低压采样精度",
+        "低压功耗",
+        "CPSR",
+        "高压母线电压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "低压采样精度（→#92）；低压功耗（→#21）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 21,
+      "name": "低压功耗要求",
+      "group": "低压",
+      "gloss": "低压侧工作功耗（动态）限值，@14V",
+      "aliases": [
+        "低压功耗",
+        "低压功率消耗",
+        "动态功耗",
+        "工作功耗",
+        "低压侧功耗",
+        "12V功耗",
+        "低压电流消耗",
+        "工作电流",
+        "运行功耗",
+        "低压耗电",
+        "低压负载",
+        "LV power consumption",
+        "12 V power consumption",
+        "low voltage power consumption",
+        "operating power",
+        "dynamic power consumption",
+        "operating current at 14 V",
+        "LV current draw",
+        "LV load"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "W @14V 或 A/mA"
+      ],
+      "exclude": [
+        "热损失 kW（→#120）",
+        "静态/休眠语境（→#22）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        22,
+        120
+      ],
+      "notes": [
+        "源表 #21 示例含「静态≤0.5mA」，而 #22 静态电流示例为「≤500mA(XCM休眠，包含OD)」，相差 1000 倍，源表自身冲突，须向甲方确认"
+      ],
+      "reject_patterns": [
+        "热损失 kW",
+        "静态"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #21 示例含「静态≤0.5mA」，而 #22 静态电流示例为「≤500mA(XCM休眠，包含OD)」，相差 1000 倍，源表自身冲突，须向甲方确认",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 22,
+      "name": "静态电流",
+      "group": "低压",
+      "gloss": "控制器休眠/未唤醒状态下的低压静态电流（含 OD）",
+      "aliases": [
+        "静态电流",
+        "休眠电流",
+        "暗电流",
+        "待机电流",
+        "睡眠电流",
+        "静置电流",
+        "下电电流",
+        "未唤醒电流",
+        "静态功耗",
+        "休眠功耗",
+        "静态电流要求",
+        "quiescent current",
+        "sleep current",
+        "dark current",
+        "standby current",
+        "key-off current",
+        "parasitic current",
+        "parasitic draw",
+        "Iq",
+        "sleep mode current"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "mA / µA",
+        "休眠/含OD"
+      ],
+      "exclude": [
+        "电容漏电流",
+        "耐压漏电流 mA（→#14）",
+        "动态功耗 W（→#21）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        21,
+        1
+      ],
+      "notes": [
+        "原字典把 Dark Current 列为\"误配\"，但暗电流/dark current 正是汽车行业对整车静置状态 ECU 静态电流的标准叫法，应收为别名"
+      ],
+      "reject_patterns": [
+        "电容漏电流",
+        "耐压漏电流 mA",
+        "动态功耗 W",
+        "DC capacitor",
+        "Under 1",
+        "Rated Voltage",
+        "板级 Dark Current",
+        "耐压漏电流"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "原字典把 Dark Current 列为\"误配\"，但暗电流/dark current 正是汽车行业对整车静置状态 ECU 静态电流的标准叫法，应收为别名",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 23,
+      "name": "备份电源功能",
+      "group": "低压",
+      "gloss": "低压掉电后维持功率开关动作、完成主动放电的备份供电能力（时间）",
+      "aliases": [
+        "备份电源",
+        "备用电源",
+        "后备电源",
+        "备电",
+        "掉电保持",
+        "低压掉电",
+        "低压丢失",
+        "断电后放电",
+        "掉电放电",
+        "储能电容",
+        "维持时间",
+        "备份电源功能",
+        "低压失效放电",
+        "backup power",
+        "back-up supply",
+        "backup supply",
+        "power hold-up",
+        "hold-up time",
+        "loss of LV supply",
+        "LV loss",
+        "energy reserve",
+        "reserve energy",
+        "discharge after LV loss"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "min / s + 维持/放电"
+      ],
+      "exclude": [
+        "低压电源范围（→#20）",
+        "主动放电时间 2 s（→#26）",
+        "被动放电时间 2 min（→#27，数字相近）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        15,
+        26,
+        27
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "低压电源范围",
+        "主动放电时间 2 s",
+        "被动放电时间 2 min"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "低压电源范围（→#20）；主动放电时间 2 s（→#26）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 24,
+      "name": "薄膜电容容值",
+      "group": "高压安全",
+      "gloss": "直流母线支撑（DC-link）薄膜电容容值",
+      "aliases": [
+        "薄膜电容",
+        "母线电容",
+        "支撑电容",
+        "直流支撑电容",
+        "母线支撑电容",
+        "DC-link电容",
+        "直流母线电容",
+        "母线电容容值",
+        "电容容值",
+        "电容容量",
+        "滤波电容容值",
+        "薄膜电容容量",
+        "DC-link capacitor",
+        "DC link capacitance",
+        "film capacitor",
+        "bus capacitor",
+        "DC bus capacitance",
+        "link capacitor",
+        "bulk capacitor",
+        "µF",
+        "uF"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "µF / uF ± %"
+      ],
+      "exclude": [
+        "Y电容（→#17）",
+        "电容耐压 V",
+        "纹波电流 ripple current（电容参数）",
+        "ESR/ESL",
+        "电容寿命"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        17,
+        8
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "Y电容",
+        "电容耐压 V",
+        "纹波电流 ripple current",
+        "ESR",
+        "ESL",
+        "电容寿命"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "Y电容（→#17）；电容耐压 V",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 25,
+      "name": "主动放电电阻",
+      "group": "高压安全",
+      "gloss": "主动放电所用的放电电阻（阻值/功率；示例为\"无\"，即用电机绕组放电）",
+      "aliases": [
+        "放电电阻",
+        "主动放电电阻",
+        "泄放电阻",
+        "卸荷电阻",
+        "放电电阻阻值",
+        "放电电阻功率",
+        "主动放电回路",
+        "绕组放电",
+        "discharge resistor",
+        "active discharge resistor",
+        "switched discharge resistor",
+        "discharge resistance",
+        "discharge circuit",
+        "motor winding discharge"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Ω + W，或\"无\""
+      ],
+      "exclude": [
+        "绝缘电阻（→#13）",
+        "被动泄放电阻语境（→#16）"
+      ],
+      "unverified": [
+        "bleeder resistor [原字典]（偏被动放电语义）"
+      ],
+      "std": [],
+      "see": [
+        15,
+        16,
+        26
+      ],
+      "notes": [
+        "原字典把 bleeder resistor 放在 #25，但 bleeder 通常指常接的被动泄放电阻，与 #16 被动放电更贴近，建议标注歧义"
+      ],
+      "reject_patterns": [
+        "绝缘电阻",
+        "被动泄放电阻语境"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "原字典把 bleeder resistor 放在 #25，但 bleeder 通常指常接的被动泄放电阻，与 #16 被动放电更贴近，建议标注歧义",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 26,
+      "name": "主动放电时间",
+      "group": "高压安全",
+      "gloss": "主动放电从最高电压降到 60V 以下的时间限值",
+      "aliases": [
+        "主动放电时间",
+        "主动放电时长",
+        "主动放电≤",
+        "放电到60V时间",
+        "快速放电时间",
+        "主动放电完成时间",
+        "active discharge time",
+        "active discharge duration",
+        "discharge time to 60 V",
+        "time to below 60 V",
+        "fast discharge time"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "s + 60 V"
+      ],
+      "exclude": [
+        "被动放电时间（→#27）",
+        "备份电源维持时间 2 min（→#23）",
+        "峰值持续时间（→#29/#46）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        15,
+        27,
+        23
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "被动放电时间",
+        "备份电源维持时间 2 min",
+        "峰值持续时间"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "被动放电时间（→#27）；备份电源维持时间 2 min（→#23）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 27,
+      "name": "被动放电时间",
+      "group": "高压安全",
+      "gloss": "被动放电从最高电压降到 60V 以下的时间限值",
+      "aliases": [
+        "被动放电时间",
+        "被动放电时长",
+        "自然放电时间",
+        "被动放电≤",
+        "慢放电时间",
+        "passive discharge time",
+        "passive discharge duration",
+        "bleed down time",
+        "passive bleed time"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "s / min + 60 V"
+      ],
+      "exclude": [
+        "主动放电时间（→#26）",
+        "备份电源 2 min（→#23，数字相近易混）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        16,
+        26,
+        23
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "主动放电时间",
+        "备份电源 2 min"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "主动放电时间（→#26）；备份电源 2 min（→#23，数字相近易混）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 28,
+      "name": "P1峰值功率",
+      "group": "P1",
+      "gloss": "P1 电机峰值功率（区分升压/非升压母线电压）",
+      "aliases": [
+        "P1峰值功率",
+        "P1最大功率",
+        "P1电机峰值功率",
+        "P1峰值",
+        "发电峰值功率",
+        "P1 peak power",
+        "P1 maximum power",
+        "P1 max power",
+        "generating peak power"
+      ],
+      "weak_aliases": [
+        "峰值功率",
+        "最大功率",
+        "短时功率",
+        "升压峰值功率",
+        "非升压峰值功率",
+        "peak power",
+        "maximum power",
+        "short-time power",
+        "boost peak power",
+        "non-boost peak power"
+      ],
+      "unit_cues": [
+        "kW @ V",
+        "常成对：非升压@340V / 升压@450V"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "持续时间 s（→峰值持续时间）",
+        "Boost 输出功率 125 kW（→#68）",
+        "额定功率"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（峰值功率定义）"
+      ],
+      "see": [
+        29,
+        30,
+        68
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "持续时间 s",
+        "Boost 输出功率 125 kW",
+        "额定功率"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；持续时间 s（→峰值持续时间）",
+      "retrieve": false,
+      "conflict": "p1_peak_power",
+      "status": "draft"
+    },
+    {
+      "seq": 29,
+      "name": "P1峰值功率持续时间",
+      "group": "P1",
+      "gloss": "P1 峰值功率可持续的时间",
+      "aliases": [
+        "P1峰值持续",
+        "P1 peak duration"
+      ],
+      "weak_aliases": [
+        "峰值持续时间",
+        "峰值功率持续时间",
+        "峰值时间",
+        "峰值维持时间",
+        "峰值保持时间",
+        "短时峰值",
+        "峰值工作时间",
+        "peak duration",
+        "peak power duration",
+        "peak hold time",
+        "peak time",
+        "overload time",
+        "S2 duty"
+      ],
+      "unit_cues": [
+        "s"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "扭矩响应时间 ms（→#77）",
+        "放电时间（→#26/#27）",
+        "堵转时间"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        28
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "扭矩响应时间 ms",
+        "放电时间",
+        "堵转时间"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；扭矩响应时间 ms（→#77）",
+      "retrieve": false,
+      "conflict": "p1_peak_power_duration",
+      "status": "draft"
+    },
+    {
+      "seq": 30,
+      "name": "P1额定功率",
+      "group": "P1",
+      "gloss": "P1 电机额定（连续）功率",
+      "aliases": [
+        "P1额定功率",
+        "P1连续功率",
+        "P1持续功率",
+        "P1 rated power",
+        "P1 continuous power"
+      ],
+      "weak_aliases": [
+        "额定功率",
+        "连续功率",
+        "持续功率",
+        "S1功率",
+        "额定输出功率",
+        "rated power",
+        "continuous power",
+        "nominal power",
+        "S1 power",
+        "continuous rating"
+      ],
+      "unit_cues": [
+        "kW"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "峰值功率",
+        "额定功率相电流 A（→#58）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（额定功率/S1）"
+      ],
+      "see": [
+        28
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "峰值功率",
+        "额定功率相电流 A"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；峰值功率",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 31,
+      "name": "P1峰值扭矩/时间/对应转速范围",
+      "group": "P1",
+      "gloss": "P1 峰值扭矩、可持续时间及对应转速区间（外特性）",
+      "aliases": [
+        "P1峰值扭矩",
+        "P1最大扭矩",
+        "P1 peak torque",
+        "P1 max torque"
+      ],
+      "weak_aliases": [
+        "峰值扭矩",
+        "峰值转矩",
+        "最大扭矩",
+        "最大转矩",
+        "峰值扭矩持续时间",
+        "峰值扭矩转速范围",
+        "外特性",
+        "外特性曲线",
+        "扭矩转速曲线",
+        "恒扭矩区",
+        "拐点",
+        "peak torque",
+        "maximum torque",
+        "torque-speed envelope",
+        "torque vs speed",
+        "external characteristic",
+        "constant torque region",
+        "corner speed",
+        "base speed"
+      ],
+      "unit_cues": [
+        "Nm / N·m + s + rpm 区间"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "额定扭矩",
+        "堵转扭矩",
+        "扭矩精度（→#78/#89）",
+        "扭矩响应（→#77）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（峰值转矩）"
+      ],
+      "see": [
+        32,
+        36
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "额定扭矩",
+        "堵转扭矩",
+        "扭矩精度",
+        "扭矩响应"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；额定扭矩",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 32,
+      "name": "P1额定扭矩",
+      "group": "P1",
+      "gloss": "P1 额定（连续）扭矩",
+      "aliases": [
+        "P1额定扭矩",
+        "P1连续扭矩",
+        "P1持续扭矩",
+        "P1 rated torque"
+      ],
+      "weak_aliases": [
+        "额定扭矩",
+        "额定转矩",
+        "连续扭矩",
+        "持续扭矩",
+        "S1扭矩",
+        "rated torque",
+        "continuous torque",
+        "nominal torque",
+        "S1 torque"
+      ],
+      "unit_cues": [
+        "Nm"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "峰值扭矩"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        31
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "峰值扭矩"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；峰值扭矩",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 33,
+      "name": "P1 额定转速",
+      "group": "P1",
+      "gloss": "P1 额定转速（基速/拐点转速）",
+      "aliases": [
+        "P1额定转速",
+        "P1 rated speed"
+      ],
+      "weak_aliases": [
+        "额定转速",
+        "基速",
+        "拐点转速",
+        "额定点转速",
+        "恒功率起点",
+        "rated speed",
+        "base speed",
+        "nominal speed",
+        "corner speed",
+        "rated rpm"
+      ],
+      "unit_cues": [
+        "rpm / r/min"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "最高转速",
+        "转速范围"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        35,
+        34
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "最高转速",
+        "转速范围"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；最高转速",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 34,
+      "name": "P1 转速需求",
+      "group": "P1",
+      "gloss": "P1 工作转速范围/需求（含反转）",
+      "aliases": [
+        "P1转速需求",
+        "P1转速范围",
+        "P1 speed range",
+        "P1 speed demand"
+      ],
+      "weak_aliases": [
+        "转速需求",
+        "转速范围",
+        "工作转速范围",
+        "常用转速",
+        "转速区间",
+        "反转转速",
+        "正反转",
+        "转速要求",
+        "speed range",
+        "operating speed range",
+        "speed requirement",
+        "rpm range",
+        "reverse speed",
+        "bidirectional speed"
+      ],
+      "unit_cues": [
+        "rpm 区间"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "最高转速单值",
+        "额定转速"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        35,
+        33
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "最高转速单值",
+        "额定转速"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；最高转速单值",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 35,
+      "name": "P1最高工作转速",
+      "group": "P1",
+      "gloss": "P1 最高工作转速",
+      "aliases": [
+        "P1最高转速",
+        "P1最大转速",
+        "P1最高工作转速",
+        "P1 max speed",
+        "P1 maximum speed"
+      ],
+      "weak_aliases": [
+        "最高工作转速",
+        "最高转速",
+        "最大转速",
+        "极限转速",
+        "超速",
+        "超速转速",
+        "机械极限转速",
+        "最高持续转速",
+        "转速上限",
+        "maximum speed",
+        "max operating speed",
+        "top speed",
+        "overspeed",
+        "max rpm",
+        "mechanical speed limit",
+        "speed limit"
+      ],
+      "unit_cues": [
+        "rpm ≤ 单值"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "额定转速",
+        "反电势@rpm 里的 rpm（源表 #37 用 16000 rpm 校核反电势，高于 #35 的 13000 rpm 上限，勿当最高转速）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（最高工作转速）"
+      ],
+      "see": [
+        37
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "额定转速"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；额定转速",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 36,
+      "name": "P1堵转扭矩/时间",
+      "group": "P1",
+      "gloss": "P1 堵转（零速/极低速大扭矩）扭矩与可持续时间，含触发/退出条件",
+      "aliases": [
+        "P1堵转扭矩",
+        "P1 stall torque"
+      ],
+      "weak_aliases": [
+        "堵转扭矩",
+        "堵转转矩",
+        "堵转时间",
+        "堵转工况",
+        "堵转能力",
+        "零速扭矩",
+        "零转速扭矩",
+        "低速大扭矩",
+        "堵转触发条件",
+        "堵转退出条件",
+        "堵转判定",
+        "堵转持续时间",
+        "堵转保护",
+        "stall torque",
+        "locked rotor torque",
+        "standstill torque",
+        "zero speed torque",
+        "stall time",
+        "stall duration",
+        "stall condition",
+        "stall entry",
+        "stall exit",
+        "stall protection"
+      ],
+      "unit_cues": [
+        "Nm + s + rpm< 条件"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "峰值扭矩",
+        "堵转电流 A（→#59，仅 P3 有）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        31
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "峰值扭矩",
+        "堵转电流 A"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；峰值扭矩",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 37,
+      "name": "P1反电动势（Back EMF）",
+      "group": "P1",
+      "gloss": "P1 电机反电动势限值（@最高/超速转速）",
+      "aliases": [
+        "P1反电动势",
+        "P1反电势",
+        "P1反电势峰值",
+        "P1空载反电势",
+        "P1 back EMF",
+        "P1 BEMF",
+        "P1 back-EMF"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V-peak @ rpm"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        11,
+        35
+      ],
+      "notes": [
+        "裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条"
+      ],
+      "reject_patterns": [],
+      "retrieve_aliases": [],
+      "split_harm": "裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条",
+      "retrieve": false,
+      "conflict": "p1_back_emf",
+      "status": "draft"
+    },
+    {
+      "seq": 38,
+      "name": "P1馈电要求",
+      "group": "P1",
+      "gloss": "P1 作为发电机的馈电（发电）能力要求",
+      "aliases": [
+        "P1馈电",
+        "馈电",
+        "馈电要求",
+        "馈电功率",
+        "发电",
+        "发电功率",
+        "发电模式",
+        "发电机模式",
+        "回馈",
+        "能量回馈",
+        "回馈功率",
+        "满功率馈电",
+        "发电能力",
+        "充电功率（P1发电）",
+        "P1 generating",
+        "generating",
+        "generator mode",
+        "generation power",
+        "generating power",
+        "regeneration",
+        "regen",
+        "regenerative power",
+        "feedback power",
+        "generating capability"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kW 或 满功率"
+      ],
+      "exclude": [
+        "充电升压（→#4/#115）",
+        "制动能量回收（P3 侧，清单未列）",
+        "馈电模式（整车能量管理语境）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        28,
+        30
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "充电升压",
+        "制动能量回收",
+        "馈电模式"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "充电升压（→#4/#115）；制动能量回收（P3 侧，清单未列）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 39,
+      "name": "P1位置传感器",
+      "group": "P1",
+      "gloss": "P1 转子位置传感器类型（示例：电涡流）",
+      "aliases": [
+        "P1位置传感器",
+        "位置传感器",
+        "转子位置传感器",
+        "旋变",
+        "旋转变压器",
+        "电涡流传感器",
+        "电涡流",
+        "涡流传感器",
+        "角度传感器",
+        "位置解码",
+        "旋变解码",
+        "磁编码器",
+        "编码器",
+        "极对数（旋变）",
+        "position sensor",
+        "rotor position sensor",
+        "resolver",
+        "eddy current sensor",
+        "inductive position sensor",
+        "inductive sensor",
+        "angle sensor",
+        "encoder",
+        "magnetic encoder",
+        "resolver-to-digital",
+        "RDC",
+        "sin/cos sensor"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "类型词，非数值"
+      ],
+      "exclude": [
+        "温度传感器（→#93/#94）",
+        "电流传感器（→#90）",
+        "油压传感器（→#88）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [],
+      "notes": [
+        "清单只列了 P1 位置传感器，没有 P3 位置传感器条目，疑为甲方遗漏，建议确认"
+      ],
+      "reject_patterns": [
+        "温度传感器",
+        "电流传感器",
+        "油压传感器"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "清单只列了 P1 位置传感器，没有 P3 位置传感器条目，疑为甲方遗漏，建议确认",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 40,
+      "name": "P1 ASC电流能力",
+      "group": "P1",
+      "gloss": "P1 主动短路（ASC）稳态+瞬态电流能力（带时长），对应功率模块短路耐受",
+      "aliases": [
+        "P1 ASC",
+        "P1主动短路"
+      ],
+      "weak_aliases": [
+        "ASC电流能力",
+        "主动短路电流能力",
+        "主动短路能力",
+        "三相短路电流",
+        "三相主动短路",
+        "短路稳态电流",
+        "短路瞬态电流",
+        "ASC稳态",
+        "ASC瞬态",
+        "短路耐受",
+        "短路电流耐受",
+        "主动短路工况",
+        "active short circuit",
+        "ASC capability",
+        "ASC current capability",
+        "three-phase short circuit",
+        "3-phase short",
+        "steady-state short circuit current",
+        "transient short circuit current",
+        "short-circuit withstand",
+        "ASC steady state",
+        "ASC transient"
+      ],
+      "unit_cues": [
+        "成对 A/s：稳态 xxxA/x s + 瞬态 xxxA/1 ms"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "单个 Arms 值（→ ASC 电流条目）",
+        "堵转电流",
+        "相电流峰值"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        42
+      ],
+      "notes": [
+        "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目"
+      ],
+      "reject_patterns": [
+        "单个 Arms 值",
+        "堵转电流",
+        "相电流峰值"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 41,
+      "name": "P1逆变器效率指标",
+      "group": "P1",
+      "gloss": "P1 逆变器效率：最高效率、区间效率及测试边界（母线电压/扭矩/转速）",
+      "aliases": [
+        "P1效率",
+        "P1逆变器效率",
+        "P1 inverter efficiency"
+      ],
+      "weak_aliases": [
+        "逆变器效率",
+        "电控效率",
+        "控制器效率",
+        "最高效率",
+        "峰值效率",
+        "区间效率",
+        "高效区",
+        "高效区占比",
+        "效率MAP",
+        "效率地图",
+        "工况点效率",
+        "效率指标",
+        "效率要求",
+        "inverter efficiency",
+        "peak efficiency",
+        "maximum efficiency",
+        "efficiency map",
+        "high-efficiency region",
+        "efficiency at operating point",
+        "efficiency target",
+        "CLTC efficiency",
+        "WLTC efficiency"
+      ],
+      "unit_cues": [
+        "% @ UDC/Nm/rpm 边界"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "升压效率（→#66）",
+        "电机效率 motor efficiency",
+        "系统效率（含电机，口径不同）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（效率测试方法）"
+      ],
+      "see": [
+        66
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "升压效率",
+        "电机效率 motor efficiency",
+        "系统效率"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；升压效率（→#66）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 42,
+      "name": "P1逆变器交流主动短路电流",
+      "group": "P1",
+      "gloss": "P1 逆变器 ASC 状态下的交流相电流（有效值）",
+      "aliases": [
+        "P1 ASC电流"
+      ],
+      "weak_aliases": [
+        "ASC电流",
+        "交流主动短路电流",
+        "主动短路电流",
+        "主动短路相电流",
+        "短路电流有效值",
+        "ASC稳态电流",
+        "ASC相电流",
+        "ASC current",
+        "active short circuit current",
+        "ASC phase current",
+        "short-circuit current rms",
+        "ASC Arms",
+        "ASC rms current"
+      ],
+      "unit_cues": [
+        "Arms 单值"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "稳态/瞬态成对 A/s（→ ASC 能力条目）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        40
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "稳态",
+        "瞬态成对 A"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→P3 对应条目）；稳态/瞬态成对 A/s（→ ASC 能力条目）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 43,
+      "name": "P1逆变器持续交流电流",
+      "group": "P1",
+      "gloss": "P1 逆变器持续（连续）输出交流电流",
+      "aliases": [
+        "P1持续电流",
+        "持续交流电流",
+        "连续电流",
+        "持续输出电流",
+        "连续输出电流",
+        "逆变器额定电流",
+        "continuous AC current",
+        "continuous current",
+        "Arms continuous",
+        "S1 current",
+        "nominal current",
+        "continuous output current"
+      ],
+      "weak_aliases": [
+        "持续相电流",
+        "额定相电流",
+        "连续相电流",
+        "持续电流能力",
+        "continuous phase current",
+        "rated phase current"
+      ],
+      "unit_cues": [
+        "Arms"
+      ],
+      "exclude": [
+        "P3 语境（→#58）",
+        "峰值电流（→#44）",
+        "ASC 电流（→#42）",
+        "母线直流电流（→#10）",
+        "Boost 额定电流 195 A（→#64）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        44,
+        58
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "峰值电流",
+        "ASC 电流",
+        "母线直流电流",
+        "Boost 额定电流 195 A"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P3 语境（→#58）；峰值电流（→#44）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 44,
+      "name": "P1逆变器交流电流峰值",
+      "group": "P1",
+      "gloss": "P1 逆变器峰值交流电流及可持续时间",
+      "aliases": [
+        "P1峰值电流"
+      ],
+      "weak_aliases": [
+        "交流峰值电流",
+        "交流电流峰值",
+        "相电流峰值",
+        "峰值相电流",
+        "最大相电流",
+        "最大电流",
+        "短时电流",
+        "峰值输出电流",
+        "峰值电流能力",
+        "peak AC current",
+        "peak phase current",
+        "max phase current",
+        "maximum phase current",
+        "peak current",
+        "Apk",
+        "Arms peak",
+        "overload current",
+        "peak output current"
+      ],
+      "unit_cues": [
+        "Arms / Apk + s"
+      ],
+      "exclude": [
+        "P3 语境（→P3 对应条目）",
+        "ASC 电流",
+        "持续电流",
+        "反电势 V（源表示例混入）",
+        "功率 kW（源表 #44 示例实为功率）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        43,
+        42,
+        37
+      ],
+      "notes": [
+        "源表 #44 示例值为「100KW@340V / 120KW@450V；Back EMF <820V-peak」，无电流值；抽取时不得把 kW 或 V 当作电流"
+      ],
+      "reject_patterns": [
+        "ASC 电流",
+        "持续电流",
+        "反电势 V",
+        "功率 kW"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #44 示例值为「100KW@340V / 120KW@450V；Back EMF <820V-peak」，无电流值；抽取时不得把 kW 或 V 当作电流",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 45,
+      "name": "P3峰值功率",
+      "group": "P3",
+      "gloss": "P3 电机峰值功率（区分升压/非升压母线电压）",
+      "aliases": [
+        "P3峰值功率",
+        "P3最大功率",
+        "P3电机峰值功率",
+        "P3峰值",
+        "驱动峰值功率",
+        "牵引峰值功率",
+        "P3 peak power",
+        "P3 maximum power",
+        "P3 max power",
+        "traction peak power",
+        "drive peak power"
+      ],
+      "weak_aliases": [
+        "峰值功率",
+        "最大功率",
+        "短时功率",
+        "升压峰值功率",
+        "非升压峰值功率",
+        "peak power",
+        "maximum power",
+        "short-time power",
+        "boost peak power",
+        "non-boost peak power"
+      ],
+      "unit_cues": [
+        "kW @ V",
+        "常成对：非升压@340V / 升压@450V"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "持续时间 s（→峰值持续时间）",
+        "Boost 输出功率 125 kW（→#68）",
+        "额定功率"
+      ],
+      "unverified": [
+        "peak generate power@P3 [原字典]"
+      ],
+      "std": [
+        "GB/T 18488（峰值功率定义）"
+      ],
+      "see": [
+        46,
+        47,
+        68
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "持续时间 s",
+        "Boost 输出功率 125 kW",
+        "额定功率"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；持续时间 s（→峰值持续时间）",
+      "retrieve": false,
+      "conflict": "p3_peak_power",
+      "status": "draft"
+    },
+    {
+      "seq": 46,
+      "name": "P3峰值功率持续时间",
+      "group": "P3",
+      "gloss": "P3 峰值功率可持续的时间",
+      "aliases": [
+        "P3峰值持续",
+        "P3 peak duration"
+      ],
+      "weak_aliases": [
+        "峰值持续时间",
+        "峰值功率持续时间",
+        "峰值时间",
+        "峰值维持时间",
+        "峰值保持时间",
+        "短时峰值",
+        "峰值工作时间",
+        "peak duration",
+        "peak power duration",
+        "peak hold time",
+        "peak time",
+        "overload time",
+        "S2 duty"
+      ],
+      "unit_cues": [
+        "s"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "扭矩响应时间 ms（→#77）",
+        "放电时间（→#26/#27）",
+        "堵转时间"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        45
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "扭矩响应时间 ms",
+        "放电时间",
+        "堵转时间"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；扭矩响应时间 ms（→#77）",
+      "retrieve": false,
+      "conflict": "p3_peak_power_duration",
+      "status": "draft"
+    },
+    {
+      "seq": 47,
+      "name": "P3额定功率",
+      "group": "P3",
+      "gloss": "P3 电机额定（连续）功率",
+      "aliases": [
+        "P3额定功率",
+        "P3连续功率",
+        "P3持续功率",
+        "P3 rated power",
+        "P3 continuous power"
+      ],
+      "weak_aliases": [
+        "额定功率",
+        "连续功率",
+        "持续功率",
+        "S1功率",
+        "额定输出功率",
+        "rated power",
+        "continuous power",
+        "nominal power",
+        "S1 power",
+        "continuous rating"
+      ],
+      "unit_cues": [
+        "kW"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "峰值功率",
+        "额定功率相电流 A（→#58）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（额定功率/S1）"
+      ],
+      "see": [
+        45
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "峰值功率",
+        "额定功率相电流 A"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；峰值功率",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 48,
+      "name": "P3峰值扭矩/时间/对应转速范围",
+      "group": "P3",
+      "gloss": "P3 峰值扭矩、可持续时间及对应转速区间（外特性）",
+      "aliases": [
+        "P3峰值扭矩",
+        "P3最大扭矩",
+        "P3 peak torque",
+        "P3 max torque"
+      ],
+      "weak_aliases": [
+        "峰值扭矩",
+        "峰值转矩",
+        "最大扭矩",
+        "最大转矩",
+        "峰值扭矩持续时间",
+        "峰值扭矩转速范围",
+        "外特性",
+        "外特性曲线",
+        "扭矩转速曲线",
+        "恒扭矩区",
+        "拐点",
+        "peak torque",
+        "maximum torque",
+        "torque-speed envelope",
+        "torque vs speed",
+        "external characteristic",
+        "constant torque region",
+        "corner speed",
+        "base speed"
+      ],
+      "unit_cues": [
+        "Nm / N·m + s + rpm 区间"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "额定扭矩",
+        "堵转扭矩",
+        "扭矩精度（→#78/#89）",
+        "扭矩响应（→#77）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（峰值转矩）"
+      ],
+      "see": [
+        49,
+        53
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "额定扭矩",
+        "堵转扭矩",
+        "扭矩精度",
+        "扭矩响应"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；额定扭矩",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 49,
+      "name": "P3额定扭矩",
+      "group": "P3",
+      "gloss": "P3 额定（连续）扭矩",
+      "aliases": [
+        "P3额定扭矩",
+        "P3连续扭矩",
+        "P3持续扭矩",
+        "P3 rated torque"
+      ],
+      "weak_aliases": [
+        "额定扭矩",
+        "额定转矩",
+        "连续扭矩",
+        "持续扭矩",
+        "S1扭矩",
+        "rated torque",
+        "continuous torque",
+        "nominal torque",
+        "S1 torque"
+      ],
+      "unit_cues": [
+        "Nm"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "峰值扭矩"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        48
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "峰值扭矩"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；峰值扭矩",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 50,
+      "name": "P3 额定转速",
+      "group": "P3",
+      "gloss": "P3 额定转速（基速/拐点转速）",
+      "aliases": [
+        "P3额定转速",
+        "P3 rated speed"
+      ],
+      "weak_aliases": [
+        "额定转速",
+        "基速",
+        "拐点转速",
+        "额定点转速",
+        "恒功率起点",
+        "rated speed",
+        "base speed",
+        "nominal speed",
+        "corner speed",
+        "rated rpm"
+      ],
+      "unit_cues": [
+        "rpm / r/min"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "最高转速",
+        "转速范围"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        52,
+        51
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "最高转速",
+        "转速范围"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；最高转速",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 51,
+      "name": "P3 转速需求",
+      "group": "P3",
+      "gloss": "P3 工作转速范围/需求（含反转）",
+      "aliases": [
+        "P3转速需求",
+        "P3转速范围",
+        "P3 speed range",
+        "P3 speed demand"
+      ],
+      "weak_aliases": [
+        "转速需求",
+        "转速范围",
+        "工作转速范围",
+        "常用转速",
+        "转速区间",
+        "反转转速",
+        "正反转",
+        "转速要求",
+        "speed range",
+        "operating speed range",
+        "speed requirement",
+        "rpm range",
+        "reverse speed",
+        "bidirectional speed"
+      ],
+      "unit_cues": [
+        "rpm 区间"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "最高转速单值",
+        "额定转速"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        52,
+        50
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "最高转速单值",
+        "额定转速"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；最高转速单值",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 52,
+      "name": "P3最高工作转速",
+      "group": "P3",
+      "gloss": "P3 最高工作转速",
+      "aliases": [
+        "P3最高转速",
+        "P3最大转速",
+        "P3最高工作转速",
+        "P3 max speed",
+        "P3 maximum speed"
+      ],
+      "weak_aliases": [
+        "最高工作转速",
+        "最高转速",
+        "最大转速",
+        "极限转速",
+        "超速",
+        "超速转速",
+        "机械极限转速",
+        "最高持续转速",
+        "转速上限",
+        "maximum speed",
+        "max operating speed",
+        "top speed",
+        "overspeed",
+        "max rpm",
+        "mechanical speed limit",
+        "speed limit"
+      ],
+      "unit_cues": [
+        "rpm ≤ 单值"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "额定转速",
+        "反电势@rpm 里的 rpm（源表 #37 用 16000 rpm 校核反电势，高于 #35 的 13000 rpm 上限，勿当最高转速）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（最高工作转速）"
+      ],
+      "see": [
+        54
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "额定转速"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；额定转速",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 53,
+      "name": "P3堵转扭矩/时间",
+      "group": "P3",
+      "gloss": "P3 堵转（零速/极低速大扭矩）扭矩与可持续时间，含触发/退出条件",
+      "aliases": [
+        "P3堵转扭矩",
+        "P3 stall torque"
+      ],
+      "weak_aliases": [
+        "堵转扭矩",
+        "堵转转矩",
+        "堵转时间",
+        "堵转工况",
+        "堵转能力",
+        "零速扭矩",
+        "零转速扭矩",
+        "低速大扭矩",
+        "堵转触发条件",
+        "堵转退出条件",
+        "堵转判定",
+        "堵转持续时间",
+        "堵转保护",
+        "stall torque",
+        "locked rotor torque",
+        "standstill torque",
+        "zero speed torque",
+        "stall time",
+        "stall duration",
+        "stall condition",
+        "stall entry",
+        "stall exit",
+        "stall protection"
+      ],
+      "unit_cues": [
+        "Nm + s + rpm< 条件"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "峰值扭矩",
+        "堵转电流 A（→#59，仅 P3 有）"
+      ],
+      "unverified": [
+        "locking strategy [原字典]"
+      ],
+      "std": [],
+      "see": [
+        48,
+        59
+      ],
+      "notes": [
+        "源表 #53 示例为电流（峰值520A/3s，持续260A），#59 堵转电流示例却是 130 N·m——两格内容疑似互换或口径混用，须向甲方确认"
+      ],
+      "reject_patterns": [
+        "峰值扭矩",
+        "堵转电流 A"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #53 示例为电流（峰值520A/3s，持续260A），#59 堵转电流示例却是 130 N·m——两格内容疑似互换或口径混用，须向甲方确认",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 54,
+      "name": "P3 反电动势（Back EMF）",
+      "group": "P3",
+      "gloss": "P3 电机反电动势限值（@最高/超速转速）",
+      "aliases": [
+        "P3反电动势",
+        "P3反电势",
+        "P3反电势峰值",
+        "P3空载反电势",
+        "P3 back EMF",
+        "P3 BEMF",
+        "P3 back-EMF"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V-peak @ rpm"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        11,
+        52
+      ],
+      "notes": [
+        "裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条"
+      ],
+      "reject_patterns": [],
+      "retrieve_aliases": [],
+      "split_harm": "裸词 反电势/Back EMF/BEMF 归 #11；带 P1/P3 前缀归本条",
+      "retrieve": false,
+      "conflict": "p3_back_emf",
+      "status": "draft"
+    },
+    {
+      "seq": 55,
+      "name": "P3 ASC电流能力（是否整机提供？）",
+      "group": "P3",
+      "gloss": "P3 主动短路（ASC）稳态+瞬态电流能力（带时长），对应功率模块短路耐受",
+      "aliases": [
+        "P3 ASC",
+        "P3主动短路"
+      ],
+      "weak_aliases": [
+        "ASC电流能力",
+        "主动短路电流能力",
+        "主动短路能力",
+        "三相短路电流",
+        "三相主动短路",
+        "短路稳态电流",
+        "短路瞬态电流",
+        "ASC稳态",
+        "ASC瞬态",
+        "短路耐受",
+        "短路电流耐受",
+        "主动短路工况",
+        "active short circuit",
+        "ASC capability",
+        "ASC current capability",
+        "three-phase short circuit",
+        "3-phase short",
+        "steady-state short circuit current",
+        "transient short circuit current",
+        "short-circuit withstand",
+        "ASC steady state",
+        "ASC transient"
+      ],
+      "unit_cues": [
+        "成对 A/s：稳态 xxxA/x s + 瞬态 xxxA/1 ms"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "单个 Arms 值（→ ASC 电流条目）",
+        "堵转电流",
+        "相电流峰值"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        57
+      ],
+      "notes": [
+        "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目",
+        "标题中\"是否整机提供\"指该值由整机/电机侧提供还是电控侧给出"
+      ],
+      "reject_patterns": [
+        "单个 Arms 值",
+        "堵转电流",
+        "相电流峰值"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 56,
+      "name": "P3逆变器效率指标",
+      "group": "P3",
+      "gloss": "P3 逆变器效率：最高效率、区间效率及测试边界（母线电压/扭矩/转速）",
+      "aliases": [
+        "P3效率",
+        "P3逆变器效率",
+        "P3 inverter efficiency"
+      ],
+      "weak_aliases": [
+        "逆变器效率",
+        "电控效率",
+        "控制器效率",
+        "最高效率",
+        "峰值效率",
+        "区间效率",
+        "高效区",
+        "高效区占比",
+        "效率MAP",
+        "效率地图",
+        "工况点效率",
+        "效率指标",
+        "效率要求",
+        "inverter efficiency",
+        "peak efficiency",
+        "maximum efficiency",
+        "efficiency map",
+        "high-efficiency region",
+        "efficiency at operating point",
+        "efficiency target",
+        "CLTC efficiency",
+        "WLTC efficiency"
+      ],
+      "unit_cues": [
+        "% @ UDC/Nm/rpm 边界"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "升压效率（→#66）",
+        "电机效率 motor efficiency",
+        "系统效率（含电机，口径不同）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB/T 18488（效率测试方法）"
+      ],
+      "see": [
+        66
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "升压效率",
+        "电机效率 motor efficiency",
+        "系统效率"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；升压效率（→#66）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 57,
+      "name": "P3逆变器交流主动短路电流",
+      "group": "P3",
+      "gloss": "P3 逆变器 ASC 状态下的交流相电流（有效值）",
+      "aliases": [
+        "P3 ASC电流"
+      ],
+      "weak_aliases": [
+        "ASC电流",
+        "交流主动短路电流",
+        "主动短路电流",
+        "主动短路相电流",
+        "短路电流有效值",
+        "ASC稳态电流",
+        "ASC相电流",
+        "ASC current",
+        "active short circuit current",
+        "ASC phase current",
+        "short-circuit current rms",
+        "ASC Arms",
+        "ASC rms current"
+      ],
+      "unit_cues": [
+        "Arms 单值"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "稳态/瞬态成对 A/s（→ ASC 能力条目）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        55
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "稳态",
+        "瞬态成对 A"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→P1 对应条目）；稳态/瞬态成对 A/s（→ ASC 能力条目）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 58,
+      "name": "P3额定功率相电流",
+      "group": "P3",
+      "gloss": "P3 额定功率对应的相电流（持续）",
+      "aliases": [
+        "额定功率相电流",
+        "P3额定相电流",
+        "额定功率对应相电流",
+        "额定电流",
+        "额定工况相电流",
+        "phase current at rated power",
+        "continuous Arms",
+        "rated current",
+        "nominal phase current"
+      ],
+      "weak_aliases": [
+        "额定相电流",
+        "持续相电流",
+        "连续相电流",
+        "持续电流能力",
+        "rated phase current",
+        "continuous phase current"
+      ],
+      "unit_cues": [
+        "Arms"
+      ],
+      "exclude": [
+        "P1 语境（→#43）",
+        "峰值电流（→#60）",
+        "ASC 电流（→#57）",
+        "额定功率 kW 本身（→#47）",
+        "采样精度（→#90）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        43,
+        47,
+        60
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "峰值电流",
+        "ASC 电流",
+        "额定功率 kW 本身",
+        "采样精度"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1 语境（→#43）；峰值电流（→#60）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 59,
+      "name": "P3逆变器堵转电流",
+      "group": "P3",
+      "gloss": "P3 逆变器堵转工况电流能力与降载策略",
+      "aliases": [
+        "P3堵转电流",
+        "堵转电流",
+        "堵转相电流",
+        "零速电流",
+        "堵转持续电流",
+        "堵转峰值电流",
+        "堵转降载",
+        "堵转降额",
+        "堵转电流能力",
+        "堵转限流",
+        "stall current",
+        "P3 stall current",
+        "locked rotor current",
+        "standstill current",
+        "zero speed current",
+        "stall derating",
+        "stall current derating",
+        "stall current limit"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "A + s（+ rpm< 条件）"
+      ],
+      "exclude": [
+        "堵转扭矩 Nm（→#53）",
+        "ASC 电流",
+        "峰值电流"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        53,
+        55
+      ],
+      "notes": [
+        "源表 #59 示例为 130 N·m（TBD），是扭矩不是电流；与 #53 疑似互换，须向甲方确认"
+      ],
+      "reject_patterns": [
+        "堵转扭矩 Nm",
+        "ASC 电流",
+        "峰值电流"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #59 示例为 130 N·m（TBD），是扭矩不是电流；与 #53 疑似互换，须向甲方确认",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 60,
+      "name": "P3逆变器交流电流峰值",
+      "group": "P3",
+      "gloss": "P3 逆变器峰值交流电流及可持续时间",
+      "aliases": [
+        "P3峰值电流"
+      ],
+      "weak_aliases": [
+        "交流峰值电流",
+        "交流电流峰值",
+        "相电流峰值",
+        "峰值相电流",
+        "最大相电流",
+        "最大电流",
+        "短时电流",
+        "峰值输出电流",
+        "峰值电流能力",
+        "peak AC current",
+        "peak phase current",
+        "max phase current",
+        "maximum phase current",
+        "peak current",
+        "Apk",
+        "Arms peak",
+        "overload current",
+        "peak output current"
+      ],
+      "unit_cues": [
+        "Arms / Apk + s"
+      ],
+      "exclude": [
+        "P1 语境（→P1 对应条目）",
+        "ASC 电流",
+        "持续电流",
+        "反电势 V（源表示例混入）",
+        "功率 kW（源表 #44 示例实为功率）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        58,
+        57,
+        54
+      ],
+      "notes": [
+        "源表 #60 示例把功率与反电势拼在电流格里，只应抽 520 Arms"
+      ],
+      "reject_patterns": [
+        "ASC 电流",
+        "持续电流",
+        "反电势 V",
+        "功率 kW"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #60 示例把功率与反电势拼在电流格里，只应抽 520 Arms",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 61,
+      "name": "Boost功能要求",
+      "group": "升压",
+      "gloss": "是否需要升压（Boost）功能及其总体要求",
+      "aliases": [
+        "Boost功能",
+        "升压功能",
+        "升压需求",
+        "升压要求",
+        "升压模块",
+        "升压单元",
+        "升压方案",
+        "DC/DC升压",
+        "双向DC/DC",
+        "升压电感",
+        "升压控制",
+        "是否升压",
+        "升压器",
+        "boost function",
+        "boost converter",
+        "boost requirement",
+        "DC-DC boost",
+        "DC/DC boost",
+        "step-up converter",
+        "boost stage",
+        "bidirectional DC/DC",
+        "boost unit"
+      ],
+      "weak_aliases": [
+        "升压拓扑",
+        "boost mode",
+        "boost topology"
+      ],
+      "unit_cues": [
+        "是/否"
+      ],
+      "exclude": [
+        "范围判断句（→#3/#4）",
+        "数值参数 V/A/kW/kHz/Vpp（→#62–#70）",
+        "充电升压（→#115）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        3,
+        4,
+        62,
+        115
+      ],
+      "notes": [
+        "原字典把裸词 BOOST 作为 #61 别名，会吸收全部 Boost 句子；建议裸词 BOOST/Boost/升压 只作\"段落定位词\"，不计分"
+      ],
+      "reject_patterns": [
+        "范围判断句",
+        "数值参数 V",
+        "Vpp",
+        "充电升压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "原字典把裸词 BOOST 作为 #61 别名，会吸收全部 Boost 句子；建议裸词 BOOST/Boost/升压 只作\"段落定位词\"，不计分",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 62,
+      "name": "BOOST最高工作电压",
+      "group": "升压",
+      "gloss": "升压后母线可达的最高工作电压",
+      "aliases": [
+        "升压最高电压",
+        "升压最高工作电压",
+        "Boost最高电压",
+        "升压目标电压",
+        "升压后母线电压",
+        "升压上限电压",
+        "升压电压上限",
+        "最高升压电压",
+        "Boost电压上限",
+        "boost max voltage",
+        "boost maximum operating voltage",
+        "boost target voltage",
+        "boosted DC link voltage",
+        "boost output max voltage",
+        "boost voltage limit",
+        "maximum boost voltage"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V 单值"
+      ],
+      "exclude": [
+        "HVDC 工作范围（→#5）",
+        "极限电压 500 V（→#5）",
+        "输出电压范围/模式（→#67）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        67,
+        5
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "HVDC 工作范围",
+        "极限电压 500 V",
+        "输出电压范围",
+        "模式"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "HVDC 工作范围（→#5）；极限电压 500 V（→#5）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 63,
+      "name": "BOOST输入峰值电流",
+      "group": "升压",
+      "gloss": "升压电路输入（电池侧）峰值电流",
+      "aliases": [
+        "升压输入峰值电流",
+        "Boost输入峰值电流",
+        "升压峰值电流",
+        "电感峰值电流",
+        "升压输入最大电流",
+        "电池侧峰值电流",
+        "升压输入电流峰值",
+        "Boost峰值电流",
+        "boost input peak current",
+        "boost peak current",
+        "inductor peak current",
+        "battery side peak current",
+        "boost input max current",
+        "peak input current"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "A @ V"
+      ],
+      "exclude": [
+        "额定/持续（→#64）",
+        "逆变器相电流（→#44/#60）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        64,
+        68
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "额定",
+        "持续",
+        "逆变器相电流"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "额定/持续（→#64）；逆变器相电流（→#44/#60）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 64,
+      "name": "BOOST输入额定电流",
+      "group": "升压",
+      "gloss": "升压电路输入额定（持续）电流，分 Boost 模式与 Bypass 模式",
+      "aliases": [
+        "升压输入额定电流",
+        "Boost额定电流",
+        "升压额定电流",
+        "升压持续电流",
+        "升压额定输入电流",
+        "Bypass额定电流",
+        "旁路电流",
+        "旁路额定电流",
+        "直通电流",
+        "旁路模式电流",
+        "Boost模式电流",
+        "boost input rated current",
+        "boost continuous current",
+        "boost rated current",
+        "bypass current",
+        "bypass mode current",
+        "pass-through current",
+        "boost rated input current",
+        "bypass rated current"
+      ],
+      "weak_aliases": [
+        "直通模式",
+        "旁路模式"
+      ],
+      "unit_cues": [
+        "A + Boost/Bypass 标签"
+      ],
+      "exclude": [
+        "峰值（→#63）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        63,
+        67
+      ],
+      "notes": [
+        "Bypass 数字与 Boost 数字并列出现，抽取需保留模式标签"
+      ],
+      "reject_patterns": [
+        "峰值"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "Bypass 数字与 Boost 数字并列出现，抽取需保留模式标签",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 65,
+      "name": "Boost输出性能",
+      "group": "升压",
+      "gloss": "升压输出侧综合性能：输出电压范围、功率、响应时间（依 D 列）",
+      "aliases": [
+        "升压输出",
+        "升压输出性能",
+        "升压输出参数",
+        "升压性能",
+        "升压输出电压范围",
+        "升压响应时间",
+        "升压动态响应",
+        "升压输出特性",
+        "Boost输出",
+        "升压能力",
+        "boost output performance",
+        "boost output characteristics",
+        "boost output",
+        "boost output voltage range",
+        "boost response time",
+        "boost dynamic response",
+        "boost capability"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "复合条目：V 范围 + kW + ms"
+      ],
+      "exclude": [
+        "单独的输入侧参数（→#63/#64）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        62,
+        63,
+        64,
+        67,
+        68
+      ],
+      "notes": [
+        "源表示例是 #62/#63/#64 的拼接（输入侧），而 D 列要求输出电压范围/功率/响应时间（输出侧）——示例与说明不一致；建议以 D 列语义为准，并把响应时间作为本条独有线索"
+      ],
+      "reject_patterns": [
+        "单独的输入侧参数"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表示例是 #62/#63/#64 的拼接（输入侧），而 D 列要求输出电压范围/功率/响应时间（输出侧）——示例与说明不一致；建议以 D 列语义为准，并把响应时间作为本条独有线索",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 66,
+      "name": "升压效率",
+      "group": "升压",
+      "gloss": "升压（DC/DC）转换效率",
+      "aliases": [
+        "升压效率",
+        "Boost效率",
+        "升压转换效率",
+        "DC/DC效率",
+        "DCDC效率",
+        "升压模式效率",
+        "升压峰值效率",
+        "旁路效率",
+        "转换效率",
+        "boost efficiency",
+        "boost conversion efficiency",
+        "DC-DC efficiency",
+        "DC/DC efficiency",
+        "boost mode efficiency",
+        "step-up efficiency",
+        "conversion efficiency"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "% ≥"
+      ],
+      "exclude": [
+        "逆变器效率（→#41/#56）",
+        "系统效率"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        41,
+        56
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "逆变器效率",
+        "系统效率"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "逆变器效率（→#41/#56）；系统效率",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 67,
+      "name": "升压输出电压",
+      "group": "升压",
+      "gloss": "升压输出电压范围及工作模式（Boost/Bypass/Buck）",
+      "aliases": [
+        "升压输出电压",
+        "Boost输出电压",
+        "升压后电压",
+        "升压电压范围",
+        "输出电压范围",
+        "Boost模式",
+        "Bypass模式",
+        "Buck模式",
+        "降压模式",
+        "三种模式",
+        "工作模式（升压）",
+        "boost output voltage",
+        "boosted voltage",
+        "output voltage range",
+        "boost/bypass/buck",
+        "buck mode",
+        "bypass mode",
+        "operating modes",
+        "DC-DC output voltage"
+      ],
+      "weak_aliases": [
+        "旁路模式",
+        "直通模式",
+        "boost mode"
+      ],
+      "unit_cues": [
+        "V + 模式名"
+      ],
+      "exclude": [
+        "最高工作电压单值（→#62）",
+        "HVDC 范围（→#5）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        62,
+        64
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "最高工作电压单值",
+        "HVDC 范围"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "最高工作电压单值（→#62）；HVDC 范围（→#5）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 68,
+      "name": "升压输出功率",
+      "group": "升压",
+      "gloss": "升压模式的输出功率能力（峰值/持续）",
+      "aliases": [
+        "升压输出功率",
+        "Boost输出功率",
+        "升压功率",
+        "升压持续功率",
+        "升压额定功率",
+        "DC/DC功率",
+        "Boost功率",
+        "升压功率能力",
+        "boost output power",
+        "boost power",
+        "boost continuous power",
+        "boost rated power",
+        "DC-DC power rating",
+        "boost power capability"
+      ],
+      "weak_aliases": [
+        "升压峰值功率",
+        "boost peak power"
+      ],
+      "unit_cues": [
+        "kW @ V / s"
+      ],
+      "exclude": [
+        "P1/P3 峰值功率（→#28/#45；源表用「升压@450V」修饰 P1/P3 功率，需靠 P1/P3 前缀区分）"
+      ],
+      "unverified": [
+        "boost kW [原字典]（过泛）"
+      ],
+      "std": [],
+      "see": [
+        28,
+        45
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "P1",
+        "P3 峰值功率"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1/P3 峰值功率（→#28/#45；源表用「升压@450V」修饰 P1/P3 功率，需靠 P1/P3 前缀区分）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 69,
+      "name": "升压开关频率",
+      "group": "升压",
+      "gloss": "升压电路开关频率",
+      "aliases": [
+        "升压开关频率",
+        "Boost开关频率",
+        "DC/DC开关频率",
+        "升压PWM频率",
+        "斩波频率",
+        "升压载波频率",
+        "开关频率（升压）",
+        "boost switching frequency",
+        "boost fsw",
+        "DC-DC switching frequency",
+        "boost PWM frequency",
+        "chopping frequency",
+        "switching frequency for boost"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kHz"
+      ],
+      "exclude": [
+        "逆变器开关频率/载波频率（清单未列但规格常见，勿混）",
+        "踏板 PWM 频率 Hz（→#87）",
+        "电流环/控制频率"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        87
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "逆变器开关频率",
+        "载波频率",
+        "踏板 PWM 频率 Hz",
+        "电流环",
+        "控制频率"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "逆变器开关频率/载波频率（清单未列但规格常见，勿混）；踏板 PWM 频率 Hz（→#87）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 70,
+      "name": "升压纹波电压",
+      "group": "升压",
+      "gloss": "升压输出电压纹波限值（给定输入/输出电压条件）",
+      "aliases": [
+        "升压纹波",
+        "升压纹波电压",
+        "升压输出纹波",
+        "Boost输出纹波",
+        "Boost纹波",
+        "DC/DC输出纹波",
+        "升压电压纹波",
+        "boost output ripple",
+        "boost ripple voltage",
+        "boost ripple",
+        "DC-DC output ripple",
+        "output ripple at boost"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Vpp ± + 输入/输出电压条件"
+      ],
+      "exclude": [
+        "母线纹波（→#8/#12）",
+        "电感纹波电流 inductor ripple current"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        8,
+        12
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "母线纹波",
+        "电感纹波电流 inductor ripple current"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "母线纹波（→#8/#12）；电感纹波电流 inductor ripple current",
+      "retrieve": false,
+      "conflict": "boost_ripple",
+      "status": "draft"
+    },
+    {
+      "seq": 71,
+      "name": "冷却回路压降",
+      "group": "冷却",
+      "gloss": "冷却回路在给定流量/温度下的压降限值",
+      "aliases": [
+        "冷却回路压降",
+        "压降（冷却）",
+        "压力损失",
+        "压损",
+        "流阻",
+        "流动阻力",
+        "水阻",
+        "水路压降",
+        "流道压降",
+        "冷却压降",
+        "进出口压差",
+        "压差",
+        "冷却液压降",
+        "回路阻力",
+        "pressure drop",
+        "pressure loss",
+        "flow resistance",
+        "hydraulic resistance",
+        "coolant pressure drop",
+        "ΔP",
+        "delta P",
+        "dP",
+        "differential pressure"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kPa / bar / mbar @ L/min @ ℃"
+      ],
+      "exclude": [
+        "电压压降 voltage drop（\"压降\"在电气语境指电压降，如二极管压降、线束压降）",
+        "油压（→#88）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        119,
+        112,
+        113
+      ],
+      "notes": [
+        "与 #119 同名同值"
+      ],
+      "reject_patterns": [
+        "电压压降 voltage drop",
+        "油压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #119 同名同值",
+      "retrieve": false,
+      "conflict": "coolant_drop",
+      "status": "draft"
+    },
+    {
+      "seq": 72,
+      "name": "最大散热能力",
+      "group": "冷却",
+      "gloss": "水冷系统可带走的最大热量（示例 ≤6.17 kW，与 #120 热损失同值）",
+      "aliases": [
+        "最大散热能力",
+        "散热能力",
+        "散热功率",
+        "冷却能力",
+        "冷却功率",
+        "最大散热量",
+        "散热量",
+        "允许散热",
+        "冷却系统能力",
+        "散热需求",
+        "带走热量",
+        "max heat dissipation capability",
+        "heat dissipation capability",
+        "cooling capacity",
+        "cooling capability",
+        "heat rejection",
+        "maximum heat rejection",
+        "thermal capacity",
+        "cooling power"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kW（水冷）"
+      ],
+      "exclude": [
+        "低压功耗 W（→#21）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        120
+      ],
+      "notes": [
+        "#72 与 #120 数值相同、语义互为镜像（系统能带走多少 vs 控制器产生多少）；\"dissipation\" 在原字典同时出现在两条，属别名冲突。建议作为一对处理：同值、分别标注口径"
+      ],
+      "reject_patterns": [
+        "低压功耗 W"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "#72 与 #120 数值相同、语义互为镜像（系统能带走多少 vs 控制器产生多少）；\"dissipation\" 在原字典同时出现在两条，属别名冲突。建议作为一对处理：同值、分别标注口径",
+      "retrieve": false,
+      "conflict": "heat_dissipation",
+      "status": "draft"
+    },
+    {
+      "seq": 73,
+      "name": "控制器重量",
+      "group": "环境与材料",
+      "gloss": "电控总重量目标（含线束、盖板等）",
+      "aliases": [],
+      "weak_aliases": [
+        "控制器重量",
+        "电控重量",
+        "总成重量",
+        "电控总成重量",
+        "重量目标",
+        "目标重量",
+        "质量",
+        "整机重量",
+        "含Boost重量",
+        "不含Boost重量",
+        "重量要求",
+        "重量限值",
+        "controller weight",
+        "inverter weight",
+        "weight",
+        "mass",
+        "weight target",
+        "assembly weight",
+        "target weight",
+        "total weight"
+      ],
+      "unit_cues": [
+        "kg"
+      ],
+      "exclude": [
+        "整车重量",
+        "电机重量（若单列）"
+      ],
+      "unverified": [
+        "PCM weight [原字典]（PCM 缩写来源不明）"
+      ],
+      "std": [],
+      "see": [
+        101
+      ],
+      "notes": [
+        "源表 #73（≤19.5/≤16 kg）与 #101（25 kg）数值不同，口径可能不同（含/不含 Boost、是否含线束）；不应强制对齐"
+      ],
+      "reject_patterns": [
+        "整车重量",
+        "电机重量"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "源表 #73（≤19.5/≤16 kg）与 #101（25 kg）数值不同，口径可能不同（含/不含 Boost、是否含线束）；不应强制对齐",
+      "retrieve": false,
+      "conflict": "weight_controller",
+      "status": "draft"
+    },
+    {
+      "seq": 74,
+      "name": "防腐等级",
+      "group": "环境与材料",
+      "gloss": "防腐等级要求",
+      "aliases": [],
+      "weak_aliases": [
+        "防腐等级",
+        "腐蚀等级",
+        "防腐蚀等级",
+        "腐蚀防护等级",
+        "防腐",
+        "防腐蚀",
+        "防腐要求",
+        "盐雾",
+        "盐雾等级",
+        "盐雾试验",
+        "中性盐雾",
+        "循环腐蚀",
+        "耐腐蚀",
+        "腐蚀试验",
+        "表面处理",
+        "涂层",
+        "corrosion class",
+        "corrosion grade",
+        "corrosion protection level",
+        "corrosion resistance",
+        "salt spray",
+        "salt fog",
+        "NSS",
+        "neutral salt spray",
+        "cyclic corrosion",
+        "CCT",
+        "corrosion test"
+      ],
+      "unit_cues": [
+        "等级代号（如 F 级）+ 企标号"
+      ],
+      "exclude": [
+        "化学试剂耐受 chemical resistance（ISO 16750-5）",
+        "EMC/IP 等级"
+      ],
+      "unverified": [],
+      "std": [
+        "Q/JL J160003-2024 [清单]",
+        "ISO 16750-4（盐雾）",
+        "GB/T 28046.4",
+        "ISO 9227（盐雾试验）",
+        "GB/T 10125"
+      ],
+      "see": [
+        102
+      ],
+      "notes": [
+        "#74 示例给等级，#102 示例给标准号，二者互补而非重复"
+      ],
+      "reject_patterns": [
+        "化学试剂耐受 chemical resistance",
+        "EMC",
+        "IP 等级"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "#74 示例给等级，#102 示例给标准号，二者互补而非重复",
+      "retrieve": false,
+      "conflict": "corrosion_class",
+      "status": "draft"
+    },
+    {
+      "seq": 75,
+      "name": "振动要求",
+      "group": "环境与材料",
+      "gloss": "振动/冲击要求",
+      "aliases": [
+        "振动",
+        "振动要求",
+        "振动谱",
+        "随机振动",
+        "正弦振动",
+        "机械冲击",
+        "冲击",
+        "振动试验",
+        "振动等级",
+        "加速度谱",
+        "功率谱密度",
+        "扫频",
+        "振动耐久",
+        "机械负荷",
+        "vibration",
+        "random vibration",
+        "sine vibration",
+        "sinusoidal vibration",
+        "vibration profile",
+        "PSD",
+        "mechanical shock",
+        "shock",
+        "vibration spectrum",
+        "Grms",
+        "g rms",
+        "mechanical load"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "g / m/s² / Hz / PSD (g²/Hz)"
+      ],
+      "exclude": [
+        "NVH/噪声",
+        "扭矩振荡/torque ripple"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 16750-3",
+        "GB/T 28046.3",
+        "ISO 19453-3（电驱高压部件机械负荷）"
+      ],
+      "see": [
+        103
+      ],
+      "notes": [
+        "与 #103 同名"
+      ],
+      "reject_patterns": [
+        "NVH",
+        "噪声",
+        "扭矩振荡",
+        "torque ripple"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #103 同名",
+      "retrieve": false,
+      "conflict": "vibration",
+      "status": "draft"
+    },
+    {
+      "seq": 76,
+      "name": "EMC等级",
+      "group": "环境与材料",
+      "gloss": "EMC 等级及测试标准",
+      "aliases": [
+        "电磁兼容",
+        "电磁兼容性",
+        "电磁干扰",
+        "电磁抗扰",
+        "传导发射",
+        "辐射发射",
+        "传导抗扰",
+        "辐射抗扰",
+        "电磁骚扰",
+        "抗扰度",
+        "静电放电",
+        "瞬态传导",
+        "大电流注入",
+        "高压EMC",
+        "电驱EMC",
+        "EMC等级",
+        "EMC要求",
+        "EMC标准",
+        "EMC",
+        "electromagnetic compatibility",
+        "EMI",
+        "conducted emission",
+        "radiated emission",
+        "conducted immunity",
+        "radiated immunity",
+        "CE",
+        "RE",
+        "CI",
+        "RI",
+        "ESD",
+        "BCI",
+        "transient immunity",
+        "EMC level",
+        "EMC class"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "标准号 + 等级/限值 dBµV"
+      ],
+      "exclude": [
+        "网络安全（→#80）",
+        "功能安全（→#81）"
+      ],
+      "unverified": [],
+      "std": [
+        "Q/JLY J7110922D-2024 [清单]",
+        "CISPR 25",
+        "ISO 11452 系列",
+        "ISO 7637-2/-3",
+        "ISO 10605",
+        "UN R10 / ECE R10",
+        "GB/T 18655",
+        "GB/T 33014 系列",
+        "GB/T 36282（电驱动系统 EMC）"
+      ],
+      "see": [
+        80,
+        81
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "网络安全",
+        "功能安全"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "网络安全（→#80）；功能安全（→#81）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 77,
+      "name": "扭矩响应时间",
+      "group": "采样与控制",
+      "gloss": "扭矩指令到实际输出的阶跃响应时间（10%~90%）",
+      "aliases": [
+        "扭矩响应时间",
+        "转矩响应时间",
+        "扭矩响应",
+        "转矩响应",
+        "阶跃响应",
+        "响应时间（扭矩）",
+        "上升时间",
+        "扭矩上升时间",
+        "扭矩建立时间",
+        "扭矩动态响应",
+        "扭矩爬升",
+        "扭矩响应速度",
+        "转矩动态",
+        "torque response time",
+        "torque response",
+        "step response",
+        "rise time",
+        "torque rise time",
+        "torque build-up time",
+        "torque dynamics",
+        "settling time",
+        "10%-90%",
+        "torque bandwidth"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "ms + 10%~90%"
+      ],
+      "exclude": [
+        "扭矩精度（→#78/#89）",
+        "采样延时 ms（→#82–#88）",
+        "Boost 响应时间（→#65）",
+        "通讯延时"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        78,
+        89
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "扭矩精度",
+        "采样延时 ms",
+        "Boost 响应时间",
+        "通讯延时"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "扭矩精度（→#78/#89）；采样延时 ms（→#82–#88）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 78,
+      "name": "扭矩控制精度",
+      "group": "采样与控制",
+      "gloss": "扭矩控制精度，按稳态/动态给百分比",
+      "aliases": [],
+      "weak_aliases": [
+        "扭矩控制精度",
+        "转矩控制精度",
+        "扭矩精度",
+        "转矩精度",
+        "扭矩误差",
+        "转矩误差",
+        "稳态精度",
+        "动态精度",
+        "稳态误差",
+        "动态误差",
+        "扭矩偏差",
+        "扭矩准确度",
+        "扭矩容差",
+        "扭矩输出精度",
+        "torque control accuracy",
+        "torque accuracy",
+        "torque error",
+        "steady-state accuracy",
+        "dynamic accuracy",
+        "torque deviation",
+        "torque tolerance",
+        "torque precision"
+      ],
+      "unit_cues": [
+        "±% + 稳态/动态"
+      ],
+      "exclude": [
+        "扭矩估算精度/扭矩监控精度（功能安全语境，不同指标）",
+        "采样精度（→#90–#94）",
+        "扭矩响应（→#77）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        89,
+        77
+      ],
+      "notes": [
+        "与 #89 区分规则：按稳态/动态分的百分比→#78；按扭矩区间分的绝对值 Nm→#89；若规格只给一种，两条同源填写并注明"
+      ],
+      "reject_patterns": [
+        "扭矩估算精度",
+        "扭矩监控精度",
+        "采样精度",
+        "扭矩响应"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #89 区分规则：按稳态/动态分的百分比→#78；按扭矩区间分的绝对值 Nm→#89；若规格只给一种，两条同源填写并注明",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 79,
+      "name": "速比",
+      "group": "整机",
+      "gloss": "P1/P3 到轮端的传动比",
+      "aliases": [
+        "速比",
+        "传动比",
+        "减速比",
+        "齿比",
+        "P1传动比",
+        "P3传动比",
+        "电机到轮端速比",
+        "总传动比",
+        "主减速比",
+        "减速器速比",
+        "总速比",
+        "gear ratio",
+        "transmission ratio",
+        "reduction ratio",
+        "speed ratio",
+        "drive ratio",
+        "final drive ratio",
+        "motor-to-wheel ratio",
+        "overall ratio"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "无量纲 x.xx（分 P1/P3）"
+      ],
+      "exclude": [
+        "占空比（→#87）",
+        "弱磁比",
+        "功率比"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [],
+      "notes": [],
+      "reject_patterns": [
+        "占空比",
+        "弱磁比",
+        "功率比"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "占空比（→#87）；弱磁比",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 80,
+      "name": "网络安全要求",
+      "group": "安全与功能",
+      "gloss": "网络安全等级（CAL）要求",
+      "aliases": [
+        "网络安全",
+        "信息安全",
+        "网络安全等级",
+        "网络安全要求",
+        "安全启动",
+        "安全通信",
+        "密钥管理",
+        "安全刷写",
+        "安全诊断",
+        "安全访问",
+        "入侵检测",
+        "硬件安全模块",
+        "防篡改",
+        "安全存储",
+        "网络安全认证",
+        "cybersecurity",
+        "cyber security",
+        "CAL",
+        "cybersecurity assurance level",
+        "secure boot",
+        "secure communication",
+        "SecOC",
+        "key management",
+        "secure flash",
+        "secure diagnostics",
+        "HSM",
+        "hardware security module",
+        "TARA",
+        "IDS",
+        "intrusion detection"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "CAL 等级 1~4"
+      ],
+      "exclude": [
+        "功能安全 ASIL（→#81）",
+        "高压安全（→#12–#19）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO/SAE 21434",
+        "UN R155",
+        "GB 44495-2024",
+        "GB/T 40861"
+      ],
+      "see": [
+        118,
+        81
+      ],
+      "notes": [
+        "与 #118 同名同值"
+      ],
+      "reject_patterns": [
+        "功能安全 ASIL",
+        "高压安全"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #118 同名同值",
+      "retrieve": false,
+      "conflict": "cybersecurity",
+      "status": "draft"
+    },
+    {
+      "seq": 81,
+      "name": "功能安全",
+      "group": "安全与功能",
+      "gloss": "功能安全等级（ASIL）要求",
+      "aliases": [
+        "功能安全",
+        "功能安全等级",
+        "安全等级（ASIL）",
+        "安全目标",
+        "安全需求",
+        "安全机制",
+        "安全状态",
+        "危害分析",
+        "危害分析与风险评估",
+        "硬件冗余",
+        "双核锁步",
+        "监控层",
+        "三层监控",
+        "扭矩监控",
+        "安全扭矩关断",
+        "失效模式",
+        "功能安全认证",
+        "安全完整性等级",
+        "functional safety",
+        "ISO 26262",
+        "ASIL",
+        "ASIL A",
+        "ASIL B",
+        "ASIL C",
+        "ASIL D",
+        "QM",
+        "safety goal",
+        "safety requirement",
+        "safety mechanism",
+        "safe state",
+        "HARA",
+        "hazard analysis",
+        "FMEA",
+        "FMEDA",
+        "FTA",
+        "SPFM",
+        "LFM",
+        "PMHF",
+        "lockstep",
+        "E-Gas",
+        "torque monitoring",
+        "STO",
+        "safe torque off",
+        "FuSa"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "ASIL A/B/C/D / QM"
+      ],
+      "exclude": [
+        "网络安全（→#80）",
+        "高压安全",
+        "ASC 作为安全状态（→#40/#55，相关但不同条目）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 26262",
+        "GB/T 34590"
+      ],
+      "see": [
+        80,
+        40,
+        55
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "网络安全",
+        "高压安全",
+        "ASC 作为安全状态"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "网络安全（→#80）；高压安全",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 82,
+      "name": "油温采样温度范围/采样精度/延时",
+      "group": "采样与控制",
+      "gloss": "变速箱油温采样：范围、分区精度、延时",
+      "aliases": [
+        "油温",
+        "油温采样",
+        "油温传感器",
+        "变速箱油温",
+        "油温范围",
+        "油温精度",
+        "油温延时",
+        "油温NTC",
+        "油温信号",
+        "油温采样精度",
+        "润滑油温度",
+        "oil temperature",
+        "oil temp sensor",
+        "transmission oil temperature",
+        "ATF temperature",
+        "oil temperature sensing",
+        "oil temp accuracy",
+        "oil temp delay",
+        "oil NTC"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "℃ 区间 + ±℃ 分区 + ms"
+      ],
+      "exclude": [
+        "电机温度（→#93）",
+        "IGBT 温度（→#94）",
+        "环境温度（→#97）",
+        "水温（→#83/#84）",
+        "油压（→#88）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        83,
+        88
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "电机温度",
+        "IGBT 温度",
+        "环境温度",
+        "水温",
+        "油压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "电机温度（→#93）；IGBT 温度（→#94）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 83,
+      "name": "电驱回路水温/采样精度/延时",
+      "group": "采样与控制",
+      "gloss": "电驱冷却回路水温采样：范围、精度、延时",
+      "aliases": [
+        "电驱回路水温",
+        "电驱水温",
+        "电驱冷却回路温度",
+        "电机回路水温",
+        "电控回路水温",
+        "水温采样",
+        "水温传感器",
+        "冷却液温度采样",
+        "进水温度采样",
+        "水温精度",
+        "水温延时",
+        "水温信号",
+        "电驱回路温度",
+        "e-drive coolant temperature",
+        "drive loop coolant temperature",
+        "coolant temperature sensing",
+        "water temperature sensor",
+        "coolant temp sensor",
+        "coolant temp accuracy",
+        "coolant temp delay"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "℃ 区间 + ±℃ + ms"
+      ],
+      "exclude": [
+        "电机温度（→#93）",
+        "IGBT 温度（→#94）",
+        "环境温度（→#97）",
+        "电池回路（→#84）",
+        "冷却液温度工作范围（→#111，运行条件非采样）"
+      ],
+      "unverified": [
+        "EWP inlet temperature [原字典]（EWP=电子水泵，是否在电驱回路需看系统图）"
+      ],
+      "std": [],
+      "see": [
+        84,
+        111
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "电机温度",
+        "IGBT 温度",
+        "环境温度",
+        "电池回路",
+        "冷却液温度工作范围"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "电机温度（→#93）；IGBT 温度（→#94）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 84,
+      "name": "电池回路出入水口水温/采样精度/延时",
+      "group": "采样与控制",
+      "gloss": "电池冷却回路进/出水口水温采样：范围、精度、延时",
+      "aliases": [
+        "电池回路水温",
+        "电池回路温度",
+        "电池冷却回路",
+        "电池冷却液温度",
+        "出水口温度",
+        "入水口温度",
+        "进出水口水温",
+        "电池回路进出口",
+        "电池水温",
+        "电池回路出入水口",
+        "battery loop coolant temperature",
+        "battery coolant temperature",
+        "battery cooling loop",
+        "inlet coolant temperature",
+        "outlet coolant temperature",
+        "battery loop inlet",
+        "battery loop outlet"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "℃ 区间 + ±℃ + ms（两路）"
+      ],
+      "exclude": [
+        "电机温度（→#93）",
+        "IGBT 温度（→#94）",
+        "环境温度（→#97）",
+        "电驱回路（→#83）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        83
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "电机温度",
+        "IGBT 温度",
+        "环境温度",
+        "电驱回路"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "电机温度（→#93）；IGBT 温度（→#94）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 85,
+      "name": "CPSR电压范围/采样精度/延时",
+      "group": "采样与控制",
+      "gloss": "CPSR 信号电压采样：范围（0~16V）、精度、延时；并要求区分\"仅保证采样\"与\"正常使用\"区段",
+      "aliases": [
+        "CPSR电压",
+        "CPSR采样",
+        "CPSR范围",
+        "CPSR精度",
+        "CPSR延时",
+        "CPSR",
+        "CPSR voltage",
+        "CPSR sense",
+        "CPSR sensing accuracy"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V 0~16 + max{V, %} + ms"
+      ],
+      "exclude": [
+        "低压电源范围（→#20）",
+        "低压采样精度（→#92）",
+        "踏板电压（→#86）"
+      ],
+      "unverified": [
+        "analog supply sense [原字典]"
+      ],
+      "std": [],
+      "see": [
+        20,
+        92,
+        86
+      ],
+      "notes": [
+        "CPSR 缩写清单未定义（0~16V 与 12V 域一致）；原字典 \"analog supply sense\" 为推测，建议向甲方确认后再扩展"
+      ],
+      "reject_patterns": [
+        "低压电源范围",
+        "低压采样精度",
+        "踏板电压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "CPSR 缩写清单未定义（0~16V 与 12V 域一致）；原字典 \"analog supply sense\" 为推测，建议向甲方确认后再扩展",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 86,
+      "name": "加速踏板模拟量电压范围/采样精度/延时",
+      "group": "采样与控制",
+      "gloss": "加速踏板模拟量输入：电压范围、精度、延时；区分仅采样区段与正常区段",
+      "aliases": [
+        "加速踏板",
+        "油门踏板",
+        "踏板模拟量",
+        "踏板电压",
+        "踏板模拟电压",
+        "踏板信号",
+        "踏板位置传感器",
+        "加速踏板位置",
+        "踏板开度",
+        "模拟量输入",
+        "模拟量采样",
+        "踏板双路",
+        "主副踏板",
+        "踏板采样精度",
+        "accelerator pedal",
+        "APP",
+        "accelerator pedal position",
+        "pedal analog voltage",
+        "pedal signal",
+        "analog input",
+        "throttle pedal",
+        "APS",
+        "pedal sensor",
+        "pedal analog"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V 0~5(.5) + max{V, %} + ms"
+      ],
+      "exclude": [
+        "PWM 踏板（→#87）",
+        "CPSR（→#85）",
+        "制动踏板 brake pedal"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        87
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "PWM 踏板",
+        "CPSR",
+        "制动踏板 brake pedal"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "PWM 踏板（→#87）；CPSR（→#85）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 87,
+      "name": "加速踏板PWM频率/占空比/高低电平范围",
+      "group": "采样与控制",
+      "gloss": "加速踏板 PWM 输入：频率、占空比、高/低电平范围",
+      "aliases": [
+        "踏板PWM",
+        "PWM踏板",
+        "PWM信号",
+        "PWM频率",
+        "PWM占空比",
+        "占空比",
+        "占空比范围",
+        "高电平",
+        "低电平",
+        "高低电平",
+        "电平范围",
+        "PWM输入",
+        "数字踏板信号",
+        "频率范围（PWM）",
+        "pedal PWM",
+        "PWM input",
+        "PWM frequency",
+        "duty cycle",
+        "duty ratio",
+        "high level",
+        "low level",
+        "logic high",
+        "logic low",
+        "PWM signal",
+        "PWM pedal"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "Hz + % + V（高/低）"
+      ],
+      "exclude": [
+        "升压开关频率 kHz（→#69）",
+        "电机 PWM/逆变器载波",
+        "油压高低电平（→#88）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        86,
+        69,
+        88
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "升压开关频率 kHz",
+        "电机 PWM",
+        "逆变器载波",
+        "油压高低电平"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "升压开关频率 kHz（→#69）；电机 PWM/逆变器载波",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 88,
+      "name": "油压采样高低电平范围/延时",
+      "group": "采样与控制",
+      "gloss": "油压开关（数字量）输入：高/低电平范围、延时",
+      "aliases": [
+        "油压",
+        "油压信号",
+        "油压开关",
+        "油压采样",
+        "油压高低电平",
+        "油压数字量",
+        "油压传感器",
+        "压力开关",
+        "油压输入",
+        "数字量输入",
+        "开关量输入",
+        "油压检测",
+        "oil pressure",
+        "oil pressure switch",
+        "oil pressure signal",
+        "pressure switch",
+        "digital input",
+        "oil pressure sensing",
+        "oil pressure high/low level"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "V 高/低电平 + ms"
+      ],
+      "exclude": [
+        "冷却回路压降（→#71）",
+        "油温（→#82）",
+        "电压压降"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        82,
+        87
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "冷却回路压降",
+        "油温",
+        "电压压降"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "冷却回路压降（→#71）；油温（→#82）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 89,
+      "name": "转矩控制精度",
+      "group": "采样与控制",
+      "gloss": "转矩控制精度，按扭矩区间给绝对值/百分比",
+      "aliases": [],
+      "weak_aliases": [
+        "扭矩控制精度",
+        "转矩控制精度",
+        "扭矩精度",
+        "转矩精度",
+        "扭矩误差",
+        "转矩误差",
+        "稳态精度",
+        "动态精度",
+        "稳态误差",
+        "动态误差",
+        "扭矩偏差",
+        "扭矩准确度",
+        "扭矩容差",
+        "扭矩输出精度",
+        "torque control accuracy",
+        "torque accuracy",
+        "torque error",
+        "steady-state accuracy",
+        "dynamic accuracy",
+        "torque deviation",
+        "torque tolerance",
+        "torque precision"
+      ],
+      "unit_cues": [
+        "±Nm 分区间（0~5 / 5~10 / 10~100 / >100 Nm）"
+      ],
+      "exclude": [
+        "扭矩估算精度/扭矩监控精度（功能安全语境，不同指标）",
+        "采样精度（→#90–#94）",
+        "扭矩响应（→#77）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        78
+      ],
+      "notes": [
+        "见 #78"
+      ],
+      "reject_patterns": [
+        "扭矩估算精度",
+        "扭矩监控精度",
+        "采样精度",
+        "扭矩响应"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "见 #78",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 90,
+      "name": "相电流采样精度",
+      "group": "采样与控制",
+      "gloss": "相电流采样精度（生命周期/下线标定后）",
+      "aliases": [
+        "相电流采样精度",
+        "相电流精度",
+        "电流采样精度",
+        "电流传感器精度",
+        "相电流误差",
+        "电流检测精度",
+        "电流采样误差",
+        "电流精度要求",
+        "霍尔电流传感器",
+        "电流传感器",
+        "下线标定",
+        "生命周期精度",
+        "相电流传感器",
+        "phase current accuracy",
+        "phase current sensing accuracy",
+        "current sensor accuracy",
+        "current measurement accuracy",
+        "current sensing error",
+        "Hall current sensor",
+        "shunt",
+        "end-of-line calibration",
+        "EOL calibration",
+        "over lifetime",
+        "current sense accuracy"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "±A / ±% 分电流区间"
+      ],
+      "exclude": [
+        "母线电流检测（→#10）",
+        "ASC/额定/峰值电流值本身（→#42/#43/#44）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        10,
+        58
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "母线电流检测",
+        "ASC",
+        "额定",
+        "峰值电流值本身"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "母线电流检测（→#10）；ASC/额定/峰值电流值本身（→#42/#43/#44）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 91,
+      "name": "母线电压采样精度",
+      "group": "采样与控制",
+      "gloss": "高压母线电压采样精度（分电压区间）",
+      "aliases": [
+        "母线电压采样精度",
+        "母线电压精度",
+        "直流电压采样精度",
+        "高压采样精度",
+        "母线电压检测精度",
+        "电压采样误差",
+        "高压采样",
+        "母线电压传感器",
+        "电压检测精度",
+        "直流电压检测",
+        "高压电压采样",
+        "DC link voltage sensing accuracy",
+        "DC bus voltage accuracy",
+        "HV voltage sensing accuracy",
+        "voltage measurement accuracy",
+        "HVDC sense accuracy",
+        "DC voltage sense",
+        "bus voltage accuracy"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "±V / ±% 分电压区间"
+      ],
+      "exclude": [
+        "工作电压范围（→#5）",
+        "低压采样（→#92）",
+        "过压阈值（→#9）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        5,
+        92
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "工作电压范围",
+        "低压采样",
+        "过压阈值"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "工作电压范围（→#5）；低压采样（→#92）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 92,
+      "name": "低压供电电源电压采样精度",
+      "group": "采样与控制",
+      "gloss": "低压（KL30）供电电压采样精度",
+      "aliases": [
+        "低压采样精度",
+        "低压电压采样精度",
+        "低压供电采样",
+        "KL30采样精度",
+        "蓄电池电压采样",
+        "12V采样",
+        "电源电压检测精度",
+        "低压电压检测",
+        "低压监测精度",
+        "低压供电电压采样",
+        "电源电压采样",
+        "LV supply voltage sensing accuracy",
+        "KL30 sense accuracy",
+        "12 V sense",
+        "battery voltage measurement accuracy",
+        "supply voltage monitoring accuracy",
+        "LV sense accuracy"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "±V / ±% 分区间（4.5~10 / 10~30 V）"
+      ],
+      "exclude": [
+        "低压工作范围（→#20）",
+        "CPSR（→#85）",
+        "踏板电压（→#86）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        20,
+        85
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "低压工作范围",
+        "CPSR",
+        "踏板电压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "低压工作范围（→#20）；CPSR（→#85）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 93,
+      "name": "电机温度采样精度",
+      "group": "采样与控制",
+      "gloss": "电机（绕组/定子）温度采样精度",
+      "aliases": [
+        "电机温度采样精度",
+        "电机温度精度",
+        "电机温度采样",
+        "绕组温度",
+        "定子温度",
+        "电机温度传感器",
+        "电机NTC",
+        "绕组温度传感器",
+        "定子绕组温度",
+        "电机温度检测",
+        "电机温度采样误差",
+        "motor temperature sensing accuracy",
+        "motor temp accuracy",
+        "winding temperature",
+        "stator temperature",
+        "motor temperature sensor",
+        "PT1000",
+        "PT100",
+        "KTY",
+        "NTC",
+        "EM temperature",
+        "stator winding temperature"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "±℃ 分温度区间"
+      ],
+      "exclude": [
+        "IGBT/模块温度（→#94）",
+        "油温（→#82）",
+        "水温（→#83/#84）",
+        "转子温度估算"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        94,
+        82
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "IGBT",
+        "模块温度",
+        "油温",
+        "水温",
+        "转子温度估算"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "IGBT/模块温度（→#94）；油温（→#82）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 94,
+      "name": "IGBT温度采样精度",
+      "group": "采样与控制",
+      "gloss": "功率模块（IGBT/SiC）温度采样精度",
+      "aliases": [
+        "IGBT温度",
+        "IGBT温度采样精度",
+        "IGBT温度采样",
+        "模块温度",
+        "功率模块温度",
+        "模块NTC",
+        "IGBT NTC",
+        "芯片温度",
+        "结温估算",
+        "结温",
+        "功率器件温度",
+        "SiC温度",
+        "模块温度采样",
+        "模块温度精度",
+        "IGBT temperature sensing accuracy",
+        "IGBT temperature",
+        "module temperature",
+        "power module temperature",
+        "module NTC",
+        "junction temperature",
+        "Tj estimation",
+        "Tvj",
+        "chip temperature",
+        "SiC module temperature",
+        "NTC accuracy"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "±℃ 分温度区间"
+      ],
+      "exclude": [
+        "电机温度（→#93）",
+        "环境温度（→#97）",
+        "结温限值 Tjmax（器件限值，非采样精度）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        93
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "电机温度",
+        "环境温度",
+        "结温限值 Tjmax"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "电机温度（→#93）；环境温度（→#97）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 95,
+      "name": "电机类型",
+      "group": "整机",
+      "gloss": "电机类型（PMSM）及绝缘电压等级/电气间隙要求",
+      "aliases": [
+        "电机类型",
+        "电机型式",
+        "电机形式",
+        "永磁同步",
+        "永磁同步电机",
+        "永磁电机",
+        "内置式永磁",
+        "内嵌式永磁",
+        "表贴式永磁",
+        "感应电机",
+        "异步电机",
+        "励磁电机",
+        "电励磁同步",
+        "绕组形式",
+        "扁线",
+        "发卡绕组",
+        "极对数",
+        "极数",
+        "槽数",
+        "绝缘电压等级",
+        "绝缘等级",
+        "电气间隙",
+        "爬电距离",
+        "绕组绝缘",
+        "电机绝缘",
+        "motor type",
+        "PMSM",
+        "IPM",
+        "IPMSM",
+        "SPM",
+        "permanent magnet synchronous motor",
+        "induction motor",
+        "IM",
+        "ACIM",
+        "EESM",
+        "wound rotor synchronous",
+        "hairpin",
+        "pole pairs",
+        "number of poles",
+        "slots",
+        "insulation class",
+        "insulation voltage level",
+        "insulation voltage",
+        "clearance",
+        "creepage",
+        "winding insulation"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "类型词 + 绝缘电压 V"
+      ],
+      "exclude": [
+        "P1/P3 性能数值句（功率/扭矩/转速）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        14,
+        13
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "P1",
+        "P3 性能数值句"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "P1/P3 性能数值句（功率/扭矩/转速）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 96,
+      "name": "存储温度范围",
+      "group": "环境与材料",
+      "gloss": "存储/非工作温度范围",
+      "aliases": [
+        "存储温度",
+        "储存温度",
+        "贮存温度",
+        "存放温度",
+        "运输温度",
+        "非工作温度",
+        "存储温度范围",
+        "storage temperature",
+        "non-operating temperature",
+        "transport temperature",
+        "Tstg",
+        "storage temp range"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "℃ 区间"
+      ],
+      "exclude": [
+        "工作温度（→#97）",
+        "冷却液温度（→#111）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 16750-4",
+        "GB/T 28046.4",
+        "ISO 19453-4"
+      ],
+      "see": [
+        97
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "工作温度",
+        "冷却液温度"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "工作温度（→#97）；冷却液温度（→#111）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 97,
+      "name": "工作温度范围",
+      "group": "环境与材料",
+      "gloss": "工作环境温度范围",
+      "aliases": [
+        "工作温度",
+        "工作温度范围",
+        "工作环境温度",
+        "环境温度",
+        "使用温度",
+        "运行温度",
+        "安装环境温度",
+        "低温工作",
+        "高温工作",
+        "低温启动温度",
+        "环境温度范围",
+        "operating temperature",
+        "operating temperature range",
+        "ambient temperature",
+        "Tamb",
+        "operating ambient",
+        "environmental temperature",
+        "low temperature operation",
+        "high temperature operation"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "℃ 区间"
+      ],
+      "exclude": [
+        "存储温度（→#96）",
+        "冷却液温度（→#111）",
+        "结温 Tj / 器件温度（→#94）",
+        "采样温度范围（→#82–#84）"
+      ],
+      "unverified": [
+        "surface temperature [原字典]（表面温度一般是壳温限值，非环境温度）"
+      ],
+      "std": [
+        "ISO 16750-4",
+        "GB/T 28046.4",
+        "ISO 19453-4"
+      ],
+      "see": [
+        96,
+        111
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "存储温度",
+        "冷却液温度",
+        "结温 Tj",
+        "器件温度",
+        "采样温度范围"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "存储温度（→#96）；冷却液温度（→#111）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 98,
+      "name": "工作海拔高度",
+      "group": "环境与材料",
+      "gloss": "工作海拔要求（影响绝缘/散热）",
+      "aliases": [
+        "海拔",
+        "工作海拔",
+        "海拔高度",
+        "海拔要求",
+        "高原",
+        "高海拔",
+        "气压",
+        "大气压力",
+        "低气压",
+        "altitude",
+        "operating altitude",
+        "elevation",
+        "high altitude",
+        "atmospheric pressure",
+        "air pressure",
+        "low pressure",
+        "above sea level"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "m / km / kPa"
+      ],
+      "exclude": [
+        "离地高度",
+        "安装高度",
+        "车高"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [],
+      "notes": [],
+      "reject_patterns": [
+        "离地高度",
+        "安装高度",
+        "车高"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "离地高度；安装高度",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 99,
+      "name": "存储相对湿度",
+      "group": "环境与材料",
+      "gloss": "存储/非工作湿度范围",
+      "aliases": [
+        "存储湿度",
+        "储存湿度",
+        "贮存湿度",
+        "存储相对湿度",
+        "非工作湿度",
+        "storage humidity",
+        "storage RH",
+        "non-operating humidity",
+        "storage relative humidity"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "%RH 区间"
+      ],
+      "exclude": [
+        "工作湿度（→#100）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        100
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "工作湿度"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "工作湿度（→#100）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 100,
+      "name": "湿度要求",
+      "group": "环境与材料",
+      "gloss": "工作环境湿度要求（含湿热、凝露）",
+      "aliases": [
+        "湿度",
+        "相对湿度",
+        "工作湿度",
+        "环境湿度",
+        "湿热",
+        "凝露",
+        "结露",
+        "交变湿热",
+        "恒定湿热",
+        "湿度试验",
+        "湿度要求",
+        "湿度范围",
+        "humidity",
+        "relative humidity",
+        "RH",
+        "operating humidity",
+        "damp heat",
+        "condensation",
+        "dew",
+        "cyclic humidity",
+        "humidity test"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "%RH"
+      ],
+      "exclude": [
+        "存储湿度（→#99）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 16750-4",
+        "GB/T 28046.4",
+        "IEC 60068-2-30（交变湿热）",
+        "IEC 60068-2-78（恒定湿热）"
+      ],
+      "see": [
+        99
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "存储湿度"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "存储湿度（→#99）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 101,
+      "name": "重量要求",
+      "group": "环境与材料",
+      "gloss": "电控总成重量目标值",
+      "aliases": [],
+      "weak_aliases": [
+        "控制器重量",
+        "电控重量",
+        "总成重量",
+        "电控总成重量",
+        "重量目标",
+        "目标重量",
+        "质量",
+        "整机重量",
+        "含Boost重量",
+        "不含Boost重量",
+        "重量要求",
+        "重量限值",
+        "controller weight",
+        "inverter weight",
+        "weight",
+        "mass",
+        "weight target",
+        "assembly weight",
+        "target weight",
+        "total weight"
+      ],
+      "unit_cues": [
+        "kg"
+      ],
+      "exclude": [
+        "整车重量",
+        "电机重量（若单列）"
+      ],
+      "unverified": [
+        "PCM weight [原字典]"
+      ],
+      "std": [],
+      "see": [
+        73
+      ],
+      "notes": [
+        "见 #73"
+      ],
+      "reject_patterns": [
+        "整车重量",
+        "电机重量"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "见 #73",
+      "retrieve": false,
+      "conflict": "weight_requirement",
+      "status": "draft"
+    },
+    {
+      "seq": 102,
+      "name": "防腐要求",
+      "group": "环境与材料",
+      "gloss": "防腐要求（腐蚀等级划分与定义，参考 ISO 16750）",
+      "aliases": [],
+      "weak_aliases": [
+        "防腐等级",
+        "腐蚀等级",
+        "防腐蚀等级",
+        "腐蚀防护等级",
+        "防腐",
+        "防腐蚀",
+        "防腐要求",
+        "盐雾",
+        "盐雾等级",
+        "盐雾试验",
+        "中性盐雾",
+        "循环腐蚀",
+        "耐腐蚀",
+        "腐蚀试验",
+        "表面处理",
+        "涂层",
+        "corrosion class",
+        "corrosion grade",
+        "corrosion protection level",
+        "corrosion resistance",
+        "salt spray",
+        "salt fog",
+        "NSS",
+        "neutral salt spray",
+        "cyclic corrosion",
+        "CCT",
+        "corrosion test"
+      ],
+      "unit_cues": [
+        "等级代号（如 F 级）+ 企标号"
+      ],
+      "exclude": [
+        "化学试剂耐受 chemical resistance（ISO 16750-5）",
+        "EMC/IP 等级"
+      ],
+      "unverified": [],
+      "std": [
+        "Q/JL J160003-2024 [清单]",
+        "ISO 16750-4（盐雾）",
+        "GB/T 28046.4",
+        "ISO 9227（盐雾试验）",
+        "GB/T 10125"
+      ],
+      "see": [
+        74
+      ],
+      "notes": [
+        "见 #74"
+      ],
+      "reject_patterns": [
+        "化学试剂耐受 chemical resistance",
+        "EMC",
+        "IP 等级"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "见 #74",
+      "retrieve": false,
+      "conflict": "corrosion_std",
+      "status": "draft"
+    },
+    {
+      "seq": 103,
+      "name": "振动要求",
+      "group": "环境与材料",
+      "gloss": "同 #75",
+      "aliases": [
+        "振动",
+        "振动要求",
+        "振动谱",
+        "随机振动",
+        "正弦振动",
+        "机械冲击",
+        "冲击",
+        "振动试验",
+        "振动等级",
+        "加速度谱",
+        "功率谱密度",
+        "扫频",
+        "振动耐久",
+        "机械负荷",
+        "vibration",
+        "random vibration",
+        "sine vibration",
+        "sinusoidal vibration",
+        "vibration profile",
+        "PSD",
+        "mechanical shock",
+        "shock",
+        "vibration spectrum",
+        "Grms",
+        "g rms",
+        "mechanical load"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "g / m/s² / Hz / PSD (g²/Hz)"
+      ],
+      "exclude": [
+        "NVH/噪声",
+        "扭矩振荡/torque ripple"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 16750-3",
+        "GB/T 28046.3",
+        "ISO 19453-3（电驱高压部件机械负荷）"
+      ],
+      "see": [
+        75
+      ],
+      "notes": [
+        "与 #75 重复"
+      ],
+      "reject_patterns": [
+        "NVH",
+        "噪声",
+        "扭矩振荡",
+        "torque ripple"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #75 重复",
+      "retrieve": false,
+      "conflict": "vibration",
+      "status": "draft"
+    },
+    {
+      "seq": 104,
+      "name": "密封（IP等级）",
+      "group": "环境与材料",
+      "gloss": "密封要求：IP 防护等级，以及电控-变速箱接合面的油密封（D 列）",
+      "aliases": [
+        "密封",
+        "密封要求",
+        "密封等级",
+        "防护等级",
+        "IP等级",
+        "防水",
+        "防尘",
+        "防水防尘",
+        "密封圈",
+        "密封面",
+        "接合面",
+        "结合面",
+        "密封胶",
+        "油封",
+        "漏油",
+        "渗油",
+        "泄漏",
+        "气密",
+        "气密性",
+        "气密测试",
+        "泄漏率",
+        "泄漏测试",
+        "密封性能",
+        "sealing",
+        "seal",
+        "ingress protection",
+        "IP rating",
+        "IP code",
+        "IP67",
+        "IP6K7",
+        "IP6K9K",
+        "IP69K",
+        "waterproof",
+        "dust proof",
+        "gasket",
+        "O-ring",
+        "sealing surface",
+        "mating surface",
+        "oil leakage",
+        "leak test",
+        "leak rate",
+        "air tightness",
+        "pressure decay"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "IPxx 代号 / 泄漏率 / 压力"
+      ],
+      "exclude": [
+        "IPXXB 触指防护（→#109）",
+        "高压连接器"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 20653",
+        "IEC 60529",
+        "GB/T 4208",
+        "GB/T 30038"
+      ],
+      "see": [
+        109
+      ],
+      "notes": [
+        "原字典 #104 与 #109 共用 IPXXB，属别名冲突；IPXXB 是防触指代号，应只归 #109"
+      ],
+      "reject_patterns": [
+        "IPXXB 触指防护",
+        "高压连接器"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "原字典 #104 与 #109 共用 IPXXB，属别名冲突；IPXXB 是防触指代号，应只归 #109",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 105,
+      "name": "清洁度要求",
+      "group": "环境与材料",
+      "gloss": "电控内部技术清洁度（颗粒物）要求",
+      "aliases": [
+        "清洁度",
+        "清洁度要求",
+        "清洁度等级",
+        "技术清洁度",
+        "颗粒物",
+        "颗粒度",
+        "污染度",
+        "残余颗粒",
+        "残留物",
+        "异物",
+        "洁净度",
+        "装配环境",
+        "内部清洁度",
+        "颗粒尺寸",
+        "最大颗粒",
+        "cleanliness",
+        "technical cleanliness",
+        "particle",
+        "particle size",
+        "contamination",
+        "residual particles",
+        "foreign matter",
+        "cleanliness class",
+        "particle count"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "mg / 颗粒尺寸 µm / 等级"
+      ],
+      "exclude": [
+        "表面清洁/清洗工艺",
+        "冷却液清洁度"
+      ],
+      "unverified": [],
+      "std": [
+        "Q/JLE J2100002-2026 [清单]",
+        "ISO 16232",
+        "VDA 19"
+      ],
+      "see": [],
+      "notes": [],
+      "reject_patterns": [
+        "表面清洁",
+        "清洗工艺",
+        "冷却液清洁度"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "表面清洁/清洗工艺；冷却液清洁度",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 106,
+      "name": "阻燃要求",
+      "group": "环境与材料",
+      "gloss": "材料阻燃等级要求",
+      "aliases": [
+        "阻燃",
+        "阻燃等级",
+        "阻燃要求",
+        "燃烧特性",
+        "燃烧等级",
+        "防火",
+        "耐燃",
+        "难燃",
+        "可燃性",
+        "燃烧试验",
+        "材料阻燃",
+        "垂直燃烧",
+        "水平燃烧",
+        "阻燃材料",
+        "flammability",
+        "flame retardant",
+        "flame retardancy",
+        "fire resistance",
+        "UL 94",
+        "UL94",
+        "V-0",
+        "V-1",
+        "V-2",
+        "HB",
+        "burning rate",
+        "combustion",
+        "flame rating"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "UL94 等级代号 / mm/min"
+      ],
+      "exclude": [
+        "热失控 thermal runaway（电池）"
+      ],
+      "unverified": [],
+      "std": [
+        "Q/JLY J7210870B-2024 [清单]",
+        "UL 94",
+        "GB 8410",
+        "FMVSS 302",
+        "ISO 3795"
+      ],
+      "see": [],
+      "notes": [],
+      "reject_patterns": [
+        "热失控 thermal runaway"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "热失控 thermal runaway（电池）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 107,
+      "name": "寿命要求",
+      "group": "环境与材料",
+      "gloss": "设计寿命与质保要求",
+      "aliases": [
+        "寿命",
+        "寿命要求",
+        "设计寿命",
+        "使用寿命",
+        "服役寿命",
+        "质保",
+        "质保期",
+        "保修",
+        "保修期",
+        "里程",
+        "万公里",
+        "运行小时",
+        "耐久",
+        "耐久性",
+        "可靠性",
+        "可靠性目标",
+        "失效率",
+        "寿命里程",
+        "整车寿命",
+        "lifetime",
+        "service life",
+        "design life",
+        "durability",
+        "warranty",
+        "warranty period",
+        "mileage",
+        "operating hours",
+        "reliability target",
+        "B10 life",
+        "MTBF",
+        "FIT",
+        "ppm",
+        "qualification life",
+        "lifetime target"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "年 / 万 km / h / ppm"
+      ],
+      "exclude": [
+        "元器件寿命评估/电容寿命（E 列套话或器件级）",
+        "循环次数（电池）"
+      ],
+      "unverified": [],
+      "std": [
+        "Q/JLY J7111825B-2024 [清单]",
+        "GB/T 29307（驱动电机系统可靠性试验）"
+      ],
+      "see": [],
+      "notes": [],
+      "reject_patterns": [
+        "元器件寿命评估",
+        "电容寿命",
+        "循环次数"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "元器件寿命评估/电容寿命（E 列套话或器件级）；循环次数（电池）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 108,
+      "name": "禁用、限用物质",
+      "group": "环境与材料",
+      "gloss": "禁用/限用物质清单与限值",
+      "aliases": [
+        "禁用物质",
+        "限用物质",
+        "禁用限用物质",
+        "禁限用物质",
+        "有害物质",
+        "有毒有害物质",
+        "环保物质",
+        "环保要求",
+        "材料申报",
+        "材料数据",
+        "重金属",
+        "铅",
+        "镉",
+        "汞",
+        "六价铬",
+        "多溴联苯",
+        "多溴二苯醚",
+        "邻苯二甲酸酯",
+        "全氟",
+        "卤素",
+        "无卤",
+        "prohibited substances",
+        "restricted substances",
+        "hazardous substances",
+        "substances of concern",
+        "ELV",
+        "ELV directive",
+        "IMDS",
+        "GADSL",
+        "RoHS",
+        "REACH",
+        "SVHC",
+        "PFAS",
+        "lead",
+        "cadmium",
+        "mercury",
+        "hexavalent chromium",
+        "halogen-free",
+        "CAMDS",
+        "material declaration"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "ppm / wt% / 标准号"
+      ],
+      "exclude": [
+        "冷却液成分"
+      ],
+      "unverified": [],
+      "std": [
+        "Q/JL J160001-2026 [清单]",
+        "ELV 2000/53/EC",
+        "GB/T 30512",
+        "RoHS 2011/65/EU",
+        "REACH"
+      ],
+      "see": [],
+      "notes": [],
+      "reject_patterns": [
+        "冷却液成分"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "冷却液成分",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 109,
+      "name": "高压连接器保护",
+      "group": "环境与材料",
+      "gloss": "高压连接器防直接接触（触指防护）要求",
+      "aliases": [
+        "高压连接器防护",
+        "高压连接器保护",
+        "触指防护",
+        "防触指",
+        "防直接接触",
+        "直接接触防护",
+        "手指探针",
+        "试指",
+        "高压防护",
+        "高压互锁",
+        "高压警示",
+        "高压标识",
+        "橙色标识",
+        "HV connector protection",
+        "finger protection",
+        "touch protection",
+        "finger proof",
+        "direct contact protection",
+        "IPXXB",
+        "IPXXD",
+        "jointed test finger",
+        "test probe",
+        "HVIL",
+        "high voltage interlock",
+        "HV warning label"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "IPXXB / IPXXD 代号"
+      ],
+      "exclude": [
+        "过压保护（→#9）",
+        "低压连接器",
+        "IP67/IP6K9K 防水防尘（→#104）"
+      ],
+      "unverified": [],
+      "std": [
+        "GB 18384",
+        "ISO 6469-3",
+        "ISO 20653（IPXXB 定义）",
+        "GB/T 30038"
+      ],
+      "see": [
+        104
+      ],
+      "notes": [
+        "HVIL（高压互锁）是相关但独立的功能，清单未列；作为上下文线索而非同义词"
+      ],
+      "reject_patterns": [
+        "过压保护",
+        "低压连接器",
+        "IP67",
+        "IP6K9K 防水防尘"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "HVIL（高压互锁）是相关但独立的功能，清单未列；作为上下文线索而非同义词",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 110,
+      "name": "冷却接口",
+      "group": "冷却",
+      "gloss": "冷却液型号及管路接口规格",
+      "aliases": [
+        "冷却接口",
+        "冷却液接口",
+        "冷却管路接口",
+        "水口",
+        "进水口",
+        "出水口",
+        "进出水口",
+        "水嘴",
+        "水管接头",
+        "快插接头",
+        "冷却液型号",
+        "冷却液规格",
+        "冷却液牌号",
+        "冷却液零件号",
+        "防冻液",
+        "乙二醇",
+        "冷却介质",
+        "冷却液供应商",
+        "管径",
+        "cooling connections",
+        "coolant connection",
+        "coolant port",
+        "coolant inlet",
+        "coolant outlet",
+        "inlet/outlet",
+        "spigot",
+        "hose barb",
+        "quick connector",
+        "coolant type",
+        "coolant specification",
+        "coolant part number",
+        "glycol",
+        "ethylene glycol",
+        "antifreeze",
+        "coolant medium"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "零件号 / 供应商 / mm 管径 / 冷却液 -40℃"
+      ],
+      "exclude": [
+        "高压连接器（→#109）",
+        "低压插件"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        111
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "高压连接器",
+        "低压插件"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "高压连接器（→#109）；低压插件",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 111,
+      "name": "冷却液温度范围",
+      "group": "冷却",
+      "gloss": "冷却液（进口）温度工作范围",
+      "aliases": [
+        "冷却液温度",
+        "冷却液温度范围",
+        "进水温度",
+        "入口水温",
+        "进口温度",
+        "冷却液入口温度",
+        "水温范围",
+        "最高进水温度",
+        "冷却液最高温度",
+        "冷却水温度",
+        "coolant temperature range",
+        "coolant inlet temperature",
+        "inlet temperature",
+        "max coolant temperature",
+        "coolant temp",
+        "water temperature"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "℃ 区间"
+      ],
+      "exclude": [
+        "水温采样精度/延时（→#83/#84）",
+        "环境温度（→#97）",
+        "油温（→#82）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        83,
+        97
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "水温采样精度",
+        "延时",
+        "环境温度",
+        "油温"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "水温采样精度/延时（→#83/#84）；环境温度（→#97）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 112,
+      "name": "冷却流量范围",
+      "group": "冷却",
+      "gloss": "冷却液流量工作范围",
+      "aliases": [
+        "冷却流量",
+        "冷却液流量",
+        "流量范围",
+        "流量区间",
+        "最小流量",
+        "最大流量",
+        "水流量",
+        "冷却液流量范围",
+        "流量工作范围",
+        "coolant flow range",
+        "flow rate range",
+        "min flow",
+        "max flow",
+        "flow range",
+        "LPM range",
+        "coolant flow rate"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "L/min 区间"
+      ],
+      "exclude": [
+        "额定流量单值（→#113）",
+        "压降条件中的 @10 L/min（→#71）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        113,
+        71
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "额定流量单值",
+        "压降条件中的 @10 L",
+        "min"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "额定流量单值（→#113）；压降条件中的 @10 L/min（→#71）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 113,
+      "name": "额定流量",
+      "group": "冷却",
+      "gloss": "冷却液额定流量",
+      "aliases": [
+        "额定流量",
+        "标称流量",
+        "名义流量",
+        "设计流量",
+        "标定流量",
+        "额定冷却流量",
+        "rated flow",
+        "nominal flow",
+        "design flow rate",
+        "rated coolant flow",
+        "nominal flow rate"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "L/min 单值"
+      ],
+      "exclude": [
+        "流量范围（→#112）",
+        "压降条件里的流量（→#71）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        112,
+        71
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "流量范围",
+        "压降条件里的流量"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "流量范围（→#112）；压降条件里的流量（→#71）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 114,
+      "name": "通讯方式",
+      "group": "采样与控制",
+      "gloss": "电控支持的通讯接口/总线类型",
+      "aliases": [
+        "通讯方式",
+        "通信方式",
+        "通讯接口",
+        "通信接口",
+        "总线",
+        "总线类型",
+        "网络接口",
+        "CAN总线",
+        "高速CAN",
+        "以太网",
+        "车载以太网",
+        "百兆以太网",
+        "通讯协议",
+        "通信协议",
+        "波特率",
+        "通讯需求",
+        "communication interface",
+        "communication protocol",
+        "bus interface",
+        "CAN",
+        "CAN FD",
+        "CAN-FD",
+        "CANFD",
+        "high-speed CAN",
+        "LIN",
+        "FlexRay",
+        "Ethernet",
+        "automotive Ethernet",
+        "100BASE-T1",
+        "1000BASE-T1",
+        "baud rate",
+        "bit rate",
+        "network interface"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "接口名列表 + kbps/Mbps"
+      ],
+      "exclude": [
+        "通讯保持电压 16~18V（→#20）",
+        "安全通信 SecOC（→#80）",
+        "诊断/标定协议 UDS/XCP（协议层，不是接口）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO 11898（CAN）",
+        "ISO 17458（FlexRay）",
+        "ISO 17987（LIN）",
+        "IEEE 802.3bw（100BASE-T1）"
+      ],
+      "see": [
+        20,
+        80
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "通讯保持电压 16~18V",
+        "安全通信 SecOC",
+        "诊断",
+        "标定协议 UDS",
+        "XCP"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "通讯保持电压 16~18V（→#20）；安全通信 SecOC（→#80）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 115,
+      "name": "升压充电功能",
+      "group": "升压",
+      "gloss": "是否需要升压充电功能及充电拓扑/电压/电流/时长要求",
+      "aliases": [
+        "升压充电功能",
+        "充电电压",
+        "充电电流",
+        "充电时长",
+        "充电功率（升压）",
+        "充电模式",
+        "charging voltage",
+        "charging current",
+        "charging duration",
+        "DC fast charging boost",
+        "charging mode boost"
+      ],
+      "weak_aliases": [
+        "升压充电",
+        "充电升压",
+        "充电拓扑",
+        "直流充电升压",
+        "快充升压",
+        "boost charging",
+        "charge boost",
+        "charging boost",
+        "charging topology"
+      ],
+      "unit_cues": [
+        "是/否 + V/A/h"
+      ],
+      "exclude": [
+        "驱动升压（→#3）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        4,
+        61
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "驱动升压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "驱动升压（→#3）",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 116,
+      "name": "主动保险功能",
+      "group": "安全与功能",
+      "gloss": "是否需要主动（烟火/电子）保险功能，控制器是否需设置 PSS 保险",
+      "aliases": [
+        "主动保险",
+        "主动熔断",
+        "智能熔断",
+        "烟火开关",
+        "烟火断路器",
+        "烟火保险",
+        "激励熔断器",
+        "主动断路",
+        "PSS保险",
+        "高压熔断器",
+        "熔断器",
+        "保险丝",
+        "电子熔断",
+        "主动断电",
+        "active fuse",
+        "pyro fuse",
+        "pyrofuse",
+        "pyrotechnic fuse",
+        "pyro switch",
+        "pyrotechnic safety switch",
+        "PSS",
+        "smart fuse",
+        "e-fuse",
+        "electronic fuse",
+        "active disconnect",
+        "HV fuse",
+        "fuse"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "是/否"
+      ],
+      "exclude": [
+        "质保/保险（warranty，→#107）",
+        "保险杠"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        107
+      ],
+      "notes": [],
+      "reject_patterns": [
+        "质保",
+        "保险",
+        "保险杠"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "质保/保险（warranty，→#107）；保险杠",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 117,
+      "name": "滑膜起步功能",
+      "group": "安全与功能",
+      "gloss": "是否需要离合器滑摩起步功能（影响保护策略）",
+      "aliases": [
+        "滑膜起步",
+        "滑摩起步",
+        "滑磨起步",
+        "离合器滑摩",
+        "滑摩控制",
+        "滑摩起步功能",
+        "起步功能",
+        "半联动",
+        "离合器起步",
+        "蠕行",
+        "蠕动起步",
+        "坡道起步",
+        "坡起",
+        "滑摩工况",
+        "slip start",
+        "slipping start",
+        "clutch slip launch",
+        "clutch slipping",
+        "slip control",
+        "launch control",
+        "creep",
+        "creeping",
+        "hill start",
+        "micro-slip",
+        "clutch launch"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "是/否"
+      ],
+      "exclude": [
+        "滑模控制 sliding mode control（控制算法，字形相近但完全不同）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        53
+      ],
+      "notes": [
+        "「滑膜」疑为「滑摩」误写（离合器滑动摩擦），规格书大概率写「滑摩」；两种写法都要收，并排除「滑模」"
+      ],
+      "reject_patterns": [
+        "滑模控制 sliding mode control"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "「滑膜」疑为「滑摩」误写（离合器滑动摩擦），规格书大概率写「滑摩」；两种写法都要收，并排除「滑模」",
+      "retrieve": false,
+      "conflict": "",
+      "status": "draft"
+    },
+    {
+      "seq": 118,
+      "name": "网络安全要求",
+      "group": "安全与功能",
+      "gloss": "同 #80",
+      "aliases": [
+        "网络安全",
+        "信息安全",
+        "网络安全等级",
+        "网络安全要求",
+        "安全启动",
+        "安全通信",
+        "密钥管理",
+        "安全刷写",
+        "安全诊断",
+        "安全访问",
+        "入侵检测",
+        "硬件安全模块",
+        "防篡改",
+        "安全存储",
+        "网络安全认证",
+        "cybersecurity",
+        "cyber security",
+        "CAL",
+        "cybersecurity assurance level",
+        "secure boot",
+        "secure communication",
+        "SecOC",
+        "key management",
+        "secure flash",
+        "secure diagnostics",
+        "HSM",
+        "hardware security module",
+        "TARA",
+        "IDS",
+        "intrusion detection"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "CAL 等级 1~4"
+      ],
+      "exclude": [
+        "功能安全 ASIL（→#81）",
+        "高压安全（→#12–#19）"
+      ],
+      "unverified": [],
+      "std": [
+        "ISO/SAE 21434",
+        "UN R155",
+        "GB 44495-2024",
+        "GB/T 40861"
+      ],
+      "see": [
+        80
+      ],
+      "notes": [
+        "与 #80 重复"
+      ],
+      "reject_patterns": [
+        "功能安全 ASIL",
+        "高压安全"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #80 重复",
+      "retrieve": false,
+      "conflict": "cybersecurity",
+      "status": "draft"
+    },
+    {
+      "seq": 119,
+      "name": "冷却回路压降",
+      "group": "冷却",
+      "gloss": "同 #71",
+      "aliases": [
+        "冷却回路压降",
+        "压降（冷却）",
+        "压力损失",
+        "压损",
+        "流阻",
+        "流动阻力",
+        "水阻",
+        "水路压降",
+        "流道压降",
+        "冷却压降",
+        "进出口压差",
+        "压差",
+        "冷却液压降",
+        "回路阻力",
+        "pressure drop",
+        "pressure loss",
+        "flow resistance",
+        "hydraulic resistance",
+        "coolant pressure drop",
+        "ΔP",
+        "delta P",
+        "dP",
+        "differential pressure"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kPa / bar / mbar @ L/min @ ℃"
+      ],
+      "exclude": [
+        "电压压降 voltage drop（\"压降\"在电气语境指电压降，如二极管压降、线束压降）",
+        "油压（→#88）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        71
+      ],
+      "notes": [
+        "与 #71 重复"
+      ],
+      "reject_patterns": [
+        "电压压降 voltage drop",
+        "油压"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "与 #71 重复",
+      "retrieve": false,
+      "conflict": "coolant_drop",
+      "status": "draft"
+    },
+    {
+      "seq": 120,
+      "name": "热损失",
+      "group": "冷却",
+      "gloss": "控制器最大发热（损耗）限值",
+      "aliases": [
+        "热损失",
+        "热损耗",
+        "损耗功率",
+        "发热量",
+        "功率损耗",
+        "总损耗",
+        "最大损耗",
+        "热耗",
+        "损耗",
+        "发热功率",
+        "heat loss",
+        "power loss",
+        "thermal loss",
+        "power dissipation",
+        "total losses",
+        "max power dissipation",
+        "heat generation",
+        "Ploss"
+      ],
+      "weak_aliases": [],
+      "unit_cues": [
+        "kW"
+      ],
+      "exclude": [
+        "低压功耗 W（→#21）",
+        "效率 %（→#41/#56/#66）"
+      ],
+      "unverified": [],
+      "std": [],
+      "see": [
+        72
+      ],
+      "notes": [
+        "见 #72 备注"
+      ],
+      "reject_patterns": [
+        "低压功耗 W",
+        "效率 %"
+      ],
+      "retrieve_aliases": [],
+      "split_harm": "见 #72 备注",
+      "retrieve": false,
+      "conflict": "heat_dissipation",
+      "status": "draft"
+    }
+  ]
+}

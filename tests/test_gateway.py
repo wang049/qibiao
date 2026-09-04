@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import json
 import unittest
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from electrical_krow.config import load_settings
+from electrical_krow.errors import LLMError
 from electrical_krow.gateway import create_app
 from electrical_krow.llm import ChatResult
 from electrical_krow.login import AuthSession
@@ -28,6 +30,10 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("step-desc", resp.text)
         self.assertIn('id="model"', resp.text)
         self.assertIn("/static/app.js", resp.text)
+        self.assertIn("/static/kb.js", resp.text)
+        self.assertIn("知识库", resp.text)
+        self.assertIn('id="kb-card"', resp.text)
+        self.assertIn('id="nav-kb"', resp.text)
 
     def test_static_assets(self) -> None:
         css = self.client.get("/static/styles.css")
@@ -46,8 +52,18 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("download", js.text)
         self.assertIn("局部对应", js.text)
         self.assertIn("未检索到", js.text)
+        self.assertIn("knowledge_version", js.text)
+        self.assertIn("库不提供取值", js.text)
         self.assertNotIn("coverage_note", js.text)
         self.assertNotIn("不按数字稿约五分钟", js.text)
+        kb = self.client.get("/static/kb.js")
+        self.assertEqual(kb.status_code, 200)
+        self.assertIn("/api/knowledge", kb.text)
+        self.assertIn("返回总览", kb.text)
+        self.assertNotIn(".yaml", kb.text)
+        self.assertNotIn("clause_lexicon", kb.text)
+        self.assertIn(".kb-graph-wrap", css.text)
+        self.assertIn(".work-nav", css.text)
 
     def test_health(self) -> None:
         resp = self.client.get("/api/health")
@@ -112,6 +128,84 @@ class GatewayTests(unittest.TestCase):
             )
         self.assertEqual(chat.status_code, 200)
         self.assertIn("rows", chat.json()["choices"][0]["message"]["content"])
+
+    def test_chat_refreshes_stale_key(self) -> None:
+        session = AuthSession(
+            access_token="sk-user-dead",
+            username=DEMO_USER,
+            source="password",
+            raw={"jwt": "eyJmock.token"},
+        )
+        result = ChatResult(
+            content='{"ok":true,"rows":[]}',
+            model="deepseek-v4-pro",
+            raw={
+                "choices": [
+                    {"message": {"role": "assistant", "content": '{"ok":true,"rows":[]}'}}
+                ]
+            },
+        )
+        seen: list[str] = []
+
+        def fake_complete(_url, auth, _messages, **_kwargs):
+            seen.append(auth.access_token)
+            if auth.access_token == "sk-user-dead":
+                raise LLMError("识别未授权（401）。请重新登录。")
+            return result
+
+        def fake_refresh(_url, auth, **_kwargs):
+            return AuthSession(
+                access_token="sk-user-fresh",
+                username=auth.username,
+                source="password",
+                raw=auth.raw,
+            )
+
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            login = self.client.post(
+                "/api/login",
+                json={"username": DEMO_USER, "password": "demo"},
+            )
+        self.assertEqual(login.status_code, 200)
+        with (
+            patch("electrical_krow.gateway.complete", side_effect=fake_complete),
+            patch("electrical_krow.gateway.refresh_sdk_key", side_effect=fake_refresh),
+        ):
+            chat = self.client.post(
+                "/v1/chat/completions",
+                headers={"Authorization": "Bearer local"},
+                json={
+                    "model": "deepseek-v4-pro",
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
+        self.assertEqual(chat.status_code, 200, chat.text)
+        self.assertIn("sk-user-dead", seen)
+        self.assertIn("sk-user-fresh", seen)
+
+    def test_chat_stale_key_without_jwt_is_401(self) -> None:
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            login = self.client.post(
+                "/api/login",
+                json={"username": DEMO_USER, "password": "demo"},
+            )
+        self.assertEqual(login.status_code, 200)
+
+        def fake_complete(_url, _auth, _messages, **_kwargs):
+            raise LLMError("识别未授权（401）。请重新登录。")
+
+        with patch("electrical_krow.gateway.complete", side_effect=fake_complete):
+            chat = self.client.post(
+                "/v1/chat/completions",
+                headers={"Authorization": "Bearer local"},
+                json={
+                    "model": "deepseek-v4-pro",
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
+        self.assertEqual(chat.status_code, 401, chat.text)
+        self.assertIn("重新登录", chat.json()["detail"])
 
     def test_complete_without_login(self) -> None:
         resp = self.client.post(
@@ -377,6 +471,21 @@ class GatewayTests(unittest.TestCase):
             json={"task": "table", "image": "data:image/jpeg;base64,aGVsbG8="},
         )
         self.assertEqual(resp.status_code, 401)
+
+    def test_knowledge_requires_login_and_hides_files(self) -> None:
+        denied = self.client.get("/api/knowledge")
+        self.assertEqual(denied.status_code, 401)
+        self._login()
+        resp = self.client.get("/api/knowledge")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        data = resp.json()
+        self.assertFalse(data.get("fill_from_kb"))
+        self.assertTrue(data.get("version"))
+        self.assertGreaterEqual(len(data.get("clauses") or []), 120)
+        blob = json.dumps(data, ensure_ascii=False)
+        self.assertNotIn(".yaml", blob)
+        self.assertNotIn("docs/clause", blob)
+        self.assertNotIn("physics.yaml", blob)
 
 
 if __name__ == "__main__":

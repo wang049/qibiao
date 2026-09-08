@@ -130,6 +130,10 @@ text = ini.read_text(encoding="utf-8")
 text, n = re.subn(r"(?m)^server_url\s*=\s*.*$", f"server_url = {url}", text, count=1)
 if n != 1:
     raise SystemExit("failed to set server_url in staged config.ini")
+text = text.replace(
+    "本包默认连公网联调 https://api.krow.cn。",
+    f"本包默认连 {url}。",
+)
 ini.write_text(text, encoding="utf-8")
 print("pack server_url", url)
 PY
@@ -168,6 +172,25 @@ onsite = (win / "现场开通请提供.txt").read_text(encoding="utf-8")
 (stage / "现场开通请提供.txt").write_bytes(b"\xef\xbb\xbf" + onsite.encode("utf-8"))
 print("wrote CRLF start.bat / vbs")
 PY
+
+if [ -n "${PACK_SERVER_URL:-}" ]; then
+  PACK_SERVER_URL="$PACK_SERVER_URL" STAGE="$STAGE" python3 - <<'PY'
+import os
+from pathlib import Path
+
+url = os.environ["PACK_SERVER_URL"].strip().rstrip("/")
+readme = Path(os.environ["STAGE"]) / "README.txt"
+raw = readme.read_bytes()
+bom = raw.startswith(b"\xef\xbb\xbf")
+text = (raw[3:] if bom else raw).decode("utf-8")
+old = "本包默认 https://api.krow.cn。"
+new = f"本包默认 {url}。"
+if old not in text:
+    raise SystemExit("README.txt missing default server_url sentence")
+readme.write_bytes((b"\xef\xbb\xbf" if bom else b"") + text.replace(old, new, 1).encode("utf-8"))
+print("pack README server_url", url)
+PY
+fi
 
 echo "预装依赖到嵌入式 Python（现场不再 pip）…"
 STAGE="$STAGE" WIN="$WIN" python3 - <<'PY'
@@ -265,7 +288,9 @@ ZIG_BIN="$CACHE/$ZIG_NAME/zig"
 if [ ! -x "$ZIG_BIN" ]; then
   if [ ! -f "$CACHE/$ZIG_TAR" ]; then
     echo "下载 Zig $ZIG_VER …"
-    curl -fL "https://ziglang.org/download/${ZIG_VER}/${ZIG_TAR}" -o "$CACHE/$ZIG_TAR"
+    curl -fL --retry 8 --retry-all-errors --retry-delay 3 -C - \
+      "https://ziglang.org/download/${ZIG_VER}/${ZIG_TAR}" \
+      -o "$CACHE/$ZIG_TAR"
   fi
   tar -xJf "$CACHE/$ZIG_TAR" -C "$CACHE"
 fi

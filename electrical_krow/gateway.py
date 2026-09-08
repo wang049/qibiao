@@ -12,9 +12,10 @@ import sys
 import threading
 import webbrowser
 from dataclasses import replace
+from pathlib import Path
+from typing import Any
 
 import uvicorn
-from typing import Any
 
 from fastapi import FastAPI, File, Header, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
@@ -105,13 +106,14 @@ def create_app(
     settings: Settings | None = None,
     *,
     extract_url: str | None = None,
+    output_dir: Path | None = None,
 ) -> FastAPI:
     cfg = settings or load_settings()
     wire_extract_endpoint(cfg, origin=extract_url)
     app = FastAPI(title="电子电器 · SOR填表", docs_url=None, redoc_url=None)
     app.state.settings = cfg
     app.state.store = SessionStore()
-    app.state.jobs = JobStore()
+    app.state.jobs = JobStore(output_dir=output_dir)
 
     @app.get("/", response_class=HTMLResponse)
     def index() -> HTMLResponse:
@@ -146,6 +148,7 @@ def create_app(
             "fill": True,
             "delivery": cfg.delivery,
             "busy": app.state.jobs.busy(),
+            "active_job": app.state.jobs.active(),
         }
 
     @app.post("/api/login")
@@ -336,10 +339,9 @@ def create_app(
         file: UploadFile = File(...),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        _require_session(request, authorization)
+        item = _require_session(request, authorization)
         data = await file.read()
         incoming, out = request.app.state.jobs.prepare_upload(file, data)
-        item = _session_from(request, authorization)
         model = _active_model(item)
         if prepare_page_ocr(cfg, item):
             os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
@@ -348,12 +350,28 @@ def create_app(
             prepare_page_vision(cfg, item)
         try:
             job_id = request.app.state.jobs.start(
-                file.filename, incoming, out, model=model
+                file.filename,
+                incoming,
+                out,
+                model=model,
+                username=item.auth.username,
             )
         except HTTPException:
             incoming.unlink(missing_ok=True)
             raise
         return {"id": job_id}
+
+    @app.get("/api/jobs")
+    def list_jobs(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        return {
+            "jobs": request.app.state.jobs.list_recent(
+                username=item.auth.username
+            )
+        }
 
     @app.get("/api/jobs/{job_id}")
     def job_status(
@@ -361,8 +379,10 @@ def create_app(
         request: Request,
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        _require_session(request, authorization)
-        return request.app.state.jobs.snapshot(job_id)
+        item = _require_session(request, authorization)
+        return request.app.state.jobs.snapshot(
+            job_id, username=item.auth.username
+        )
 
     @app.post("/api/jobs/{job_id}/pause")
     def pause_job(
@@ -370,13 +390,17 @@ def create_app(
         request: Request,
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        _require_session(request, authorization)
-        ctrl = request.app.state.jobs.control(job_id)
+        item = _require_session(request, authorization)
+        ctrl = request.app.state.jobs.control(
+            job_id, username=item.auth.username
+        )
         ctrl.request_pause()
         request.app.state.jobs.update(
             job_id, status="pausing", message="将在本批结束后暂停…"
         )
-        return request.app.state.jobs.snapshot(job_id)
+        return request.app.state.jobs.snapshot(
+            job_id, username=item.auth.username
+        )
 
     @app.post("/api/jobs/{job_id}/resume")
     def resume_job(
@@ -384,13 +408,17 @@ def create_app(
         request: Request,
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        _require_session(request, authorization)
-        ctrl = request.app.state.jobs.control(job_id)
+        item = _require_session(request, authorization)
+        ctrl = request.app.state.jobs.control(
+            job_id, username=item.auth.username
+        )
         ctrl.request_resume()
         request.app.state.jobs.update(
             job_id, status="running", message="已继续出表…"
         )
-        return request.app.state.jobs.snapshot(job_id)
+        return request.app.state.jobs.snapshot(
+            job_id, username=item.auth.username
+        )
 
     @app.post("/api/jobs/{job_id}/stop")
     def stop_job(
@@ -398,15 +426,19 @@ def create_app(
         request: Request,
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        _require_session(request, authorization)
-        ctrl = request.app.state.jobs.control(job_id)
+        item = _require_session(request, authorization)
+        ctrl = request.app.state.jobs.control(
+            job_id, username=item.auth.username
+        )
         ctrl.request_stop()
         request.app.state.jobs.update(
             job_id,
             status="stopping",
             message="将在本批结束后结束，并按已抽出内容出表…",
         )
-        return request.app.state.jobs.snapshot(job_id)
+        return request.app.state.jobs.snapshot(
+            job_id, username=item.auth.username
+        )
 
     @app.get("/files/{name}")
     def download(
@@ -415,8 +447,9 @@ def create_app(
         authorization: str | None = Header(default=None),
     ) -> FileResponse:
         _require_session(request, authorization)
-        path = (OUTPUT_DIR / name).resolve()
-        if path.parent != OUTPUT_DIR.resolve() or not path.is_file():
+        root = request.app.state.jobs.output_dir
+        path = (root / name).resolve()
+        if path.parent != root.resolve() or not path.is_file():
             raise HTTPException(404, "找不到核对表")
         return FileResponse(
             path,

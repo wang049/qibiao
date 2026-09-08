@@ -1,20 +1,23 @@
 from __future__ import annotations
 
+import json
 import threading
+import tempfile
 import time
 import unittest
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from electrical_krow.config import load_settings
 from electrical_krow.gateway import create_app
-from electrical_krow.jobs import retrieval_counts, review_sheet_name
+from electrical_krow.jobs import JobStore, retrieval_counts, review_sheet_name
 from electrical_krow.login import AuthSession
 from electrical_krow.mock_server import DEMO_USER
-from electrical_krow.paths import OUTPUT_DIR
 
 
 class RetrievalCountTests(unittest.TestCase):
@@ -52,8 +55,12 @@ class ReviewSheetNameTests(unittest.TestCase):
 
 class JobTests(unittest.TestCase):
     def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
         self.settings = load_settings(server_url="http://127.0.0.1:18766")
-        self.client = TestClient(create_app(self.settings))
+        self.client = TestClient(
+            create_app(self.settings, output_dir=Path(self._tmp.name))
+        )
         session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
         with patch("electrical_krow.gateway.login_with_password", return_value=session):
             login = self.client.post(
@@ -76,7 +83,6 @@ class JobTests(unittest.TestCase):
                 extract=True,
                 kind_label="测试",
                 kind_note="",
-                coverage_note="",
                 stopped_early=False,
             )
 
@@ -109,7 +115,18 @@ class JobTests(unittest.TestCase):
         dl = self.client.get(f"/files/{name}")
         self.assertEqual(dl.status_code, 200)
         self.assertEqual(dl.content, b"xlsx-ok")
-        (OUTPUT_DIR / name).unlink(missing_ok=True)
+        listed = self.client.get("/api/jobs")
+        self.assertEqual(listed.status_code, 200)
+        ids = [row.get("id") for row in listed.json().get("jobs") or []]
+        self.assertIn(job_id, ids)
+        self.assertEqual(
+            next(
+                row.get("username")
+                for row in listed.json()["jobs"]
+                if row.get("id") == job_id
+            ),
+            DEMO_USER,
+        )
 
     def test_job_uses_selected_model(self) -> None:
         seen: dict[str, object] = {}
@@ -128,7 +145,6 @@ class JobTests(unittest.TestCase):
                 extract=True,
                 kind_label="测试",
                 kind_note="",
-                coverage_note="",
                 stopped_early=False,
             )
 
@@ -148,10 +164,6 @@ class JobTests(unittest.TestCase):
                     break
                 time.sleep(0.05)
         self.assertEqual(seen.get("model"), "demo-llm")
-        name = str(self.client.get(f"/api/jobs/{job_id}").json()["download"]).rsplit(
-            "/", 1
-        )[-1]
-        (OUTPUT_DIR / name).unlink(missing_ok=True)
 
     def test_job_reports_retrieval_counts(self) -> None:
         def fake_run(incoming, out, **kwargs):
@@ -172,7 +184,6 @@ class JobTests(unittest.TestCase):
                 extract=True,
                 kind_label="扫描件",
                 kind_note="",
-                coverage_note="",
                 stopped_early=False,
             )
 
@@ -195,8 +206,6 @@ class JobTests(unittest.TestCase):
         self.assertEqual(data["found"], 1)
         self.assertEqual(data["partial"], 1)
         self.assertEqual(data["miss"], 2)
-        name = str(data["download"]).rsplit("/", 1)[-1]
-        (OUTPUT_DIR / name).unlink(missing_ok=True)
 
     def test_unsupported_type(self) -> None:
         resp = self.client.post(
@@ -224,7 +233,6 @@ class JobTests(unittest.TestCase):
                 extract=True,
                 kind_label="测试",
                 kind_note="",
-                coverage_note="",
                 stopped_early=False,
             )
 
@@ -250,10 +258,254 @@ class JobTests(unittest.TestCase):
                 if snap.json()["status"] in {"done", "error"}:
                     break
                 time.sleep(0.05)
-            name = str(self.client.get(f"/api/jobs/{job_id}").json()["download"]).rsplit(
-                "/", 1
-            )[-1]
-            (OUTPUT_DIR / name).unlink(missing_ok=True)
+    def test_health_exposes_active_job_and_clears_after_done(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+
+        def fake_run(incoming, out, **kwargs):
+            started.set()
+            release.wait(timeout=5)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"xlsx-ok")
+            return SimpleNamespace(
+                output_xlsx=out,
+                cells=[1],
+                elapsed_seconds=0.1,
+                likely_scan=False,
+                pending_review=0,
+                filled=1,
+                extract=True,
+                kind_label="测试",
+                kind_note="",
+                stopped_early=False,
+            )
+
+        with patch("electrical_krow.jobs._run_pipeline", side_effect=fake_run):
+            first = self.client.post(
+                "/api/jobs",
+                files={"file": ("spec.txt", "额定功率 400 W".encode(), "text/plain")},
+            )
+            self.assertEqual(first.status_code, 200, first.text)
+            job_id = first.json()["id"]
+            self.assertTrue(started.wait(2))
+            health = self.client.get("/api/health").json()
+            self.assertTrue(health.get("busy"))
+            active = health.get("active_job") or {}
+            self.assertEqual(active.get("id"), job_id)
+            self.assertIn(active.get("status"), {"running", "paused", "pausing", "stopping"})
+            release.set()
+            for _ in range(40):
+                snap = self.client.get(f"/api/jobs/{job_id}")
+                if snap.json()["status"] in {"done", "error"}:
+                    break
+                time.sleep(0.05)
+            for _ in range(40):
+                if not self.client.get("/api/health").json().get("busy"):
+                    break
+                time.sleep(0.05)
+            idle = self.client.get("/api/health").json()
+            self.assertFalse(idle.get("busy"))
+            self.assertIsNone(idle.get("active_job"))
+            second = self.client.post(
+                "/api/jobs",
+                files={"file": ("spec2.txt", "额定功率 200 W".encode(), "text/plain")},
+            )
+            self.assertEqual(second.status_code, 200, second.text)
+            second_id = second.json()["id"]
+            for _ in range(40):
+                snap = self.client.get(f"/api/jobs/{second_id}")
+                if snap.json()["status"] in {"done", "error"}:
+                    break
+                time.sleep(0.05)
+    def test_stop_conflict_says_ending(self) -> None:
+        started = threading.Event()
+        release = threading.Event()
+
+        def fake_run(incoming, out, **kwargs):
+            started.set()
+            release.wait(timeout=5)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"xlsx-ok")
+            return SimpleNamespace(
+                output_xlsx=out,
+                cells=[1],
+                elapsed_seconds=0.1,
+                likely_scan=False,
+                pending_review=0,
+                filled=1,
+                extract=True,
+                kind_label="测试",
+                kind_note="",
+                stopped_early=False,
+            )
+
+        with patch("electrical_krow.jobs._run_pipeline", side_effect=fake_run):
+            first = self.client.post(
+                "/api/jobs",
+                files={"file": ("spec.txt", "额定功率 400 W".encode(), "text/plain")},
+            )
+            self.assertEqual(first.status_code, 200, first.text)
+            job_id = first.json()["id"]
+            self.assertTrue(started.wait(2))
+            stopped = self.client.post(f"/api/jobs/{job_id}/stop")
+            self.assertEqual(stopped.status_code, 200, stopped.text)
+            self.assertEqual(stopped.json().get("status"), "stopping")
+            second = self.client.post(
+                "/api/jobs",
+                files={"file": ("spec2.txt", "额定功率 200 W".encode(), "text/plain")},
+            )
+            self.assertEqual(second.status_code, 409)
+            detail = second.json().get("detail") or ""
+            self.assertIn("正在结束出表", detail)
+            self.assertNotIn("请等当前这份完成后再提交", detail)
+            release.set()
+            for _ in range(40):
+                snap = self.client.get(f"/api/jobs/{job_id}")
+                if snap.json()["status"] in {"done", "error"}:
+                    break
+                time.sleep(0.05)
+
+
+class JobOwnerListTests(unittest.TestCase):
+    def test_list_only_current_login(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        settings = load_settings(server_url="http://127.0.0.1:18766")
+        app = create_app(settings, output_dir=Path(tmp.name))
+        alice = TestClient(app)
+        bob = TestClient(app)
+
+        def fake_login(_url, username, password, **_kwargs):
+            return AuthSession(
+                access_token="tok-" + username,
+                username=username,
+                source="password",
+            )
+
+        def fake_run(incoming, out, **kwargs):
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"xlsx-ok")
+            return SimpleNamespace(
+                output_xlsx=out,
+                cells=[1],
+                elapsed_seconds=0.2,
+                likely_scan=False,
+                pending_review=0,
+                filled=1,
+                extract=True,
+                kind_label="电控 DPR",
+                kind_note="",
+                stopped_early=False,
+            )
+
+        with patch(
+            "electrical_krow.gateway.login_with_password", side_effect=fake_login
+        ):
+            self.assertEqual(
+                alice.post(
+                    "/api/login",
+                    json={"username": "alice@ex.com", "password": "demo"},
+                ).status_code,
+                200,
+            )
+            self.assertEqual(
+                bob.post(
+                    "/api/login",
+                    json={"username": "bob@ex.com", "password": "demo"},
+                ).status_code,
+                200,
+            )
+        with patch("electrical_krow.jobs._run_pipeline", side_effect=fake_run):
+            started = alice.post(
+                "/api/jobs",
+                files={"file": ("mine.txt", "额定功率 400 W".encode(), "text/plain")},
+            )
+            self.assertEqual(started.status_code, 200, started.text)
+            job_id = started.json()["id"]
+            for _ in range(40):
+                snap = alice.get(f"/api/jobs/{job_id}")
+                if snap.json()["status"] in {"done", "error"}:
+                    break
+                time.sleep(0.05)
+        mine = [row.get("id") for row in alice.get("/api/jobs").json()["jobs"]]
+        theirs = [row.get("id") for row in bob.get("/api/jobs").json()["jobs"]]
+        self.assertIn(job_id, mine)
+        self.assertNotIn(job_id, theirs)
+        self.assertEqual(bob.get(f"/api/jobs/{job_id}").status_code, 404)
+
+
+class JobHistoryTests(unittest.TestCase):
+    def test_lists_existing_sheet_and_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            sheet = root / "spec_20260907100000.xlsx"
+            sheet.write_bytes(b"xlsx")
+            store = JobStore(output_dir=root)
+            rows = store.list_recent()
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]["id"], "xlsx-spec_20260907100000.xlsx")
+            snap = store.snapshot(rows[0]["id"])
+            self.assertEqual(snap["status"], "done")
+            self.assertEqual(snap["download"], "/files/spec_20260907100000.xlsx")
+
+    def test_user_list_hides_tests_errors_and_foreign(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / "orphan.xlsx").write_bytes(b"xlsx")
+            store = JobStore(output_dir=root)
+            path = root / "jobs.jsonl"
+            rows = [
+                {
+                    "id": "a1",
+                    "status": "error",
+                    "source": "a.txt",
+                    "detail": "没有读取器: 65e5994a_a.txt",
+                    "created_at": 1,
+                },
+                {
+                    "id": "t1",
+                    "status": "done",
+                    "source": "spec.txt",
+                    "kind_label": "测试",
+                    "download": "/files/t.xlsx",
+                    "created_at": 2,
+                },
+                {
+                    "id": "ok1",
+                    "status": "done",
+                    "source": "DHTS160.docx",
+                    "download": "/files/d.xlsx",
+                    "field_count": 120,
+                    "created_at": 3,
+                },
+                {
+                    "id": "mine",
+                    "status": "done",
+                    "source": "mine.docx",
+                    "username": "alice",
+                    "download": "/files/m.xlsx",
+                    "created_at": 4,
+                },
+                {
+                    "id": "other",
+                    "status": "done",
+                    "source": "other.docx",
+                    "username": "bob",
+                    "download": "/files/o.xlsx",
+                    "created_at": 5,
+                },
+            ]
+            path.write_text(
+                "\n".join(json.dumps(row, ensure_ascii=False) for row in rows) + "\n",
+                encoding="utf-8",
+            )
+            listed = store.list_recent(username="alice")
+            ids = {str(row.get("id") or "") for row in listed}
+            self.assertEqual(ids, {"ok1", "mine"})
+            self.assertEqual(store.snapshot("mine", username="alice")["id"], "mine")
+            with self.assertRaises(HTTPException) as raised:
+                store.snapshot("other", username="alice")
+            self.assertEqual(raised.exception.status_code, 404)
 
 
 if __name__ == "__main__":

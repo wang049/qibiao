@@ -23,7 +23,8 @@
   }
 
   async function kbJson(url) {
-    const resp = await fetch(url, {
+    const href = typeof window.electricalApiUrl === "function" ? window.electricalApiUrl(url) : url;
+    const resp = await fetch(href, {
       credentials: "same-origin",
       headers: { "Content-Type": "application/json", Authorization: "Bearer local" },
     });

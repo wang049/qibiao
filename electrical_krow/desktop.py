@@ -227,7 +227,7 @@ def open_edge_app_window(url: str) -> None:
         "--no-default-browser-check",
         "--disable-extensions",
         "--disable-sync",
-        "--window-size=1180,840",
+        "--window-size=1280,860",
         "--disable-features=TranslateUI,MediaRouter",
     ]
     kwargs: dict[str, object] = {}
@@ -708,14 +708,14 @@ def open_window(url: str) -> None:
     window = webview.create_window(
         TITLE,
         url,
-        width=1180,
-        height=840,
+        width=1280,
+        height=860,
         min_size=(760, 600),
         text_select=True,
         confirm_close=False,
         hidden=hidden,
         easy_drag=False,
-        background_color="#F4F1EA",
+        background_color="#F4F7FB",
         js_api=api,
     )
     api.window = window

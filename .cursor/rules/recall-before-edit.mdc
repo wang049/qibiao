@@ -1,0 +1,15 @@
+---
+description: 改条款库或出表规则前，先召回同主题复盘
+globs: docs/clause_lexicon.yaml,docs/knowledge/**,docs/清单与规格常见写法.md,.krow/lessons/**,electrical_krow/clause_lexicon.py,electrical_krow/knowledge.py,electrical_krow/lessons.py
+alwaysApply: false
+---
+
+改这些文件前先召回同主题复盘，禁止半边墙：
+
+```bash
+python scripts/recall_lessons.py <序号或关键词>
+```
+
+例：`python scripts/recall_lessons.py 115` 或 `升压充电`。
+
+召回结果只用于避免重复踩坑，不得写入抽出值。没有命中也可以改，但结案仍须新写 `.krow/lessons/` 一篇（反事实 + 二级依据 + 闸门）。

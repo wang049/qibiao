@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器 · SOR填表</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260904k" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260907i" />
 </head>
 <body>
   <div class="app">
@@ -18,173 +18,292 @@
             <div class="brand-sub" id="brand-sub">本机工位</div>
           </div>
         </div>
-        <div class="header-right">
-          <nav id="nav-work" class="work-nav" hidden>
-            <button type="button" id="nav-extract" class="work-nav-btn is-on">出表</button>
-            <button type="button" id="nav-kb" class="work-nav-btn">知识库</button>
-          </nav>
-          <span id="who-wrap" class="who-chip" hidden>
-            <span class="who-label">账号</span>
-            <strong id="who"></strong>
-          </span>
-          <button id="logout" type="button" class="ghost header-btn" hidden>退出</button>
-        </div>
       </div>
     </header>
-    <main>
-      <div class="hero">
-        <p class="kicker" id="kicker">工位登录</p>
-        <h1 id="title">登录后<span>出表</span></h1>
-        <p class="lead" id="lead">请使用开通的邮箱和密码，不要填手机号。</p>
-        <p id="health" class="health"><i class="dot"></i><span id="health-text">正在检查…</span></p>
-      </div>
+    <div class="desk">
+      <aside id="rail" class="rail" hidden>
+        <div class="rail-brand">
+          <i class="mark" aria-hidden="true"></i>
+          <div class="brand-text">
+            <div class="brand-name">电子电器智能体</div>
+            <div class="brand-sub" id="rail-sub">本机工位</div>
+          </div>
+        </div>
+        <button type="button" id="rail-new" class="rail-new">+ 新建出表</button>
+        <div class="rail-block">
+          <div class="rail-label">核心能力</div>
+          <button type="button" id="rail-home" class="rail-fn">工作台</button>
+          <button type="button" id="rail-extract" class="rail-fn">
+            <span>SOR 参数提取</span>
+            <em>能力 1</em>
+          </button>
+          <button type="button" class="rail-fn is-later" disabled>
+            <span>架构文档处理</span>
+            <em>能力 2</em>
+          </button>
+          <button type="button" class="rail-fn is-later" disabled>
+            <span>IO+ICD 规划</span>
+            <em>能力 3</em>
+          </button>
+          <button type="button" class="rail-fn is-later" disabled>
+            <span>企标测试项</span>
+            <em>能力 4</em>
+          </button>
+          <button type="button" class="rail-fn is-later" disabled>
+            <span>CE BOM 输出</span>
+            <em>能力 5</em>
+          </button>
+        </div>
+        <div class="rail-block rail-jobs">
+          <div class="rail-label">出表记录</div>
+          <p class="rail-hint">只显示当前登录账号发起的任务。同一时刻只处理一份。点开可下载核对表。</p>
+          <div id="job-list" class="job-list"></div>
+        </div>
+        <div class="rail-block">
+          <div class="rail-label">内置知识库 / 工具</div>
+          <button type="button" id="rail-kb" class="rail-tool">
+            <i class="tool-dot" aria-hidden="true"></i>
+            <span>电机控制器知识库</span>
+          </button>
+          <div class="rail-tool is-later">
+            <i class="tool-dot wait" aria-hidden="true"></i>
+            <span>架构规则库 · 后续节点</span>
+          </div>
+          <div class="rail-tool is-later">
+            <i class="tool-dot wait" aria-hidden="true"></i>
+            <span>IO 约束与命名 · 后续节点</span>
+          </div>
+          <div class="rail-tool is-later">
+            <i class="tool-dot wait" aria-hidden="true"></i>
+            <span>企标测试模板 · 后续节点</span>
+          </div>
+        </div>
+        <div id="who-wrap" class="rail-user" hidden>
+          <span id="who-avatar" class="who-avatar" aria-hidden="true">工</span>
+          <div class="who-copy">
+            <strong id="who"></strong>
+            <span class="who-label">已登录</span>
+          </div>
+          <button id="logout" type="button" class="ghost header-btn">退出</button>
+        </div>
+      </aside>
+      <main>
+        <div class="stage-inner">
+          <div id="work-top" class="work-top" hidden>
+            <div class="work-top-left">
+              <strong>电子电器智能体</strong>
+              <span id="local-badge" class="live-badge">本机读取</span>
+            </div>
+            <span class="work-top-meta">工位客户端</span>
+          </div>
+          <div class="hero">
+            <p class="kicker" id="kicker">工位登录</p>
+            <h1 id="title">登录后<span>出表</span></h1>
+            <p class="lead" id="lead">请使用开通的邮箱和密码，不要填手机号。</p>
+            <p id="health" class="health"><i class="dot"></i><span id="health-text">正在检查…</span></p>
+          </div>
 
-      <div id="login-card" class="card">
-        <div class="card-head">
-          <h2 class="card-title">账号登录</h2>
-          <p class="card-desc">与开通环境使用同一邮箱。登录后自动领取出表凭据。</p>
-        </div>
-        <label>邮箱
-          <input id="user" type="text" autocomplete="username" placeholder="name@example.com" />
-        </label>
-        <label>密码
-          <span class="pass-wrap">
-            <input id="pass" type="password" autocomplete="current-password" />
-            <button id="pass-toggle" type="button" class="pass-toggle" aria-label="显示密码" title="显示密码">
-              <svg class="eye" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.6"/>
-                <circle cx="12" cy="12" r="2.8" stroke="currentColor" stroke-width="1.6"/>
-              </svg>
-              <svg class="eye-off" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.6"/>
-                <circle cx="12" cy="12" r="2.8" stroke="currentColor" stroke-width="1.6"/>
-                <path d="M4 4l16 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              </svg>
-            </button>
-          </span>
-        </label>
-        <div class="actions">
-          <button id="login" type="button">登录</button>
-        </div>
-        <p id="login-msg" class="msg" hidden></p>
-      </div>
+          <div id="login-card" class="card">
+            <div class="card-head">
+              <h2 class="card-title">账号登录</h2>
+              <p class="card-desc">与开通环境使用同一邮箱。登录后自动领取出表凭据。</p>
+            </div>
+            <label>邮箱
+              <input id="user" type="text" autocomplete="username" placeholder="name@example.com" />
+            </label>
+            <label>密码
+              <span class="pass-wrap">
+                <input id="pass" type="password" autocomplete="current-password" />
+                <button id="pass-toggle" type="button" class="pass-toggle" aria-label="显示密码" title="显示密码">
+                  <svg class="eye" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.6"/>
+                    <circle cx="12" cy="12" r="2.8" stroke="currentColor" stroke-width="1.6"/>
+                  </svg>
+                  <svg class="eye-off" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.6"/>
+                    <circle cx="12" cy="12" r="2.8" stroke="currentColor" stroke-width="1.6"/>
+                    <path d="M4 4l16 16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </span>
+            </label>
+            <div class="actions">
+              <button id="login" type="button">登录</button>
+            </div>
+            <p id="login-msg" class="msg" hidden></p>
+          </div>
 
-      <div id="work-card" class="card" hidden>
-        <div class="toolbar">
-          <label class="model-pick">识别模型
-            <select id="model"></select>
-          </label>
-        </div>
-        <div id="drop" class="drop" tabindex="0" role="button" aria-label="选择规格书">
-          <div class="idle">
-            <div class="drop-icon" aria-hidden="true">
-              <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-                <rect x="8" y="4" width="18" height="24" rx="2" stroke="currentColor" stroke-width="1.6"/>
-                <path d="M18 4v8h8" stroke="currentColor" stroke-width="1.6"/>
-                <path d="M12 22h10M12 26h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-                <circle cx="28" cy="28" r="7" fill="#fff" stroke="currentColor" stroke-width="1.6"/>
-                <path d="M28 24.5v7M24.5 28h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
-              </svg>
+          <div id="home-card" hidden>
+            <div class="home-hello">
+              <h2>你好，我是<span>电子电器智能体</span></h2>
+              <p>登录后选择功能、提交当份材料，按既定步骤生成输出物。不由模型自行规划路径。同一时刻只处理一份任务。</p>
             </div>
-            <div class="drop-title">拖入规格书，或点击选择</div>
-            <div class="drop-hint" id="drop-hint">文件只在本机读取，不超过 80MB</div>
-            <div class="chips">
-              <span>PDF</span><span>Word</span><span>Excel</span>
+            <div class="home-grid">
+              <button type="button" class="fn-card" data-go="extract" data-pick="1">
+                <span class="fn-kicker">第 1 项 · 已开通</span>
+                <strong>SOR 参数提取</strong>
+                <p>导入 PDF / Word / Excel 规格书，规则先填，模型只补空缺项，按模板出核对表。抽出值只来自当份材料，禁止用库填数；核对表须人工确认后定稿。</p>
+                <span class="fn-chips">
+                  <span>禁止用库填数</span>
+                  <span>人工确认后定稿</span>
+                </span>
+                <span class="fn-actions">
+                  <span class="fn-btn">上传规格书</span>
+                  <span class="fn-go">进入出表</span>
+                </span>
+              </button>
+              <article class="fn-card is-later">
+                <span class="fn-kicker">第 2 项 · 后续节点</span>
+                <strong>架构文档处理</strong>
+                <p>参考过往架构文档辅助填报。规则由甲方确认后开通。</p>
+                <span class="fn-go is-wait">后续节点</span>
+              </article>
+              <article class="fn-card is-later">
+                <span class="fn-kicker">第 3 项 · 后续节点</span>
+                <strong>IO+ICD 规划</strong>
+                <p>对照芯片数据手册生成 IO 口初始配置表，供人工确认。</p>
+                <span class="fn-go is-wait">后续节点</span>
+              </article>
+              <article class="fn-card is-later">
+                <span class="fn-kicker">第 4 项 · 后续节点</span>
+                <strong>企标测试项提取与对比</strong>
+                <p>自企标提取测试项并按项目调整。模板确认后开通。</p>
+                <span class="fn-go is-wait">后续节点</span>
+              </article>
+              <article class="fn-card is-later">
+                <span class="fn-kicker">第 5 项 · 后续节点</span>
+                <strong>CE BOM 输出</strong>
+                <p>自物料手册提取外形与重量，按确认表格式输出 Excel。</p>
+                <span class="fn-go is-wait">后续节点</span>
+              </article>
             </div>
+            <div class="home-chips">
+              <span>电机控制器知识库</span>
+              <span>第 1 项已开通</span>
+              <span>分节点交付</span>
+              <span>同一时刻一份</span>
+            </div>
+            <p class="home-foot">文件只在本机读取，不上传公网。五项功能按既定步骤执行，不由模型自行规划路径。</p>
           </div>
-          <div class="file-meta">
-            <div class="file-mark" aria-hidden="true">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <rect x="6" y="3" width="13" height="18" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
-                <path d="M13 3v6h6" stroke="currentColor" stroke-width="1.5"/>
-              </svg>
-            </div>
-            <div class="file-copy">
-              <div class="drop-kicker">已选择规格书</div>
-              <div id="fname" class="file-name"></div>
-              <div id="fsize" class="file-size"></div>
-            </div>
-          </div>
-        </div>
-        <input id="file" class="sr-only" type="file" accept=".pdf,.docx,.xlsx,.xlsm" />
-        <div class="actions">
-          <button id="pick" type="button">选择文件</button>
-          <button id="go" type="button" disabled>开始出表</button>
-          <button id="pause" type="button">暂停</button>
-          <button id="stop" type="button">结束</button>
-        </div>
-        <div id="progress" class="progress">
-          <div class="steps" role="list">
-            <div id="st-read" class="step" role="listitem">
-              <b>1</b><span class="step-name">读取</span>
-              <span class="step-desc">打开规格书，拆成可检索正文</span>
-            </div>
-            <div id="st-ocr" class="step" role="listitem">
-              <b>2</b><span class="step-name">扫描识别</span>
-              <span class="step-desc">扫描件才做 OCR；文字稿可跳过</span>
-            </div>
-            <div id="st-extract" class="step" role="listitem">
-              <b>3</b><span class="step-name">抽取</span>
-              <span class="step-desc">规则先填，模型只补空缺项</span>
-            </div>
-            <div id="st-write" class="step" role="listitem">
-              <b>4</b><span class="step-name">出表</span>
-              <span class="step-desc">按模板写出页码与原文摘录</span>
-            </div>
-          </div>
-          <div class="bar" aria-hidden="true"><i id="barfill"></i></div>
-          <div id="status" class="status"></div>
-        </div>
-        <div id="result" class="result"></div>
-      </div>
 
-      <div id="kb-card" class="card kb-card" hidden>
-        <div class="kb-toolbar">
-          <div class="kb-meta">
-            <span id="kb-version" class="kb-chip">版本</span>
-            <span class="kb-chip">密级 内部</span>
-            <span class="kb-chip">场所内</span>
-            <span class="kb-chip warn">禁止用库填数</span>
+          <div id="work-card" class="card" hidden>
+            <div class="toolbar">
+              <label class="model-pick">识别模型
+                <select id="model"></select>
+              </label>
+            </div>
+            <div id="drop" class="drop" tabindex="0" role="button" aria-label="选择规格书">
+              <div class="idle">
+                <div class="drop-icon" aria-hidden="true">
+                  <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+                    <rect x="8" y="4" width="18" height="24" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                    <path d="M18 4v8h8" stroke="currentColor" stroke-width="1.6"/>
+                    <path d="M12 22h10M12 26h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                    <circle cx="28" cy="28" r="7" fill="#fff" stroke="currentColor" stroke-width="1.6"/>
+                    <path d="M28 24.5v7M24.5 28h7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                  </svg>
+                </div>
+                <div class="drop-title">拖入规格书，或点击选择</div>
+                <div class="drop-hint" id="drop-hint">文件只在本机读取，不超过 80MB</div>
+                <div class="chips">
+                  <span>PDF</span><span>Word</span><span>Excel</span>
+                </div>
+              </div>
+              <div class="file-meta">
+                <div class="file-mark" aria-hidden="true">
+                  <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                    <rect x="6" y="3" width="13" height="18" rx="1.5" stroke="currentColor" stroke-width="1.5"/>
+                    <path d="M13 3v6h6" stroke="currentColor" stroke-width="1.5"/>
+                  </svg>
+                </div>
+                <div class="file-copy">
+                  <div class="drop-kicker">已选择规格书</div>
+                  <div id="fname" class="file-name"></div>
+                  <div id="fsize" class="file-size"></div>
+                </div>
+              </div>
+            </div>
+            <input id="file" class="sr-only" type="file" accept=".pdf,.docx,.xlsx,.xlsm" />
+            <div class="actions">
+              <button id="pick" type="button">选择文件</button>
+              <button id="go" type="button" disabled>开始出表</button>
+              <button id="pause" type="button">暂停</button>
+              <button id="stop" type="button">结束</button>
+            </div>
+            <div id="progress" class="progress">
+              <div class="steps" role="list">
+                <div id="st-read" class="step" role="listitem">
+                  <b>1</b><span class="step-name">读取</span>
+                  <span class="step-desc">打开规格书，拆成可检索正文</span>
+                </div>
+                <div id="st-ocr" class="step" role="listitem">
+                  <b>2</b><span class="step-name">扫描识别</span>
+                  <span class="step-desc">扫描件才做 OCR；文字稿可跳过</span>
+                </div>
+                <div id="st-extract" class="step" role="listitem">
+                  <b>3</b><span class="step-name">抽取</span>
+                  <span class="step-desc">规则先填，模型只补空缺项</span>
+                </div>
+                <div id="st-write" class="step" role="listitem">
+                  <b>4</b><span class="step-name">出表</span>
+                  <span class="step-desc">按模板写出页码与原文摘录</span>
+                </div>
+              </div>
+              <div class="bar" aria-hidden="true"><i id="barfill"></i></div>
+              <div id="status" class="status"></div>
+            </div>
+            <div id="result" class="result"></div>
           </div>
-          <label class="kb-search">检索
-            <input id="kb-q" type="search" placeholder="条款号、名称、别名、公式…" autocomplete="off" />
-          </label>
-        </div>
-        <div id="kb-stats" class="kb-stats"></div>
-        <p id="kb-banner" class="kb-banner">抽出值只来自当份规格书。知识库提供条目、互斥与公式关系，不提供取值。</p>
-        <div class="kb-tabs" role="tablist">
-          <button type="button" class="kb-tab is-on" data-tab="dir" role="tab">条款目录</button>
-          <button type="button" class="kb-tab" data-tab="graph" role="tab">知识图谱</button>
-          <button type="button" class="kb-tab" data-tab="physics" role="tab">物理关系</button>
-          <button type="button" class="kb-tab" data-tab="scope" role="tab">范围与来源</button>
-        </div>
-        <div id="kb-panel-dir" class="kb-panel">
-          <div class="kb-layout">
-            <aside class="kb-side">
-              <div id="kb-groups" class="kb-groups"></div>
-              <div id="kb-list" class="kb-list"></div>
-            </aside>
-            <section class="kb-main">
-              <div id="kb-mini-graph" class="kb-graph-wrap"></div>
-              <article id="kb-detail" class="kb-detail"></article>
-            </section>
+
+          <div id="kb-card" class="card kb-card" hidden>
+            <div class="kb-toolbar">
+              <div class="kb-meta">
+                <span id="kb-version" class="kb-chip">版本</span>
+                <span class="kb-chip">密级 内部</span>
+                <span class="kb-chip">场所内</span>
+                <span class="kb-chip warn">禁止用库填数</span>
+              </div>
+              <label class="kb-search">检索
+                <input id="kb-q" type="search" placeholder="条款号、名称、别名、公式…" autocomplete="off" />
+              </label>
+            </div>
+            <div id="kb-stats" class="kb-stats"></div>
+            <p id="kb-banner" class="kb-banner">抽出值只来自当份规格书。知识库提供条目、互斥与公式关系，不提供取值。</p>
+            <div class="kb-tabs" role="tablist">
+              <button type="button" class="kb-tab is-on" data-tab="dir" role="tab">条款目录</button>
+              <button type="button" class="kb-tab" data-tab="graph" role="tab">知识图谱</button>
+              <button type="button" class="kb-tab" data-tab="physics" role="tab">物理关系</button>
+              <button type="button" class="kb-tab" data-tab="scope" role="tab">范围与来源</button>
+            </div>
+            <div id="kb-panel-dir" class="kb-panel">
+              <div class="kb-layout">
+                <aside class="kb-side">
+                  <div id="kb-groups" class="kb-groups"></div>
+                  <div id="kb-list" class="kb-list"></div>
+                </aside>
+                <section class="kb-main">
+                  <div id="kb-mini-graph" class="kb-graph-wrap"></div>
+                  <article id="kb-detail" class="kb-detail"></article>
+                </section>
+              </div>
+            </div>
+            <div id="kb-panel-graph" class="kb-panel" hidden>
+              <div id="kb-graph" class="kb-graph-wrap kb-graph-lg"></div>
+              <article id="kb-graph-detail" class="kb-detail"></article>
+            </div>
+            <div id="kb-panel-physics" class="kb-panel" hidden>
+              <div id="kb-physics" class="kb-phys-grid"></div>
+              <article id="kb-phys-detail" class="kb-detail"></article>
+            </div>
+            <div id="kb-panel-scope" class="kb-panel" hidden>
+              <div id="kb-scope" class="kb-scope"></div>
+            </div>
           </div>
         </div>
-        <div id="kb-panel-graph" class="kb-panel" hidden>
-          <div id="kb-graph" class="kb-graph-wrap kb-graph-lg"></div>
-          <article id="kb-graph-detail" class="kb-detail"></article>
-        </div>
-        <div id="kb-panel-physics" class="kb-panel" hidden>
-          <div id="kb-physics" class="kb-phys-grid"></div>
-          <article id="kb-phys-detail" class="kb-detail"></article>
-        </div>
-        <div id="kb-panel-scope" class="kb-panel" hidden>
-          <div id="kb-scope" class="kb-scope"></div>
-        </div>
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
-  <script src="/static/app.js?v=20260904n" defer></script>
-  <script src="/static/kb.js?v=20260904k" defer></script>
+  <script src="/static/app.js?v=20260907h" defer></script>
+  <script src="/static/kb.js?v=20260907a" defer></script>
 </body>
 </html>

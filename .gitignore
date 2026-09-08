@@ -8,3 +8,11 @@ krow_workspace/
 dist/
 packaging/windows/.cache/
 *.iconset/
+.krow/ontology/
+.krow/data/
+.krow/wiki/
+.krow/**/*.db
+.krow/**/*.db-wal
+.krow/**/*.db-shm
+:memory:.ses
+*.ses

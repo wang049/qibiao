@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
@@ -16,8 +18,12 @@ from electrical_krow.mock_server import DEMO_USER
 
 class GatewayTests(unittest.TestCase):
     def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
         self.settings = load_settings(server_url="http://127.0.0.1:18766")
-        self.client = TestClient(create_app(self.settings))
+        self.client = TestClient(
+            create_app(self.settings, output_dir=Path(self._tmp.name))
+        )
 
     def test_index(self) -> None:
         resp = self.client.get("/")
@@ -33,7 +39,26 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("/static/kb.js", resp.text)
         self.assertIn("知识库", resp.text)
         self.assertIn('id="kb-card"', resp.text)
-        self.assertIn('id="nav-kb"', resp.text)
+        self.assertIn('id="rail-kb"', resp.text)
+        self.assertIn('id="rail-extract"', resp.text)
+        self.assertIn('id="home-card"', resp.text)
+        self.assertIn("styles.css?v=20260907i", resp.text)
+        self.assertIn("app.js?v=20260907h", resp.text)
+        self.assertIn("当前登录账号发起", resp.text)
+        self.assertIn('id="job-list"', resp.text)
+        self.assertIn("工作台", resp.text)
+        self.assertIn("第 1 项", resp.text)
+        self.assertIn("SOR 参数提取", resp.text)
+        self.assertIn("开始出表", resp.text)
+        self.assertIn("新建出表", resp.text)
+        self.assertIn("核心能力", resp.text)
+        self.assertIn("后续节点", resp.text)
+        self.assertIn("第 1 项已开通", resp.text)
+        self.assertIn("分节点交付", resp.text)
+        self.assertNotIn("id=\"nav-work\"", resp.text)
+        self.assertNotIn("交给 Agent", resp.text)
+        self.assertNotIn("agent.run", resp.text)
+        self.assertNotIn("新建对话", resp.text)
 
     def test_static_assets(self) -> None:
         css = self.client.get("/static/styles.css")
@@ -63,7 +88,41 @@ class GatewayTests(unittest.TestCase):
         self.assertNotIn(".yaml", kb.text)
         self.assertNotIn("clause_lexicon", kb.text)
         self.assertIn(".kb-graph-wrap", css.text)
-        self.assertIn(".work-nav", css.text)
+        self.assertIn(".rail-fn", css.text)
+        self.assertIn(".fn-card", css.text)
+        self.assertIn(".fn-card.is-later", css.text)
+        self.assertNotIn(".fn-card.is-soon", css.text)
+        self.assertIn(".rail", css.text)
+        self.assertIn(".rail-new", css.text)
+        self.assertIn(".job-row", css.text)
+        self.assertRegex(
+            css.text, r"\[hidden\]\s*\{[^}]*display:\s*none\s*!important"
+        )
+        self.assertIn("#login-card:not([hidden])", css.text)
+        self.assertIn("loadJobs", js.text)
+        self.assertIn('$("who").textContent = name', js.text)
+        self.assertIn("上一份正在结束，结束后立即开始这份", js.text)
+        self.assertIn("waitUntilIdle", js.text)
+        self.assertIn("resumeActiveJob", js.text)
+        self.assertIn("isBusyConflict", js.text)
+        self.assertNotIn("交给 Agent", js.text)
+
+    def test_embed_contract_for_electron_host(self) -> None:
+        html = self.client.get("/?embed=1")
+        self.assertEqual(html.status_code, 200)
+        self.assertIn("SOR填表", html.text)
+        js = self.client.get("/static/app.js").text
+        css = self.client.get("/static/styles.css").text
+        self.assertIn("function embedMode(", js)
+        self.assertIn("ELECTRICAL_API_BASE", js)
+        self.assertIn("embed=1", js)
+        self.assertIn("electricalApiUrl", js)
+        self.assertIn("body.is-embed", css)
+        self.assertIn("if (embedMode()) return null", js)
+
+    def test_jobs_list_requires_login(self) -> None:
+        resp = self.client.get("/api/jobs")
+        self.assertEqual(resp.status_code, 401)
 
     def test_health(self) -> None:
         resp = self.client.get("/api/health")
@@ -74,12 +133,13 @@ class GatewayTests(unittest.TestCase):
         self.assertTrue(data.get("model"))
         self.assertEqual(data.get("delivery"), "client")
         self.assertFalse(data.get("busy"))
+        self.assertIsNone(data.get("active_job"))
 
     def test_site_health_copy(self) -> None:
         settings = load_settings(
             server_url="http://127.0.0.1:18766", delivery="site"
         )
-        client = TestClient(create_app(settings))
+        client = TestClient(create_app(settings, output_dir=Path(self._tmp.name)))
         data = client.get("/api/health").json()
         self.assertEqual(data.get("delivery"), "site")
         page = client.get("/")
@@ -238,7 +298,7 @@ class GatewayTests(unittest.TestCase):
 
     def test_site_jobs_without_cookie_still_401(self) -> None:
         settings = load_settings(server_url="http://127.0.0.1:18766", delivery="site")
-        client = TestClient(create_app(settings))
+        client = TestClient(create_app(settings, output_dir=Path(self._tmp.name)))
         session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
         with patch("electrical_krow.gateway.login_with_password", return_value=session):
             login = client.post(
@@ -261,6 +321,9 @@ class GatewayTests(unittest.TestCase):
                 json={"username": DEMO_USER, "password": "demo"},
             )
         self.assertEqual(login.status_code, 200)
+        listed = self.client.get("/api/jobs")
+        self.assertEqual(listed.status_code, 200)
+        self.assertIsInstance(listed.json().get("jobs"), list)
         resp = self.client.get("/api/jobs/does-not-exist")
         self.assertEqual(resp.status_code, 404)
 
@@ -320,9 +383,21 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(login.status_code, 200)
         return target
 
+    def test_logout_clears_session(self) -> None:
+        self._login()
+        sess = self.client.get("/api/session")
+        self.assertTrue(sess.json().get("logged_in"))
+        self.assertTrue(sess.json().get("username"))
+        with patch("electrical_krow.gateway.revoke_sdk_key"):
+            out = self.client.post("/api/logout", json={})
+        self.assertEqual(out.status_code, 200)
+        sess = self.client.get("/api/session")
+        self.assertFalse(sess.json().get("logged_in"))
+        self.assertNotIn("username", sess.json())
+
     def test_cloud_rejects_page_image(self) -> None:
         settings = load_settings(server_url="https://api.krow.cn")
-        client = TestClient(create_app(settings))
+        client = TestClient(create_app(settings, output_dir=Path(self._tmp.name)))
         self._login(client)
         chat = client.post(
             "/v1/chat/completions",
@@ -352,7 +427,7 @@ class GatewayTests(unittest.TestCase):
             vision_model="krow-ocr-table",
             chat_model="deepseek-v4-pro",
         )
-        client = TestClient(create_app(settings))
+        client = TestClient(create_app(settings, output_dir=Path(self._tmp.name)))
         self._login(client)
         seen: dict[str, object] = {}
         result = ChatResult(
@@ -407,7 +482,7 @@ class GatewayTests(unittest.TestCase):
             vision_model="",
             chat_model="deepseek-v4-pro",
         )
-        client = TestClient(create_app(settings))
+        client = TestClient(create_app(settings, output_dir=Path(self._tmp.name)))
         self._login(client)
         extra = {"SPEC_SHEET_VISION_MODEL": "", "SPEC_SHEET_PAGE_VISION": "0"}
         with patch.dict("os.environ", extra, clear=False):
@@ -437,7 +512,7 @@ class GatewayTests(unittest.TestCase):
 
     def test_cloud_ocr_forwards_page_image(self) -> None:
         settings = load_settings(server_url="https://api.krow.cn")
-        client = TestClient(create_app(settings))
+        client = TestClient(create_app(settings, output_dir=Path(self._tmp.name)))
         self._login(client)
         with patch(
             "electrical_krow.gateway.recognize_page",

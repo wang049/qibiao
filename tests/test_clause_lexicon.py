@@ -17,11 +17,35 @@ from electrical_krow.clause_lexicon import (
 
 
 class ClauseLexiconTests(unittest.TestCase):
-    def test_loads_120_frames(self) -> None:
+    def test_loads_active_frames_without_dropped_duplicates(self) -> None:
         frames = load_frames()
-        self.assertEqual(len(frames), 120)
+        seqs = [item.seq for item in frames]
+        self.assertEqual(len(frames), 116)
         self.assertEqual(frames[0].seq, 1)
         self.assertEqual(frames[-1].seq, 120)
+        self.assertNotIn(18, seqs)
+        self.assertNotIn(19, seqs)
+        self.assertNotIn(26, seqs)
+        self.assertNotIn(27, seqs)
+        by_seq = {item.seq: item for item in frames}
+        self.assertEqual(by_seq[13].name, "高压安全-绝缘电阻")
+        self.assertEqual(by_seq[14].name, "高压安全-耐电压")
+        self.assertEqual(by_seq[15].name, "高压安全-主动放电功能")
+        self.assertEqual(by_seq[16].name, "高压安全-被动放电功能")
+        self.assertIn("主动放电时间", aliases_for_seq(15, by_seq[15].name))
+        self.assertIn("被动放电时间", aliases_for_seq(16, by_seq[16].name))
+        self.assertTrue(by_seq[14].retrieve)
+        self.assertFalse(by_seq[13].retrieve)
+
+    def test_item_4_renamed_to_traction_boost(self) -> None:
+        frames = {item.seq: item for item in load_frames()}
+        self.assertEqual(frames[4].name, "设计范围是否包含行车升压功能")
+        self.assertNotIn("行车升压", aliases_for_seq(3, frames[3].name))
+        self.assertIn("行车升压", aliases_for_seq(4, frames[4].name))
+        self.assertNotIn("将正式名", frames[4].gloss)
+        self.assertNotIn("甲方将本条正式名", frames[4].gloss)
+        self.assertNotIn("将正式名", frames[4].split_harm)
+        self.assertIn("充电", frames[4].gloss)
 
     def test_dielectric_aliases_are_whole_words(self) -> None:
         aliases = aliases_for_seq(14, "高压安全-耐电压")
@@ -83,6 +107,30 @@ class ClauseLexiconTests(unittest.TestCase):
             conflict_for_name("控制器重量"),
             conflict_for_name("重量要求"),
         )
+
+    def test_od_upshift_excludes_cooling_with_od(self) -> None:
+        frames = {item.seq: item for item in load_frames()}
+        reject = " ".join(frames[2].reject_patterns)
+        self.assertIn("冷却流阻", reject)
+        self.assertIn("with OD", reject)
+
+    def test_p3_efficiency_excludes_p1_average(self) -> None:
+        frames = {item.seq: item for item in load_frames()}
+        p3_reject = " ".join(frames[56].reject_patterns)
+        self.assertIn("P1平均效率", p3_reject)
+        self.assertIn("Average efficiency", p3_reject)
+        self.assertNotIn("综合效率", p3_reject)
+        p3_cues = " ".join(frames[56].unit_cues)
+        self.assertIn("综合效率", p3_cues)
+        p1_reject = " ".join(frames[41].reject_patterns)
+        self.assertIn("P3综合效率", p1_reject)
+
+    def test_boost_power_split_harm_writes_kw_point(self) -> None:
+        frames = {item.seq: item for item in load_frames()}
+        harm = frames[68].split_harm
+        self.assertIn("kW 点值", harm)
+        self.assertIn("电压区间", harm)
+        self.assertNotIn("不把 P=UI 算成 kW 区间", harm)
 
     def test_dielectric_reject_patterns(self) -> None:
         patterns = reject_patterns_for_name("高压安全-耐电压")

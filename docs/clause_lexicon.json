@@ -2,6 +2,13 @@
   "meta": {
     "version": "2026-09-02 扩展版 v0.1",
     "source_list": "电机控制需求清单_20260821V1.xlsx（120 项）",
+    "dropped": [
+      18,
+      19,
+      26,
+      27
+    ],
+    "dropped_note": "#18/#19 与 #13/#14 同名同值已删；#26/#27 放电时间并入 #15/#16 功能项；知识库仍用源表序号，核对表需求序号 1–116",
     "alias_levels": {
       "strong": "整词、跨条目唯一，可直接计分",
       "weak": "整词但多条目共享，须配合判别词（P1/P3、Boost、电池连接/断开、稳态/动态 等）或单位闸门才计分",
@@ -1160,8 +1167,8 @@
       ]
     },
     "generated_from": "docs/clause_lexicon.yaml",
-    "knowledge_version": "2026-09-03.4",
-    "retrieve": "只开 registry.published_retrieve：#14,#19；弱别名不计分、不进选段",
+    "knowledge_version": "2026-09-09.11",
+    "retrieve": "只开 registry.published_retrieve：#14；弱别名不计分、不进选段",
     "fill_from_kb": false
   },
   "frames": [
@@ -1191,7 +1198,8 @@
       ],
       "exclude": [
         "静态电流 ≤xxx mA 包含OD（→#22）",
-        "油泵上移（→#2）"
+        "油泵上移（→#2）",
+        "冷却流阻括号 with OD（→#71）"
       ],
       "unverified": [
         "oil distribution [原字典]"
@@ -1207,7 +1215,8 @@
       ],
       "reject_patterns": [
         "静态电流 ≤xxx mA 包含OD",
-        "油泵上移"
+        "油泵上移",
+        "冷却流阻括号 with OD"
       ],
       "retrieve_aliases": [],
       "split_harm": "OD 缩写在清单中未定义；由 #2「油泵上移」与 #22「XCM休眠，包含OD」可判断 OD 为一个带静态功耗的电气单元，很可能与油泵驱动相关，但原字典的 \"oil distribution\" 是推测，未经核实",
@@ -1244,7 +1253,9 @@
         "电路 circuit"
       ],
       "exclude": [
-        "OD本体物理集成（→#1）"
+        "OD本体物理集成（→#1）",
+        "冷却流阻/压降括号 with OD（→#71）",
+        "重量目标 With OD Module（→#1）"
       ],
       "unverified": [
         "OD shift [原字典]",
@@ -1256,10 +1267,13 @@
       ],
       "notes": [],
       "reject_patterns": [
-        "OD本体物理集成"
+        "OD本体物理集成",
+        "冷却流阻",
+        "压降括号 with OD",
+        "重量目标 With OD Module"
       ],
       "retrieve_aliases": [],
-      "split_harm": "OD本体物理集成（→#1）",
+      "split_harm": "OD本体物理集成（→#1）；冷却流阻/压降括号 with OD（→#71）",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -1273,7 +1287,6 @@
         "驱动升压",
         "升压驱动",
         "驱动Boost",
-        "行车升压",
         "驱动模式升压",
         "驱动工况升压",
         "推荐拓扑",
@@ -1303,24 +1316,27 @@
         61,
         115
       ],
-      "notes": [],
+      "notes": [
+        "抽出值写含用途的结论（如 HVDC 较低时升压以改善 TM），不要只写「是」。勿与 #4 行车升压（充电 Boost/Buck 范围）混填"
+      ],
       "reject_patterns": [
         "充电升压",
         "charge boost",
         "Boost 数值参数 V"
       ],
       "retrieve_aliases": [],
-      "split_harm": "充电升压/charge boost（→#4/#115）；Boost 数值参数 V/A/kW/kHz（→#62–#70）",
+      "split_harm": "抽出值写含用途的结论（如 HVDC 较低时升压以改善 TM），不要只写「是」。勿与 #4 行车升压（充电 Boost/Buck 范围）混填",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
     },
     {
       "seq": 4,
-      "name": "设计范围是否包含充电升压功能",
+      "name": "设计范围是否包含行车升压功能",
       "group": "设计范围",
-      "gloss": "设计范围是否含充电工况的升压功能（如低电压充电桩给高电压电池充电）",
+      "gloss": "范围判断是否含该功能；充电拓扑/电压/电流/时长见 #115。勿与 #3 驱动升压（HV Booster / boost control）混填",
       "aliases": [
+        "行车升压",
         "充电Boost",
         "充电模式升压",
         "DC charging boost",
@@ -1342,7 +1358,8 @@
         "拓扑 topology"
       ],
       "exclude": [
-        "驱动升压（→#3）"
+        "驱动升压 / HV Booster / boost control（→#3）",
+        "6.5.4 HV Booster 三种模式 / BUCK 85kW（→#67）"
       ],
       "unverified": [
         "OBC boost [原字典]（OBC 为交流车载充电机，直流快充升压通常不经 OBC，语义偏窄）"
@@ -1353,13 +1370,18 @@
         115
       ],
       "notes": [
+        "抽出以 Charging Buck/Boost、充电升压/降压功能需求做范围判断；6.5.4 HV Booster 的三种模式和 BUCK 85kW 不进本条（→#3/#67）",
         "#4 与 #115 同义（范围判断 vs 功能要求）；#115 的 D 列多要求充电电压/电流/时长"
       ],
       "reject_patterns": [
-        "驱动升压"
+        "驱动升压",
+        "HV Booster",
+        "boost control",
+        "6.5.4 HV Booster 三种模式",
+        "BUCK 85kW"
       ],
       "retrieve_aliases": [],
-      "split_harm": "#4 与 #115 同义（范围判断 vs 功能要求）；#115 的 D 列多要求充电电压/电流/时长",
+      "split_harm": "抽出以 Charging Buck/Boost、充电升压/降压功能需求做范围判断；6.5.4 HV Booster 的三种模式和 BUCK 85kW 不进本条（→#3/#67）",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -1412,7 +1434,7 @@
       ],
       "exclude": [
         "过压阈值（→#9）",
-        "耐压/hipot 测试电压（→#14/#19）",
+        "耐压/hipot 测试电压（→#14）",
         "采样精度（→#91）",
         "低压 9~16V（→#20）",
         "Boost 电压（→#62/#67）",
@@ -1420,6 +1442,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 7.5→Q/JLP 030001-24",
         "ISO 21498-1（B级电压等级与工作电压范围定义）",
         "GB/T 18488（驱动电机系统 电压范围）"
       ],
@@ -1430,7 +1453,8 @@
         62
       ],
       "notes": [
-        "源表 #5 示例含「全性能200~450V」，而 #6 满功率电压示例为 340~450V，#7 降额为 160~340V——「全性能」与「满功率」口径不一致，应向甲方确认"
+        "源表 #5 示例含「全性能200~450V」，而 #6 满功率电压示例为 340~450V，#7 降额为 160~340V——「全性能」与「满功率」口径不一致，应向甲方确认",
+        "抽出值按工况分行写最低/最高；缺侧标未给出，不得用清单示例补格"
       ],
       "reject_patterns": [
         "过压阈值",
@@ -1485,7 +1509,9 @@
         "降额区间（→#7）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 7.5→Q/JLP 030001-24"
+      ],
       "see": [
         5,
         7,
@@ -1544,7 +1570,9 @@
         "满功率区间（→#6）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 7.5→Q/JLP 030001-24"
+      ],
       "see": [
         5,
         6
@@ -1668,7 +1696,9 @@
       "see": [
         5
       ],
-      "notes": [],
+      "notes": [
+        "仅有「电机旋转导致过压、可用主动短路」而无 Vdc 阈值时未检索到；复核备注写人工复核。不得用清单示例 525Vdc 填格"
+      ],
       "reject_patterns": [
         "欠压 undervoltage",
         "低压 16~18V",
@@ -1677,7 +1707,7 @@
         "器件耐压"
       ],
       "retrieve_aliases": [],
-      "split_harm": "欠压 undervoltage（对偶项，清单未列）；低压 16~18V（→#20）",
+      "split_harm": "仅有「电机旋转导致过压、可用主动短路」而无 Vdc 阈值时未检索到；复核备注写人工复核。不得用清单示例 525Vdc 填格",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -1785,6 +1815,7 @@
       ],
       "notes": [
         "与 #37/#54 共享全部核心别名；建议规则：句中含 P1→#37，含 P3→#54，两者都含或都不含→#11",
+        "本条空白且当份已抽出",
         "源表 #44/#60 示例把 Back EMF 拼进了电流峰值格，抽取时 BEMF 值不应写入电流项"
       ],
       "reject_patterns": [
@@ -1886,15 +1917,14 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.2→Q/JLY J7211010",
         "GB/T 18488（绝缘电阻）",
         "GB 18384（电动汽车安全要求 绝缘电阻）",
         "ISO 6469-3"
       ],
-      "see": [
-        18
-      ],
+      "see": [],
       "notes": [
-        "与 #18 完全同名同值，可共用一套写法并同值填写"
+        "源表"
       ],
       "reject_patterns": [
         "放电电阻",
@@ -1905,7 +1935,7 @@
         "绝缘电压等级"
       ],
       "retrieve_aliases": [],
-      "split_harm": "与 #18 完全同名同值，可共用一套写法并同值填写",
+      "split_harm": "源表",
       "retrieve": false,
       "conflict": "insulation",
       "status": "draft"
@@ -1960,17 +1990,17 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.3→Q/JLY J7110218",
         "GB/T 18488（耐电压）",
         "GB 18384",
         "ISO 6469-3",
         "ISO 21498-2"
       ],
       "see": [
-        19,
         95
       ],
       "notes": [
-        "与 #19 完全同名同值"
+        "源表"
       ],
       "reject_patterns": [
         "器件耐压",
@@ -2006,7 +2036,7 @@
         "DC withstand",
         "dielectric"
       ],
-      "split_harm": "与 #19 完全同名同值",
+      "split_harm": "源表",
       "retrieve": true,
       "conflict": "dielectric",
       "status": "published"
@@ -2015,7 +2045,7 @@
       "seq": 15,
       "name": "高压安全-主动放电功能",
       "group": "高压安全",
-      "gloss": "下电后主动把母线电压放至安全电压（60V）以下的功能",
+      "gloss": "下电后主动把母线电压放至安全电压（60V）以下的功能及时间限值",
       "aliases": [
         "主动放电",
         "主动泄放",
@@ -2025,6 +2055,11 @@
         "快速泄放",
         "主动放电功能",
         "主动放电要求",
+        "主动放电时间",
+        "主动放电时长",
+        "主动放电完成时间",
+        "放电到60V时间",
+        "快速放电时间",
         "放电至60V",
         "放电到安全电压",
         "active discharge",
@@ -2033,14 +2068,19 @@
         "fast discharge",
         "rapid discharge",
         "HV active discharge",
-        "active discharge function"
+        "active discharge function",
+        "active discharge time",
+        "active discharge duration",
+        "discharge time to 60 V",
+        "time to below 60 V",
+        "fast discharge time"
       ],
       "weak_aliases": [],
       "unit_cues": [
         "s + 60 V"
       ],
       "exclude": [
-        "被动放电（→#16/#27）"
+        "被动放电（→#16）"
       ],
       "unverified": [],
       "std": [
@@ -2049,15 +2089,16 @@
       ],
       "see": [
         25,
-        26,
         23
       ],
-      "notes": [],
+      "notes": [
+        "源表"
+      ],
       "reject_patterns": [
         "被动放电"
       ],
       "retrieve_aliases": [],
-      "split_harm": "被动放电（→#16/#27）",
+      "split_harm": "源表",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -2066,7 +2107,7 @@
       "seq": 16,
       "name": "高压安全-被动放电功能",
       "group": "高压安全",
-      "gloss": "无控制情况下经泄放电阻自然放电至 60V 以下的功能",
+      "gloss": "无控制情况下经泄放电阻自然放电至 60V 以下的功能及时间限值",
       "aliases": [
         "被动放电",
         "被动泄放",
@@ -2074,20 +2115,28 @@
         "慢速放电",
         "泄放电阻放电",
         "被动放电功能",
+        "被动放电时间",
+        "被动放电时长",
+        "自然放电时间",
+        "慢放电时间",
         "常泄放",
         "passive discharge",
         "passive bleed",
         "bleeder discharge",
         "slow discharge",
         "natural discharge",
-        "passive discharge function"
+        "passive discharge function",
+        "passive discharge time",
+        "passive discharge duration",
+        "bleed down time",
+        "passive bleed time"
       ],
       "weak_aliases": [],
       "unit_cues": [
         "min / s + 60 V"
       ],
       "exclude": [
-        "主动放电（→#15/#26）"
+        "主动放电（→#15）"
       ],
       "unverified": [],
       "std": [
@@ -2095,15 +2144,16 @@
         "ISO 6469-3"
       ],
       "see": [
-        27,
         25
       ],
-      "notes": [],
+      "notes": [
+        "源表"
+      ],
       "reject_patterns": [
         "主动放电"
       ],
       "retrieve_aliases": [],
-      "split_harm": "主动放电（→#15/#26）",
+      "split_harm": "源表",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -2168,170 +2218,6 @@
       "status": "draft"
     },
     {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "group": "高压安全",
-      "gloss": "同 #13",
-      "aliases": [
-        "绝缘电阻",
-        "绝缘阻值",
-        "绝缘电阻值",
-        "冷态绝缘电阻",
-        "热态绝缘电阻",
-        "绝缘电阻测试",
-        "绝缘电阻要求",
-        "兆欧",
-        "绝缘性能",
-        "高压对地绝缘",
-        "insulation resistance",
-        "IR",
-        "insulation resistance test",
-        "megohm",
-        "MΩ",
-        "Mohm",
-        "insulation measurement",
-        "megger",
-        "IR test"
-      ],
-      "weak_aliases": [],
-      "unit_cues": [
-        "MΩ",
-        "冷态/热态",
-        "测试电压 500 Vdc / 1000 Vdc"
-      ],
-      "exclude": [
-        "放电电阻（→#25）",
-        "绝缘监测/IMD（整车功能）",
-        "爬电距离/电气间隙（E列/→#95）",
-        "绝缘电压等级（→#95）"
-      ],
-      "unverified": [],
-      "std": [
-        "GB/T 18488（绝缘电阻）",
-        "GB 18384（电动汽车安全要求 绝缘电阻）",
-        "ISO 6469-3"
-      ],
-      "see": [
-        13
-      ],
-      "notes": [
-        "与 #13 重复"
-      ],
-      "reject_patterns": [
-        "放电电阻",
-        "绝缘监测",
-        "IMD",
-        "爬电距离",
-        "电气间隙",
-        "绝缘电压等级"
-      ],
-      "retrieve_aliases": [],
-      "split_harm": "与 #13 重复",
-      "retrieve": false,
-      "conflict": "insulation",
-      "status": "draft"
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "group": "高压安全",
-      "gloss": "同 #14",
-      "aliases": [
-        "耐电压",
-        "耐压",
-        "耐压测试",
-        "耐压试验",
-        "耐压要求",
-        "介电强度",
-        "电气强度",
-        "绝缘强度",
-        "高压绝缘测试",
-        "闪络",
-        "击穿",
-        "无击穿",
-        "漏电流",
-        "工频耐压",
-        "交流耐压",
-        "直流耐压",
-        "打耐压",
-        "耐压值",
-        "withstand voltage",
-        "dielectric withstand",
-        "dielectric strength",
-        "electric strength",
-        "hipot",
-        "hi-pot",
-        "high potential test",
-        "dielectric test",
-        "breakdown",
-        "flashover",
-        "leakage current",
-        "AC withstand",
-        "DC withstand"
-      ],
-      "weak_aliases": [],
-      "unit_cues": [
-        "kV 或 V + 时间(1 min/60 s) + 漏电流 mA",
-        "无闪络/无击穿"
-      ],
-      "exclude": [
-        "器件耐压/耐压等级/耐压选型（功率器件参数，E列套话）",
-        "withstand 用于持续供电/温度语境",
-        "绝缘电压等级 650V（→#95）"
-      ],
-      "unverified": [],
-      "std": [
-        "GB/T 18488（耐电压）",
-        "GB 18384",
-        "ISO 6469-3",
-        "ISO 21498-2"
-      ],
-      "see": [
-        14
-      ],
-      "notes": [
-        "与 #14 重复"
-      ],
-      "reject_patterns": [
-        "器件耐压",
-        "耐压等级",
-        "耐压选型",
-        "withstand 用于持续供电",
-        "绝缘电压等级 650V",
-        "continuous supply",
-        "withstand continuous",
-        "持续供电",
-        "持续耐受",
-        "on the HVDC bus without",
-        "maximum 500\\s*V on the HVDC",
-        "绝缘电压等级"
-      ],
-      "retrieve_aliases": [
-        "耐电压",
-        "耐压",
-        "耐压测试",
-        "耐压试验",
-        "介电强度",
-        "工频耐压",
-        "交流耐压",
-        "直流耐压",
-        "withstand voltage",
-        "dielectric withstand",
-        "dielectric strength",
-        "hipot",
-        "hi-pot",
-        "high potential test",
-        "dielectric test",
-        "AC withstand",
-        "DC withstand",
-        "dielectric"
-      ],
-      "split_harm": "与 #14 重复",
-      "retrieve": true,
-      "conflict": "dielectric",
-      "status": "published"
-    },
-    {
       "seq": 20,
       "name": "低压电源电压工作范围",
       "group": "低压",
@@ -2390,6 +2276,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.30→Q/JLY J7111029 5.1",
         "ISO 16750-2（电气负荷：供电电压范围、功能状态分级）",
         "GB/T 28046.2"
       ],
@@ -2563,15 +2450,14 @@
       ],
       "exclude": [
         "低压电源范围（→#20）",
-        "主动放电时间 2 s（→#26）",
-        "被动放电时间 2 min（→#27，数字相近）"
+        "主动放电时间 2 s（→#15）",
+        "被动放电时间 2 min（→#16，数字相近）"
       ],
       "unverified": [],
       "std": [],
       "see": [
         15,
-        26,
-        27
+        16
       ],
       "notes": [],
       "reject_patterns": [
@@ -2580,7 +2466,7 @@
         "被动放电时间 2 min"
       ],
       "retrieve_aliases": [],
-      "split_harm": "低压电源范围（→#20）；主动放电时间 2 s（→#26）",
+      "split_harm": "低压电源范围（→#20）；主动放电时间 2 s（→#15）",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -2680,8 +2566,7 @@
       "std": [],
       "see": [
         15,
-        16,
-        26
+        16
       ],
       "notes": [
         "原字典把 bleeder resistor 放在 #25，但 bleeder 通常指常接的被动泄放电阻，与 #16 被动放电更贴近，建议标注歧义"
@@ -2692,94 +2577,6 @@
       ],
       "retrieve_aliases": [],
       "split_harm": "原字典把 bleeder resistor 放在 #25，但 bleeder 通常指常接的被动泄放电阻，与 #16 被动放电更贴近，建议标注歧义",
-      "retrieve": false,
-      "conflict": "",
-      "status": "draft"
-    },
-    {
-      "seq": 26,
-      "name": "主动放电时间",
-      "group": "高压安全",
-      "gloss": "主动放电从最高电压降到 60V 以下的时间限值",
-      "aliases": [
-        "主动放电时间",
-        "主动放电时长",
-        "主动放电≤",
-        "放电到60V时间",
-        "快速放电时间",
-        "主动放电完成时间",
-        "active discharge time",
-        "active discharge duration",
-        "discharge time to 60 V",
-        "time to below 60 V",
-        "fast discharge time"
-      ],
-      "weak_aliases": [],
-      "unit_cues": [
-        "s + 60 V"
-      ],
-      "exclude": [
-        "被动放电时间（→#27）",
-        "备份电源维持时间 2 min（→#23）",
-        "峰值持续时间（→#29/#46）"
-      ],
-      "unverified": [],
-      "std": [],
-      "see": [
-        15,
-        27,
-        23
-      ],
-      "notes": [],
-      "reject_patterns": [
-        "被动放电时间",
-        "备份电源维持时间 2 min",
-        "峰值持续时间"
-      ],
-      "retrieve_aliases": [],
-      "split_harm": "被动放电时间（→#27）；备份电源维持时间 2 min（→#23）",
-      "retrieve": false,
-      "conflict": "",
-      "status": "draft"
-    },
-    {
-      "seq": 27,
-      "name": "被动放电时间",
-      "group": "高压安全",
-      "gloss": "被动放电从最高电压降到 60V 以下的时间限值",
-      "aliases": [
-        "被动放电时间",
-        "被动放电时长",
-        "自然放电时间",
-        "被动放电≤",
-        "慢放电时间",
-        "passive discharge time",
-        "passive discharge duration",
-        "bleed down time",
-        "passive bleed time"
-      ],
-      "weak_aliases": [],
-      "unit_cues": [
-        "s / min + 60 V"
-      ],
-      "exclude": [
-        "主动放电时间（→#26）",
-        "备份电源 2 min（→#23，数字相近易混）"
-      ],
-      "unverified": [],
-      "std": [],
-      "see": [
-        16,
-        26,
-        23
-      ],
-      "notes": [],
-      "reject_patterns": [
-        "主动放电时间",
-        "备份电源 2 min"
-      ],
-      "retrieve_aliases": [],
-      "split_harm": "主动放电时间（→#26）；备份电源 2 min（→#23，数字相近易混）",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -2873,7 +2670,7 @@
       "exclude": [
         "P3 语境（→P3 对应条目）",
         "扭矩响应时间 ms（→#77）",
-        "放电时间（→#26/#27）",
+        "放电时间（→#15/#16）",
         "堵转时间"
       ],
       "unverified": [],
@@ -3455,7 +3252,9 @@
         "P3 语境（→P3 对应条目）",
         "单个 Arms 值（→ ASC 电流条目）",
         "堵转电流",
-        "相电流峰值"
+        "相电流峰值",
+        "电机/电磁允许稳态电流（与逆变器能力不同时只进备注）",
+        "持续交流相电流（→#43）"
       ],
       "unverified": [],
       "std": [],
@@ -3463,12 +3262,17 @@
         42
       ],
       "notes": [
-        "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目"
+        "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目",
+        "电机允许电流（如 253A/3.5s）与逆变器能力（如 250A/3.5s）分列；逆变器格只写逆变器侧",
+        "「在此条件下」跟电机稳态电流；持续相电流（6.5.7.2）不进本条；短时峰值 @1ms 只写成对格的瞬态半句"
       ],
       "reject_patterns": [
         "单个 Arms 值",
         "堵转电流",
-        "相电流峰值"
+        "相电流峰值",
+        "电机",
+        "电磁允许稳态电流",
+        "持续交流相电流"
       ],
       "retrieve_aliases": [],
       "split_harm": "与 ASC 电流条目区分规则：带稳态/瞬态与时长的成对数值→本条；单一 Arms→ASC 电流条目",
@@ -3511,10 +3315,12 @@
         "WLTC efficiency"
       ],
       "unit_cues": [
-        "% @ UDC/Nm/rpm 边界"
+        "% @ UDC/Nm/rpm 边界",
+        "平均效率 Average efficiency"
       ],
       "exclude": [
         "P3 语境（→P3 对应条目）",
+        "P3综合效率 combined efficiency（→#56）",
         "升压效率（→#66）",
         "电机效率 motor efficiency",
         "系统效率（含电机，口径不同）"
@@ -3528,12 +3334,13 @@
       ],
       "notes": [],
       "reject_patterns": [
+        "P3综合效率 combined efficiency",
         "升压效率",
         "电机效率 motor efficiency",
         "系统效率"
       ],
       "retrieve_aliases": [],
-      "split_harm": "P3 语境（→P3 对应条目）；升压效率（→#66）",
+      "split_harm": "P3 语境（→P3 对应条目）；P3综合效率 combined efficiency（→#56）",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -3566,20 +3373,27 @@
       ],
       "exclude": [
         "P3 语境（→P3 对应条目）",
-        "稳态/瞬态成对 A/s（→ ASC 能力条目）"
+        "稳态/瞬态成对 A/s（→ ASC 能力条目）",
+        "持续交流相电流（→#43）",
+        "短时峰值 @1ms（→#40 瞬态）"
       ],
       "unverified": [],
       "std": [],
       "see": [
         40
       ],
-      "notes": [],
+      "notes": [
+        "逆变器侧 Arms；与电机允许电流不同时只写逆变器值，电机电流进备注",
+        "「在此条件下」跟电机稳态电流；持续相电流不进本条"
+      ],
       "reject_patterns": [
         "稳态",
-        "瞬态成对 A"
+        "瞬态成对 A",
+        "持续交流相电流",
+        "短时峰值 @1ms"
       ],
       "retrieve_aliases": [],
-      "split_harm": "P3 语境（→P3 对应条目）；稳态/瞬态成对 A/s（→ ASC 能力条目）",
+      "split_harm": "逆变器侧 Arms；与电机允许电流不同时只写逆变器值，电机电流进备注",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -3793,7 +3607,7 @@
       "exclude": [
         "P1 语境（→P1 对应条目）",
         "扭矩响应时间 ms（→#77）",
-        "放电时间（→#26/#27）",
+        "放电时间（→#15/#16）",
         "堵转时间"
       ],
       "unverified": [],
@@ -4320,10 +4134,13 @@
         "WLTC efficiency"
       ],
       "unit_cues": [
-        "% @ UDC/Nm/rpm 边界"
+        "% @ UDC/Nm/rpm 边界",
+        "综合效率 combined efficiency",
+        "区间1/2/3 Interval"
       ],
       "exclude": [
         "P1 语境（→P1 对应条目）",
+        "P1平均效率 Average efficiency（→#41）",
         "升压效率（→#66）",
         "电机效率 motor efficiency",
         "系统效率（含电机，口径不同）"
@@ -4337,12 +4154,13 @@
       ],
       "notes": [],
       "reject_patterns": [
+        "P1平均效率 Average efficiency",
         "升压效率",
         "电机效率 motor efficiency",
         "系统效率"
       ],
       "retrieve_aliases": [],
-      "split_harm": "P1 语境（→P1 对应条目）；升压效率（→#66）",
+      "split_harm": "P1 语境（→P1 对应条目）；P1平均效率 Average efficiency（→#41）",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -4922,13 +4740,15 @@
         62,
         64
       ],
-      "notes": [],
+      "notes": [
+        "6.5.4 HV Booster 三种 Boost/bypass/BUCK 进本条；最高电压单值同时写"
+      ],
       "reject_patterns": [
         "最高工作电压单值",
         "HVDC 范围"
       ],
       "retrieve_aliases": [],
-      "split_harm": "最高工作电压单值（→#62）；HVDC 范围（→#5）",
+      "split_harm": "6.5.4 HV Booster 三种 Boost/bypass/BUCK 进本条；最高电压单值同时写",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -4972,13 +4792,15 @@
         28,
         45
       ],
-      "notes": [],
+      "notes": [
+        "抽出值写 P=UI 的 kW 点值并括注 Vmax×Imax@t（峰值/持续分行）；禁止把电压区间展开成 kW 范围，持续电流只用 Boost 列"
+      ],
       "reject_patterns": [
         "P1",
         "P3 峰值功率"
       ],
       "retrieve_aliases": [],
-      "split_harm": "P1/P3 峰值功率（→#28/#45；源表用「升压@450V」修饰 P1/P3 功率，需靠 P1/P3 前缀区分）",
+      "split_harm": "抽出值写 P=UI 的 kW 点值并括注 Vmax×Imax@t（峰值/持续分行）；禁止把电压区间展开成 kW 范围，持续电流只用 Boost 列",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -5167,7 +4989,9 @@
         "低压功耗 W（→#21）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 7.3→Q/JLP 030600-11"
+      ],
       "see": [
         120
       ],
@@ -5282,6 +5106,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.21→Q/JLY J7111029 5.3.9；6.28→Q/JLY J7111029 5.3.16；6.29→Q/JLY J7111029 5.4",
         "Q/JL J160003-2024 [清单]",
         "ISO 16750-4（盐雾）",
         "GB/T 28046.4",
@@ -5348,6 +5173,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.10→Q/JLY J7111029 5.2.1；6.11→Q/JLY J7111029 5.2.2；7.4→Q/JLP 030600-10",
         "ISO 16750-3",
         "GB/T 28046.3",
         "ISO 19453-3（电驱高压部件机械负荷）"
@@ -5421,6 +5247,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.31→Q/JLY J7110779；7.9→Q/JLY J7110779",
         "Q/JLY J7110922D-2024 [清单]",
         "CISPR 25",
         "ISO 11452 系列",
@@ -6251,7 +6078,9 @@
         "ASC/额定/峰值电流值本身（→#42/#43/#44）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 6.9"
+      ],
       "see": [
         10,
         58
@@ -6304,7 +6133,9 @@
         "过压阈值（→#9）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 6.8"
+      ],
       "see": [
         5,
         92
@@ -6409,24 +6240,31 @@
         "IGBT/模块温度（→#94）",
         "油温（→#82）",
         "水温（→#83/#84）",
-        "转子温度估算"
+        "转子温度估算",
+        "控制器/IGBT 量程约 120℃（→#94）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 6.7"
+      ],
       "see": [
         94,
         82
       ],
-      "notes": [],
+      "notes": [
+        "电机温度传感器量程常见 ≥200℃，与控制器 120℃ 分列；精度档另写"
+      ],
       "reject_patterns": [
         "IGBT",
         "模块温度",
         "油温",
         "水温",
-        "转子温度估算"
+        "转子温度估算",
+        "控制器",
+        "IGBT 量程约 120℃"
       ],
       "retrieve_aliases": [],
-      "split_harm": "IGBT/模块温度（→#94）；油温（→#82）",
+      "split_harm": "电机温度传感器量程常见 ≥200℃，与控制器 120℃ 分列；精度档另写",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -6470,21 +6308,27 @@
       "exclude": [
         "电机温度（→#93）",
         "环境温度（→#97）",
-        "结温限值 Tjmax（器件限值，非采样精度）"
+        "结温限值 Tjmax（器件限值，非采样精度）",
+        "电机温度传感器量程 ≥200℃（→#93）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 6.6"
+      ],
       "see": [
         93
       ],
-      "notes": [],
+      "notes": [
+        "控制器/IGBT 温度传感器量程常见 120℃，不要写到电机格"
+      ],
       "reject_patterns": [
         "电机温度",
         "环境温度",
-        "结温限值 Tjmax"
+        "结温限值 Tjmax",
+        "电机温度传感器量程 ≥200℃"
       ],
       "retrieve_aliases": [],
-      "split_harm": "电机温度（→#93）；环境温度（→#97）",
+      "split_harm": "控制器/IGBT 温度传感器量程常见 120℃，不要写到电机格",
       "retrieve": false,
       "conflict": "",
       "status": "draft"
@@ -6653,6 +6497,7 @@
         "surface temperature [原字典]（表面温度一般是壳温限值，非环境温度）"
       ],
       "std": [
+        "Q/JLP 030602-07-2026A 6.13→Q/JLY J7111029 5.3.1；6.14→Q/JLY J7111029 5.3.2",
         "ISO 16750-4",
         "GB/T 28046.4",
         "ISO 19453-4"
@@ -6709,7 +6554,9 @@
         "车高"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 6.15→Q/JLY J7111029 5.3.3；6.16→Q/JLY J7111029 5.3.4；6.17→Q/JLY J7111029 5.3.5；6.18→Q/JLY J7111029 5.3.6；6.19→Q/JLY J7111029 5.3.7；6.20→Q/JLY J7111029 5.3.8"
+      ],
       "see": [],
       "notes": [],
       "reject_patterns": [
@@ -6747,7 +6594,9 @@
         "工作湿度（→#100）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 6.22→Q/JLY J7111029 5.3.10"
+      ],
       "see": [
         100
       ],
@@ -6798,6 +6647,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.22→Q/JLY J7111029 5.3.10；6.23→Q/JLY J7111029 5.3.11；6.24→Q/JLY J7111029 5.3.12；6.25→Q/JLY J7111029 5.3.13",
         "ISO 16750-4",
         "GB/T 28046.4",
         "IEC 60068-2-30（交变湿热）",
@@ -6915,6 +6765,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.21→Q/JLY J7111029 5.3.9；6.28→Q/JLY J7111029 5.3.16；6.29→Q/JLY J7111029 5.4",
         "Q/JL J160003-2024 [清单]",
         "ISO 16750-4（盐雾）",
         "GB/T 28046.4",
@@ -6981,6 +6832,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.10→Q/JLY J7111029 5.2.1；6.11→Q/JLY J7111029 5.2.2；7.4→Q/JLP 030600-10",
         "ISO 16750-3",
         "GB/T 28046.3",
         "ISO 19453-3（电驱高压部件机械负荷）"
@@ -7063,6 +6915,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.4→图纸规定泄漏量；6.5→图纸规定泄漏量；6.20→Q/JLY J7111029 5.3.8；6.26→Q/JLY J7111029 5.3.14；6.27→Q/JLY J7111029 5.3.15",
         "ISO 20653",
         "IEC 60529",
         "GB/T 4208",
@@ -7185,6 +7038,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.35→Q/JLY J7110335",
         "Q/JLY J7210870B-2024 [清单]",
         "UL 94",
         "GB 8410",
@@ -7253,6 +7107,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.32→IEC 60068-2-2；6.33→IEC 60068-2-14；7.6→Q/JLP 030600-06；7.7→Q/JLP 030002-21；7.8→Q/JLP 030002-20",
         "Q/JLY J7111825B-2024 [清单]",
         "GB/T 29307（驱动电机系统可靠性试验）"
       ],
@@ -7325,6 +7180,7 @@
       ],
       "unverified": [],
       "std": [
+        "Q/JLP 030602-07-2026A 6.34→Q/JL J160001",
         "Q/JL J160001-2026 [清单]",
         "ELV 2000/53/EC",
         "GB/T 30512",
@@ -7459,7 +7315,9 @@
         "低压插件"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 6.4→图纸规定泄漏量；7.3→Q/JLP 030600-11"
+      ],
       "see": [
         111
       ],
@@ -8015,7 +7873,9 @@
         "效率 %（→#41/#56/#66）"
       ],
       "unverified": [],
-      "std": [],
+      "std": [
+        "Q/JLP 030602-07-2026A 7.3→Q/JLP 030600-11"
+      ],
       "see": [
         72
       ],

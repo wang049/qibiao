@@ -83,6 +83,8 @@ class JobTests(unittest.TestCase):
                 extract=True,
                 kind_label="测试",
                 kind_note="",
+                qa_verdict="pass",
+                qa_summary="通过。可读正文约 120 字。",
                 stopped_early=False,
             )
 
@@ -107,6 +109,9 @@ class JobTests(unittest.TestCase):
         self.assertEqual(data["found"], 0)
         self.assertEqual(data["partial"], 0)
         self.assertEqual(data["miss"], 0)
+        self.assertEqual(data.get("qa_verdict"), "pass")
+        self.assertNotIn("交叉检查不填抽出值", str(data.get("qa_summary") or ""))
+        self.assertNotIn("已见主题", str(data.get("qa_summary") or ""))
         self.assertTrue(str(data["download"]).startswith("/files/"))
         self.assertTrue(str(data.get("knowledge_version") or "").strip())
         self.assertNotIn(".yaml", str(data.get("knowledge_version") or ""))
@@ -126,6 +131,14 @@ class JobTests(unittest.TestCase):
                 if row.get("id") == job_id
             ),
             DEMO_USER,
+        )
+        self.assertEqual(
+            next(
+                row.get("qa_verdict")
+                for row in listed.json()["jobs"]
+                if row.get("id") == job_id
+            ),
+            "pass",
         )
 
     def test_job_uses_selected_model(self) -> None:

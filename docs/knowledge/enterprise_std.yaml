@@ -1,0 +1,373 @@
+# Q/JLP 030602-07-2026A 电机控制器设计验证规范（结构化摘录）
+# 保密一级原文不入库。本文件只收定义、试验方法引用、与 120 项对照。
+# fill 必须为 false。评价准则多为「满足当份 DPR」；本企标不是填格答案库。
+fill: false
+std_id: Q/JLP 030602-07-2026A
+title: 电机控制器设计验证规范
+classification: 保密一级
+coverage: 第3章定义；6.2–6.36 零部件试验；第7章及 7.1–7.9 整机试验。7.10 NVH、第8章整车未收。
+rule: 抽出值只来自当份 DPR。本企标提供试验方法、定义与认条对照，不提供抽出值。
+
+terms:
+  - name: 驱动电机控制器
+    gloss: 调节驱动电机电流、电压、频率等，使电机按指令输出转速和转矩的装置。
+    see_seq: []
+  - name: DHT
+    gloss: 混合动力变速器（Dedicated Hybrid Transmission）。振动等试验的 DUT 常要求为 DHT 整机，不是控制器单件。
+    see_seq: [75, 103]
+  - name: 直流母线电压
+    gloss: 驱动电机控制器的直流高压动力端电压。抽出值仍只来自当份 DPR 工况表。
+    see_seq: [5, 6, 7]
+  - name: 额定电压
+    gloss: 制造厂规定的控制器设计电压。不是试验箱默认值。
+    see_seq: [5]
+  - name: 持续电流
+    gloss: 规定条件下交流侧可长时间持续工作的最大电流。企标明确为交流侧，不是直流母线电流。
+    see_seq: [43, 58]
+  - name: 峰值电流
+    gloss: 规定时间内交流侧可短时工作的最大电流。企标明确为交流侧。
+    see_seq: [44, 60]
+  - name: 最高工作转速
+    gloss: 驱动电机在弱磁控制下可达到的最高工作转速。
+    see_seq: [35, 52]
+  - name: 主动放电
+    gloss: 下电后由控制器主动把母线电压放到安全电压以下。时间与安全电压看当份 DPR。
+    see_seq: [15]
+  - name: 被动放电
+    gloss: 无控制时经泄放回路自然放电。时间与安全电压看当份 DPR。
+    see_seq: [16]
+  - name: 效率
+    gloss: 输出机械功率与输入电功率之比（Pout/Pin）。边界（电压/扭矩/转速）看当份 DPR。
+    see_seq: [41, 56]
+  - name: 运行时间
+    gloss: 电机控制器设计的可运行时间。具体小时数/年数只取当份 DPR，不用企标举例口径。
+    see_seq: [107]
+  - name: 寿命周期及温度分布
+    gloss: 寿命周期内的运行时间以及环境/冷却液温度分布。分布和时长只取当份 DPR。
+    see_seq: [98, 107]
+
+clauses:
+  - id: "6.2"
+    title: 绝缘电阻试验
+    kind: component
+    method_std:
+      - Q/JLY J7211010
+    gloss: 测试电压按当份 DPR 最高工作电压选择。评价：满足 DPR 绝缘电阻。
+    see_seq: [13]
+  - id: "6.3"
+    title: 耐电压试验
+    kind: component
+    method_std:
+      - Q/JLY J7110218
+    gloss: 方法按 J7110218。评价：满足 DPR 耐电压。与清单「参考 J7110218 的 5.3.10」扭矩精度不是同一条。
+    see_seq: [14]
+  - id: "6.4"
+    title: 水道气密试验
+    kind: component
+    method_std:
+      - 图纸规定泄漏量
+    gloss: 室温条件做水道气密。泄漏量看图纸/DPR，不是清单冷却压降。
+    see_seq: [104, 110]
+  - id: "6.5"
+    title: 整机气密试验
+    kind: component
+    method_std:
+      - 图纸规定泄漏量
+    gloss: 整机气密。泄漏量看图纸/DPR。
+    see_seq: [104]
+  - id: "6.6"
+    title: IGBT 模块温度精度
+    kind: component
+    method_std: []
+    gloss: 采样精度评价看当份 DPR。试验点不是产品工作温度范围。
+    see_seq: [94]
+  - id: "6.7"
+    title: 电机温度精度
+    kind: component
+    method_std: []
+    gloss: 采样精度评价看当份 DPR。
+    see_seq: [93]
+  - id: "6.8"
+    title: 直流母线电压精度
+    kind: component
+    method_std: []
+    gloss: 母线电压采样精度，评价看当份 DPR。不是 HVDC 工作电压范围本身。
+    see_seq: [91]
+  - id: "6.9"
+    title: 交流电流精度
+    kind: component
+    method_std: []
+    gloss: 相电流采样精度，评价看当份 DPR。
+    see_seq: [90]
+  - id: "6.10"
+    title: 振动
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.2.1
+    gloss: DUT 必须是 DHT 整机。评价看 DPR/该方法。
+    see_seq: [75, 103]
+  - id: "6.11"
+    title: 机械冲击
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.2.2
+    gloss: 机械冲击方法见 J7111029。清单无单独冲击条，挂振动/结构相关。
+    see_seq: [75, 103]
+  - id: "6.12"
+    title: 自由跌落
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.2.3
+    gloss: 清单无对应条。只作方法引用，不填格。
+    see_seq: []
+  - id: "6.13"
+    title: 低温储存
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.1
+    gloss: 储存温度上下限看当份 DPR。
+    see_seq: [97]
+  - id: "6.14"
+    title: 高温储存
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.2
+    gloss: 储存温度上下限看当份 DPR。
+    see_seq: [97]
+  - id: "6.15"
+    title: 低温工作
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.3
+    gloss: 工作温度下限看当份 DPR。
+    see_seq: [98]
+  - id: "6.16"
+    title: 高温工作
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.4
+    gloss: 工作温度上限看当份 DPR。
+    see_seq: [98]
+  - id: "6.17"
+    title: 温度梯度
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.5
+    gloss: 环境温度变化方法。工作温度范围仍看 DPR。
+    see_seq: [98]
+  - id: "6.18"
+    title: 温度循环
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.6
+    gloss: 环境温度循环方法。工作温度范围仍看 DPR。
+    see_seq: [98]
+  - id: "6.19"
+    title: 温度快变
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.7
+    gloss: 环境温度快变方法。工作温度范围仍看 DPR。
+    see_seq: [98]
+  - id: "6.20"
+    title: 冰水冲击
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.8
+    gloss: 冰水冲击方法。不要当成冷却回路压降。
+    see_seq: [98, 104]
+  - id: "6.21"
+    title: 盐雾
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.9
+    gloss: 盐雾/防腐方法。等级与标准号看当份 DPR。
+    see_seq: [74, 102]
+  - id: "6.22"
+    title: 湿热循环
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.10
+    gloss: 本条 5.3.10 属于 J7111029 湿热循环，不是 J7110218 的 5.3.10（扭矩精度），也不是冷却条款。
+    see_seq: [99, 100]
+  - id: "6.23"
+    title: 结露
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.11
+    gloss: 结露方法。湿度要求看当份 DPR。
+    see_seq: [100]
+  - id: "6.24"
+    title: 稳态湿热
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.12
+    gloss: 稳态湿热方法。湿度要求看当份 DPR。
+    see_seq: [100]
+  - id: "6.25"
+    title: 冷凝
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.13
+    gloss: 冷凝方法。湿度要求看当份 DPR。
+    see_seq: [100]
+  - id: "6.26"
+    title: 防尘
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.14
+    gloss: 防尘等级看当份 DPR 的 IP。
+    see_seq: [104]
+  - id: "6.27"
+    title: 防水
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.15
+    gloss: 防水等级按当份 DPR。
+    see_seq: [104]
+  - id: "6.28"
+    title: 混合气体腐蚀
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.3.16
+    gloss: 混合气体腐蚀。防腐等级看当份 DPR。
+    see_seq: [74, 102]
+  - id: "6.29"
+    title: 化学负荷
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.4
+    gloss: 化学负荷。防腐/材料要求看当份 DPR。
+    see_seq: [74, 102]
+  - id: "6.30"
+    title: ELP 低压电气
+    kind: component
+    method_std:
+      - Q/JLY J7111029 5.1
+    gloss: 低压电气试验边界看当份 DPR 的低压电源电压，不用试验箱默认点填格。
+    see_seq: [20]
+  - id: "6.31"
+    title: EMC
+    kind: component
+    method_std:
+      - Q/JLY J7110779
+    gloss: 零部件 EMC 方法。等级与限值看当份 DPR。
+    see_seq: [76]
+  - id: "6.32"
+    title: 高温运行耐久
+    kind: component
+    method_std:
+      - IEC 60068-2-2
+    gloss: 试验边界全部来自当份 DPR（环境/冷却液/HVDC/扭矩电流/寿命时间与温度分布）。本条不提供寿命小时数。
+    look_in_dpr:
+      - 最高工作环境温度
+      - 最高冷却液温度
+      - 冷却液流量
+      - HVDC满载最低电压
+      - HVDC额定电压
+      - HVDC满载最高电压
+      - 额定扭矩
+      - 额定交流电流
+      - 峰值扭矩
+      - 峰值交流电流
+      - 寿命周期运行时间
+      - 寿命周期环境温度分布
+      - 寿命周期冷却液温度分布
+    see_seq: [107]
+  - id: "6.33"
+    title: 带载温度循环耐久
+    kind: component
+    method_std:
+      - IEC 60068-2-14
+    gloss: 带载温度循环。边界来自当份 DPR，不是库典型寿命。
+    see_seq: [107]
+  - id: "6.34"
+    title: 禁限用物质
+    kind: component
+    method_std:
+      - Q/JL J160001
+    gloss: 禁用/限用物质方法。具体物质与限值看当份 DPR。
+    see_seq: [108]
+  - id: "6.35"
+    title: 阻燃
+    kind: component
+    method_std:
+      - Q/JLY J7110335
+    gloss: 阻燃方法。等级看当份 DPR。
+    see_seq: [106]
+  - id: "6.36"
+    title: 臭氧老化
+    kind: component
+    method_std:
+      - Q/JLY J7111521
+    gloss: 橡胶件臭氧老化。清单无对应条，只作引用。
+    see_seq: []
+  - id: "7"
+    title: 整机试验
+    kind: assembly
+    method_std: []
+    gloss: 整机试验总则。具体方法见 7.1–7.9。评价仍看当份 DPR。
+    see_seq: []
+  - id: "7.1"
+    title: 电机标定
+    kind: assembly
+    method_std:
+      - Q/JLP 070306
+    gloss: 电机标定方法。120 项无直接对应条。
+    see_seq: []
+  - id: "7.2"
+    title: EDS 功能性能
+    kind: assembly
+    method_std:
+      - Q/JLP 030601-05
+    gloss: 电驱系统功能性能。性能数值仍取当份 DPR。
+    see_seq: []
+  - id: "7.3"
+    title: 温度场
+    kind: assembly
+    method_std:
+      - Q/JLP 030600-11
+    gloss: 整机温度场。冷却/热损失数值取当份 DPR。
+    see_seq: [72, 110, 120]
+  - id: "7.4"
+    title: 整机振动
+    kind: assembly
+    method_std:
+      - Q/JLP 030600-10
+    gloss: 整机振动方法。振动要求看当份 DPR。
+    see_seq: [75, 103]
+  - id: "7.5"
+    title: EHP 高压电气
+    kind: assembly
+    method_std:
+      - Q/JLP 030001-24
+    gloss: 整机高压电气。HVDC 工况电压取当份 DPR，不是本企标试验边界。
+    see_seq: [5, 6, 7]
+  - id: "7.6"
+    title: 整机高温耐久
+    kind: assembly
+    method_std:
+      - Q/JLP 030600-06
+    gloss: 整机高温耐久。寿命数字取当份 DPR。
+    see_seq: [107]
+  - id: "7.7"
+    title: 整机带载温度循环
+    kind: assembly
+    method_std:
+      - Q/JLP 030002-21
+    gloss: 整机带载温度循环。寿命数字取当份 DPR。
+    see_seq: [107]
+  - id: "7.8"
+    title: 动态耐久
+    kind: assembly
+    method_std:
+      - Q/JLP 030002-20
+    gloss: 整机动态耐久。寿命数字取当份 DPR。
+    see_seq: [107]
+  - id: "7.9"
+    title: 整机 EMC
+    kind: assembly
+    method_std:
+      - Q/JLY J7110779
+    gloss: 整机 EMC。等级与限值看当份 DPR。
+    see_seq: [76]

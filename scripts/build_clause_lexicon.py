@@ -30,9 +30,7 @@ CONFLICT_BY_SEQ = {
     37: "p1_back_emf",
     54: "p3_back_emf",
     13: "insulation",
-    18: "insulation",
     14: "dielectric",
-    19: "dielectric",
     28: "p1_peak_power",
     29: "p1_peak_power_duration",
     45: "p3_peak_power",
@@ -51,7 +49,7 @@ CONFLICT_BY_SEQ = {
     118: "cybersecurity",
 }
 
-RETRIEVE_SEQS = frozenset({14, 19})
+RETRIEVE_SEQS = frozenset({14})
 RETRIEVE_CORE = ("耐压", "hipot", "dielectric", "工频耐压", "直流耐压")
 RETRIEVE_SKIP = {
     "击穿",
@@ -174,7 +172,7 @@ def _conflict(seq: int, name: str) -> str:
 def _reject_patterns(seq: int, exclude: object) -> list[str]:
     out = _patterns_from_exclude(exclude)
     extra: tuple[str, ...] = ()
-    if seq in {14, 19}:
+    if seq == 14:
         extra = DIELECTRIC_REJECT
     elif seq == 22:
         extra = STATIC_REJECT
@@ -194,10 +192,26 @@ def _split_harm(item: dict) -> str:
     return "；".join(exclude[:2])
 
 
+def dropped_seqs(payload: dict | None = None) -> set[int]:
+    data = payload
+    if data is None:
+        data = yaml.safe_load(YAML_PATH.read_text(encoding="utf-8"))
+    from_meta = {int(x) for x in ((data.get("meta") or {}).get("dropped") or [])}
+    from_items = {
+        int(item["id"])
+        for item in (data.get("items") or [])
+        if item.get("dropped")
+    }
+    return from_meta | from_items
+
+
 def build_frames(payload: dict) -> list[dict]:
     frames: list[dict] = []
+    skip = dropped_seqs(payload)
     for item in payload.get("items") or []:
         seq = int(item["id"])
+        if seq in skip or item.get("dropped"):
+            continue
         name = str(item.get("name") or "").strip()
         strong = _aliases(
             list(item.get("zh_strong") or []) + list(item.get("en_strong") or [])

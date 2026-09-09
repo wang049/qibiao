@@ -14,7 +14,7 @@
 
 ## 二级依据
 
-- SuperEvo 全文无 `6.5.2`、无 `6.6.3`。DHTS 才因修订记录写过 6.5.2 而映低压表。交叉 `2026-09-07-ripple-lv-unnumbered-headings`。
+- SuperEvo 的 python-docx 文本里曾经搜不到字面 `6.5.2`（大纲自动编号被丢掉）。Word 打开后低压功耗标题印的是 `6.5.2`，恢复大纲号后当份 Markdown 应出现该号，见 `2026-09-08-word-outline-number-and-toc-page`。无编号、也无修订记录字样的片段仍不得用 DHTS 目录套号。
 - 「参考 Q/JLY J7110218D-2025 的 5.3.10」是扭矩精度企标引用，不是本份冷却章节。
 - `6.2.1.5` 正文是定位销；下一节标题 `Cooling connections冷却连接` 未印号。
 - 高压范围表优先于 PCM 母线工作电压范围。交叉 `2026-09-07-hvdc-range-is-not-protection-clause`。

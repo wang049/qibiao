@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器 · SOR填表</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260907i" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260909c" />
 </head>
 <body>
   <div class="app">
@@ -31,28 +31,9 @@
         </div>
         <button type="button" id="rail-new" class="rail-new">+ 新建出表</button>
         <div class="rail-block">
-          <div class="rail-label">核心能力</div>
+          <div class="rail-label">出表</div>
           <button type="button" id="rail-home" class="rail-fn">工作台</button>
-          <button type="button" id="rail-extract" class="rail-fn">
-            <span>SOR 参数提取</span>
-            <em>能力 1</em>
-          </button>
-          <button type="button" class="rail-fn is-later" disabled>
-            <span>架构文档处理</span>
-            <em>能力 2</em>
-          </button>
-          <button type="button" class="rail-fn is-later" disabled>
-            <span>IO+ICD 规划</span>
-            <em>能力 3</em>
-          </button>
-          <button type="button" class="rail-fn is-later" disabled>
-            <span>企标测试项</span>
-            <em>能力 4</em>
-          </button>
-          <button type="button" class="rail-fn is-later" disabled>
-            <span>CE BOM 输出</span>
-            <em>能力 5</em>
-          </button>
+          <button type="button" id="rail-extract" class="rail-fn">SOR 参数提取</button>
         </div>
         <div class="rail-block rail-jobs">
           <div class="rail-label">出表记录</div>
@@ -60,23 +41,11 @@
           <div id="job-list" class="job-list"></div>
         </div>
         <div class="rail-block">
-          <div class="rail-label">内置知识库 / 工具</div>
+          <div class="rail-label">知识库</div>
           <button type="button" id="rail-kb" class="rail-tool">
             <i class="tool-dot" aria-hidden="true"></i>
             <span>电机控制器知识库</span>
           </button>
-          <div class="rail-tool is-later">
-            <i class="tool-dot wait" aria-hidden="true"></i>
-            <span>架构规则库 · 后续节点</span>
-          </div>
-          <div class="rail-tool is-later">
-            <i class="tool-dot wait" aria-hidden="true"></i>
-            <span>IO 约束与命名 · 后续节点</span>
-          </div>
-          <div class="rail-tool is-later">
-            <i class="tool-dot wait" aria-hidden="true"></i>
-            <span>企标测试模板 · 后续节点</span>
-          </div>
         </div>
         <div id="who-wrap" class="rail-user" hidden>
           <span id="who-avatar" class="who-avatar" aria-hidden="true">工</span>
@@ -136,11 +105,11 @@
           <div id="home-card" hidden>
             <div class="home-hello">
               <h2>你好，我是<span>电子电器智能体</span></h2>
-              <p>登录后选择功能、提交当份材料，按既定步骤生成输出物。不由模型自行规划路径。同一时刻只处理一份任务。</p>
+              <p>登录后导入当份规格书，按既定步骤生成核对表。不由模型自行规划路径。同一时刻只处理一份任务。</p>
             </div>
             <div class="home-grid">
               <button type="button" class="fn-card" data-go="extract" data-pick="1">
-                <span class="fn-kicker">第 1 项 · 已开通</span>
+                <span class="fn-kicker">SOR 出表</span>
                 <strong>SOR 参数提取</strong>
                 <p>导入 PDF / Word / Excel 规格书，规则先填，模型只补空缺项，按模板出核对表。抽出值只来自当份材料，禁止用库填数；核对表须人工确认后定稿。</p>
                 <span class="fn-chips">
@@ -152,38 +121,12 @@
                   <span class="fn-go">进入出表</span>
                 </span>
               </button>
-              <article class="fn-card is-later">
-                <span class="fn-kicker">第 2 项 · 后续节点</span>
-                <strong>架构文档处理</strong>
-                <p>参考过往架构文档辅助填报。规则由甲方确认后开通。</p>
-                <span class="fn-go is-wait">后续节点</span>
-              </article>
-              <article class="fn-card is-later">
-                <span class="fn-kicker">第 3 项 · 后续节点</span>
-                <strong>IO+ICD 规划</strong>
-                <p>对照芯片数据手册生成 IO 口初始配置表，供人工确认。</p>
-                <span class="fn-go is-wait">后续节点</span>
-              </article>
-              <article class="fn-card is-later">
-                <span class="fn-kicker">第 4 项 · 后续节点</span>
-                <strong>企标测试项提取与对比</strong>
-                <p>自企标提取测试项并按项目调整。模板确认后开通。</p>
-                <span class="fn-go is-wait">后续节点</span>
-              </article>
-              <article class="fn-card is-later">
-                <span class="fn-kicker">第 5 项 · 后续节点</span>
-                <strong>CE BOM 输出</strong>
-                <p>自物料手册提取外形与重量，按确认表格式输出 Excel。</p>
-                <span class="fn-go is-wait">后续节点</span>
-              </article>
             </div>
             <div class="home-chips">
               <span>电机控制器知识库</span>
-              <span>第 1 项已开通</span>
-              <span>分节点交付</span>
               <span>同一时刻一份</span>
             </div>
-            <p class="home-foot">文件只在本机读取，不上传公网。五项功能按既定步骤执行，不由模型自行规划路径。</p>
+            <p class="home-foot">文件只在本机读取，不上传公网。出表按既定步骤执行，不由模型自行规划路径。</p>
           </div>
 
           <div id="work-card" class="card" hidden>
@@ -240,12 +183,16 @@
                   <b>2</b><span class="step-name">扫描识别</span>
                   <span class="step-desc">扫描件才做 OCR；文字稿可跳过</span>
                 </div>
+                <div id="st-qc" class="step" role="listitem">
+                  <b>3</b><span class="step-name">质检</span>
+                  <span class="step-desc">先看文件能不能读，再对照库里的主题</span>
+                </div>
                 <div id="st-extract" class="step" role="listitem">
-                  <b>3</b><span class="step-name">抽取</span>
+                  <b>4</b><span class="step-name">抽取</span>
                   <span class="step-desc">规则先填，模型只补空缺项</span>
                 </div>
                 <div id="st-write" class="step" role="listitem">
-                  <b>4</b><span class="step-name">出表</span>
+                  <b>5</b><span class="step-name">出表</span>
                   <span class="step-desc">按模板写出页码与原文摘录</span>
                 </div>
               </div>
@@ -264,7 +211,7 @@
                 <span class="kb-chip warn">禁止用库填数</span>
               </div>
               <label class="kb-search">检索
-                <input id="kb-q" type="search" placeholder="条款号、名称、别名、公式…" autocomplete="off" />
+                <input id="kb-q" type="search" placeholder="条款号、名称、别名、公式、企标…" autocomplete="off" />
               </label>
             </div>
             <div id="kb-stats" class="kb-stats"></div>
@@ -303,7 +250,7 @@
       </main>
     </div>
   </div>
-  <script src="/static/app.js?v=20260907h" defer></script>
-  <script src="/static/kb.js?v=20260907a" defer></script>
+  <script src="/static/app.js?v=20260909d" defer></script>
+  <script src="/static/kb.js?v=20260909e" defer></script>
 </body>
 </html>

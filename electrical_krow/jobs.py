@@ -39,6 +39,8 @@ _HISTORY_FIELDS = (
     "extract",
     "kind_label",
     "kind_note",
+    "qa_verdict",
+    "qa_summary",
     "download",
     "llm_calls",
     "rule_filled",
@@ -81,6 +83,15 @@ def _run_pipeline(incoming: Path, out: Path, *, model: str = ""):
     lexicon = PROJECT_ROOT / "docs" / "clause_lexicon.json"
     if lexicon.is_file():
         os.environ.setdefault("SPEC_SHEET_CLAUSE_LEXICON", str(lexicon))
+    manifest = PROJECT_ROOT / "docs" / "knowledge" / "published" / "manifest.json"
+    if manifest.is_file():
+        os.environ.setdefault("SPEC_SHEET_KB_MANIFEST", str(manifest))
+    try:
+        from electrical.extract import _enterprise_manifest
+
+        _enterprise_manifest.cache_clear()
+    except Exception:
+        pass
     version = knowledge_version()
     if version:
         os.environ["SPEC_SHEET_KB_VERSION"] = version
@@ -354,6 +365,8 @@ class JobStore:
                 extract=result.extract,
                 kind_label=result.kind_label,
                 kind_note=result.kind_note,
+                qa_verdict=getattr(result, "qa_verdict", "") or "",
+                qa_summary=getattr(result, "qa_summary", "") or "",
                 stopped_early=stopped,
                 download=f"/files/{result.output_xlsx.name}",
                 llm_calls=getattr(result, "llm_calls", 0),

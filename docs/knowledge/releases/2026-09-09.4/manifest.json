@@ -1,0 +1,1328 @@
+{
+  "version": "2026-09-09.4",
+  "retrieve_seqs": [
+    14,
+    19
+  ],
+  "fill_from_kb": false,
+  "leave_site": false,
+  "scope": {
+    "answers": [
+      "当份 DPR 句子/表格应对到 120 项清单的哪一条",
+      "易混条目如何互斥（P1/P3、升压/非升压、三种纹波等）",
+      "规格常见写法（强别名）与单位形态",
+      "物理量之间的关系：读表、校验；当份规格书已出现的量可按已登记公式推算缺项（局部对应）",
+      "企标试验条款对应哪几条清单、方法标准号（评价看当份 DPR）",
+      "当份未给出时，方法标准号写入复核备注；抽出值和核对状态仍为未检索到"
+    ],
+    "does_not": [
+      "用行业常识或清单「参考示例」填写抽出值",
+      "用知识库里的典型值填格",
+      "用企标「通常」寿命、试验箱边界电压/温度填抽出值",
+      "用方法标准号或「参考 标准号」顶替未检索到的抽出值",
+      "把「符合欧姆定律」等定律名称原句当成抽出值",
+      "用 .krow/lessons 或 AGENTS.md 填写抽出值",
+      "开放问答、跨项目通用知识、甲方业务系统数据",
+      "agent.run 开放规划"
+    ],
+    "owner": "甲方确认口径；乙方整理卡片与发布",
+    "site": "指定场所内使用，整库与规格书均不出公网"
+  },
+  "sources": [
+    {
+      "id": "list-120",
+      "title": "电机控制需求清单（XCM控制器前期设计最小化输入清单）",
+      "version": "20260821V1",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "120 项卡片骨架、需求说明、必要性、参考示例（示例只说明长什么样）"
+    },
+    {
+      "id": "clause-yaml",
+      "title": "条款词典",
+      "provided_by": "乙方整理，待甲方确认",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "别名、禁配、易混、未核实栏"
+    },
+    {
+      "id": "physics",
+      "title": "电机控制器物理关系",
+      "provided_by": "乙方按电控常识整理，待甲方确认",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "读表与校验关系，fill 必须为 false"
+    },
+    {
+      "id": "enterprise-std",
+      "title": "Q/JLP 030602-07-2026A 电机控制器设计验证规范",
+      "version": "Q/JLP 030602-07-2026A",
+      "provided_by": "甲方",
+      "classification": "保密一级",
+      "leave_site": false,
+      "used_for": "第3章定义、6.2–6.36 零部件试验、第7章及 7.1–7.9 整机试验的方法引用与认条对照；确认前不进选段；不得填抽出值。保密一级原文不入库。"
+    },
+    {
+      "id": "manuals",
+      "title": "手册/过往文档（第五节，待提供）",
+      "provided_by": "甲方",
+      "classification": "内部",
+      "leave_site": false,
+      "used_for": "确认后补卡片，未提供前不进检索"
+    }
+  ],
+  "citation": {
+    "list": "电机控制需求清单 20260821V1",
+    "knowledge_version": "2026-09-09.4",
+    "rule": "抽出值只来自当份规格书；库只提供条目号与出处，不提供取值"
+  },
+  "enterprise": {
+    "std_id": "Q/JLP 030602-07-2026A",
+    "title": "电机控制器设计验证规范",
+    "classification": "保密一级",
+    "coverage": "第3章定义；6.2–6.36 零部件试验；第7章及 7.1–7.9 整机试验。7.10 NVH、第8章整车未收。",
+    "rule": "抽出值只来自当份 DPR。本企标提供试验方法、定义与认条对照，不提供抽出值。",
+    "fill": false,
+    "terms": [
+      {
+        "name": "驱动电机控制器",
+        "gloss": "调节驱动电机电流、电压、频率等，使电机按指令输出转速和转矩的装置。",
+        "see_seq": [],
+        "fill": false
+      },
+      {
+        "name": "DHT",
+        "gloss": "混合动力变速器（Dedicated Hybrid Transmission）。振动等试验的 DUT 常要求为 DHT 整机，不是控制器单件。",
+        "see_seq": [
+          75,
+          103
+        ],
+        "fill": false
+      },
+      {
+        "name": "直流母线电压",
+        "gloss": "驱动电机控制器的直流高压动力端电压。抽出值仍只来自当份 DPR 工况表。",
+        "see_seq": [
+          5,
+          6,
+          7
+        ],
+        "fill": false
+      },
+      {
+        "name": "额定电压",
+        "gloss": "制造厂规定的控制器设计电压。不是试验箱默认值。",
+        "see_seq": [
+          5
+        ],
+        "fill": false
+      },
+      {
+        "name": "持续电流",
+        "gloss": "规定条件下交流侧可长时间持续工作的最大电流。企标明确为交流侧，不是直流母线电流。",
+        "see_seq": [
+          43,
+          58
+        ],
+        "fill": false
+      },
+      {
+        "name": "峰值电流",
+        "gloss": "规定时间内交流侧可短时工作的最大电流。企标明确为交流侧。",
+        "see_seq": [
+          44,
+          60
+        ],
+        "fill": false
+      },
+      {
+        "name": "最高工作转速",
+        "gloss": "驱动电机在弱磁控制下可达到的最高工作转速。",
+        "see_seq": [
+          35,
+          52
+        ],
+        "fill": false
+      },
+      {
+        "name": "主动放电",
+        "gloss": "下电后由控制器主动把母线电压放到安全电压以下。时间与安全电压看当份 DPR。",
+        "see_seq": [
+          15,
+          26
+        ],
+        "fill": false
+      },
+      {
+        "name": "被动放电",
+        "gloss": "无控制时经泄放回路自然放电。时间与安全电压看当份 DPR。",
+        "see_seq": [
+          16,
+          27
+        ],
+        "fill": false
+      },
+      {
+        "name": "效率",
+        "gloss": "输出机械功率与输入电功率之比（Pout/Pin）。边界（电压/扭矩/转速）看当份 DPR。",
+        "see_seq": [
+          41,
+          56
+        ],
+        "fill": false
+      },
+      {
+        "name": "运行时间",
+        "gloss": "电机控制器设计的可运行时间。具体小时数/年数只取当份 DPR，不用企标举例口径。",
+        "see_seq": [
+          107
+        ],
+        "fill": false
+      },
+      {
+        "name": "寿命周期及温度分布",
+        "gloss": "寿命周期内的运行时间以及环境/冷却液温度分布。分布和时长只取当份 DPR。",
+        "see_seq": [
+          98,
+          107
+        ],
+        "fill": false
+      }
+    ],
+    "clauses": [
+      {
+        "id": "6.2",
+        "title": "绝缘电阻试验",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7211010"
+        ],
+        "gloss": "测试电压按当份 DPR 最高工作电压选择。评价：满足 DPR 绝缘电阻。",
+        "look_in_dpr": [],
+        "see_seq": [
+          13,
+          18
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.3",
+        "title": "耐电压试验",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7110218"
+        ],
+        "gloss": "方法按 J7110218。评价：满足 DPR 耐电压。与清单「参考 J7110218 的 5.3.10」扭矩精度不是同一条。",
+        "look_in_dpr": [],
+        "see_seq": [
+          14,
+          19
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.4",
+        "title": "水道气密试验",
+        "kind": "component",
+        "method_std": [
+          "图纸规定泄漏量"
+        ],
+        "gloss": "室温条件做水道气密。泄漏量看图纸/DPR，不是清单冷却压降。",
+        "look_in_dpr": [],
+        "see_seq": [
+          104,
+          110
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.5",
+        "title": "整机气密试验",
+        "kind": "component",
+        "method_std": [
+          "图纸规定泄漏量"
+        ],
+        "gloss": "整机气密。泄漏量看图纸/DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          104
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.6",
+        "title": "IGBT 模块温度精度",
+        "kind": "component",
+        "method_std": [],
+        "gloss": "采样精度评价看当份 DPR。试验点不是产品工作温度范围。",
+        "look_in_dpr": [],
+        "see_seq": [
+          94
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.7",
+        "title": "电机温度精度",
+        "kind": "component",
+        "method_std": [],
+        "gloss": "采样精度评价看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          93
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.8",
+        "title": "直流母线电压精度",
+        "kind": "component",
+        "method_std": [],
+        "gloss": "母线电压采样精度，评价看当份 DPR。不是 HVDC 工作电压范围本身。",
+        "look_in_dpr": [],
+        "see_seq": [
+          91
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.9",
+        "title": "交流电流精度",
+        "kind": "component",
+        "method_std": [],
+        "gloss": "相电流采样精度，评价看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          90
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.10",
+        "title": "振动",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.2.1"
+        ],
+        "gloss": "DUT 必须是 DHT 整机。评价看 DPR/该方法。",
+        "look_in_dpr": [],
+        "see_seq": [
+          75,
+          103
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.11",
+        "title": "机械冲击",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.2.2"
+        ],
+        "gloss": "机械冲击方法见 J7111029。清单无单独冲击条，挂振动/结构相关。",
+        "look_in_dpr": [],
+        "see_seq": [
+          75,
+          103
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.12",
+        "title": "自由跌落",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.2.3"
+        ],
+        "gloss": "清单无对应条。只作方法引用，不填格。",
+        "look_in_dpr": [],
+        "see_seq": [],
+        "fill": false
+      },
+      {
+        "id": "6.13",
+        "title": "低温储存",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.1"
+        ],
+        "gloss": "储存温度上下限看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          97
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.14",
+        "title": "高温储存",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.2"
+        ],
+        "gloss": "储存温度上下限看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          97
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.15",
+        "title": "低温工作",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.3"
+        ],
+        "gloss": "工作温度下限看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          98
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.16",
+        "title": "高温工作",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.4"
+        ],
+        "gloss": "工作温度上限看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          98
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.17",
+        "title": "温度梯度",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.5"
+        ],
+        "gloss": "环境温度变化方法。工作温度范围仍看 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          98
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.18",
+        "title": "温度循环",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.6"
+        ],
+        "gloss": "环境温度循环方法。工作温度范围仍看 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          98
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.19",
+        "title": "温度快变",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.7"
+        ],
+        "gloss": "环境温度快变方法。工作温度范围仍看 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          98
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.20",
+        "title": "冰水冲击",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.8"
+        ],
+        "gloss": "冰水冲击方法。不要当成冷却回路压降。",
+        "look_in_dpr": [],
+        "see_seq": [
+          98,
+          104
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.21",
+        "title": "盐雾",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.9"
+        ],
+        "gloss": "盐雾/防腐方法。等级与标准号看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          74,
+          102
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.22",
+        "title": "湿热循环",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.10"
+        ],
+        "gloss": "本条 5.3.10 属于 J7111029 湿热循环，不是 J7110218 的 5.3.10（扭矩精度），也不是冷却条款。",
+        "look_in_dpr": [],
+        "see_seq": [
+          99,
+          100
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.23",
+        "title": "结露",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.11"
+        ],
+        "gloss": "结露方法。湿度要求看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          100
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.24",
+        "title": "稳态湿热",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.12"
+        ],
+        "gloss": "稳态湿热方法。湿度要求看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          100
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.25",
+        "title": "冷凝",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.13"
+        ],
+        "gloss": "冷凝方法。湿度要求看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          100
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.26",
+        "title": "防尘",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.14"
+        ],
+        "gloss": "防尘等级看当份 DPR 的 IP。",
+        "look_in_dpr": [],
+        "see_seq": [
+          104
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.27",
+        "title": "防水",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.15"
+        ],
+        "gloss": "防水等级按当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          104
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.28",
+        "title": "混合气体腐蚀",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.3.16"
+        ],
+        "gloss": "混合气体腐蚀。防腐等级看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          74,
+          102
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.29",
+        "title": "化学负荷",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.4"
+        ],
+        "gloss": "化学负荷。防腐/材料要求看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          74,
+          102
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.30",
+        "title": "ELP 低压电气",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111029 5.1"
+        ],
+        "gloss": "低压电气试验边界看当份 DPR 的低压电源电压，不用试验箱默认点填格。",
+        "look_in_dpr": [],
+        "see_seq": [
+          20
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.31",
+        "title": "EMC",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7110779"
+        ],
+        "gloss": "零部件 EMC 方法。等级与限值看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          76
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.32",
+        "title": "高温运行耐久",
+        "kind": "component",
+        "method_std": [
+          "IEC 60068-2-2"
+        ],
+        "gloss": "试验边界全部来自当份 DPR（环境/冷却液/HVDC/扭矩电流/寿命时间与温度分布）。本条不提供寿命小时数。",
+        "look_in_dpr": [
+          "最高工作环境温度",
+          "最高冷却液温度",
+          "冷却液流量",
+          "HVDC满载最低电压",
+          "HVDC额定电压",
+          "HVDC满载最高电压",
+          "额定扭矩",
+          "额定交流电流",
+          "峰值扭矩",
+          "峰值交流电流",
+          "寿命周期运行时间",
+          "寿命周期环境温度分布",
+          "寿命周期冷却液温度分布"
+        ],
+        "see_seq": [
+          107
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.33",
+        "title": "带载温度循环耐久",
+        "kind": "component",
+        "method_std": [
+          "IEC 60068-2-14"
+        ],
+        "gloss": "带载温度循环。边界来自当份 DPR，不是库典型寿命。",
+        "look_in_dpr": [],
+        "see_seq": [
+          107
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.34",
+        "title": "禁限用物质",
+        "kind": "component",
+        "method_std": [
+          "Q/JL J160001"
+        ],
+        "gloss": "禁用/限用物质方法。具体物质与限值看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          108
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.35",
+        "title": "阻燃",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7110335"
+        ],
+        "gloss": "阻燃方法。等级看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          106
+        ],
+        "fill": false
+      },
+      {
+        "id": "6.36",
+        "title": "臭氧老化",
+        "kind": "component",
+        "method_std": [
+          "Q/JLY J7111521"
+        ],
+        "gloss": "橡胶件臭氧老化。清单无对应条，只作引用。",
+        "look_in_dpr": [],
+        "see_seq": [],
+        "fill": false
+      },
+      {
+        "id": "7",
+        "title": "整机试验",
+        "kind": "assembly",
+        "method_std": [],
+        "gloss": "整机试验总则。具体方法见 7.1–7.9。评价仍看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [],
+        "fill": false
+      },
+      {
+        "id": "7.1",
+        "title": "电机标定",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 070306"
+        ],
+        "gloss": "电机标定方法。120 项无直接对应条。",
+        "look_in_dpr": [],
+        "see_seq": [],
+        "fill": false
+      },
+      {
+        "id": "7.2",
+        "title": "EDS 功能性能",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 030601-05"
+        ],
+        "gloss": "电驱系统功能性能。性能数值仍取当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [],
+        "fill": false
+      },
+      {
+        "id": "7.3",
+        "title": "温度场",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 030600-11"
+        ],
+        "gloss": "整机温度场。冷却/热损失数值取当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          72,
+          110,
+          120
+        ],
+        "fill": false
+      },
+      {
+        "id": "7.4",
+        "title": "整机振动",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 030600-10"
+        ],
+        "gloss": "整机振动方法。振动要求看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          75,
+          103
+        ],
+        "fill": false
+      },
+      {
+        "id": "7.5",
+        "title": "EHP 高压电气",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 030001-24"
+        ],
+        "gloss": "整机高压电气。HVDC 工况电压取当份 DPR，不是本企标试验边界。",
+        "look_in_dpr": [],
+        "see_seq": [
+          5,
+          6,
+          7
+        ],
+        "fill": false
+      },
+      {
+        "id": "7.6",
+        "title": "整机高温耐久",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 030600-06"
+        ],
+        "gloss": "整机高温耐久。寿命数字取当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          107
+        ],
+        "fill": false
+      },
+      {
+        "id": "7.7",
+        "title": "整机带载温度循环",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 030002-21"
+        ],
+        "gloss": "整机带载温度循环。寿命数字取当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          107
+        ],
+        "fill": false
+      },
+      {
+        "id": "7.8",
+        "title": "动态耐久",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLP 030002-20"
+        ],
+        "gloss": "整机动态耐久。寿命数字取当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          107
+        ],
+        "fill": false
+      },
+      {
+        "id": "7.9",
+        "title": "整机 EMC",
+        "kind": "assembly",
+        "method_std": [
+          "Q/JLY J7110779"
+        ],
+        "gloss": "整机 EMC。等级与限值看当份 DPR。",
+        "look_in_dpr": [],
+        "see_seq": [
+          76
+        ],
+        "fill": false
+      }
+    ]
+  },
+  "physics_cards": [
+    {
+      "id": "ohm",
+      "title": "欧姆定律",
+      "law": "U = I R",
+      "fill": false,
+      "derive": true,
+      "gloss": "同条款内已给出测试电压与漏电流（或放电电压与电流）时，按 R=U/I 推算绝缘/放电电阻。不得用库典型值，也不得把「符合欧姆定律」原句当成抽出值。",
+      "see_seq": [
+        13,
+        18,
+        22,
+        25,
+        26
+      ]
+    },
+    {
+      "id": "kirchhoff",
+      "title": "基尔霍夫电压电流定律",
+      "law": "ΣV = 0；ΣI = 0",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于认电压电流关系、校核回路是否自洽。没有可代入的电压/电流数字时不填格，不把定律名称写成抽出值。",
+      "see_seq": [
+        5,
+        20,
+        22
+      ]
+    },
+    {
+      "id": "p_ui",
+      "title": "直流电功率",
+      "law": "P = U I",
+      "fill": false,
+      "derive": true,
+      "gloss": "同一工况已给出直流电压和电流、未写功率时，按 P=UI 推算。禁止串 P1/P3，禁止覆盖原文已写的功率。低压侧同理 P=UI@14V。",
+      "see_seq": [
+        5,
+        6,
+        7,
+        21,
+        28,
+        30,
+        45,
+        47,
+        62,
+        63,
+        68
+      ]
+    },
+    {
+      "id": "p_ac3",
+      "title": "三相交流功率",
+      "law": "P = √3 U I cosφ",
+      "fill": false,
+      "derive": true,
+      "gloss": "线电压与相电流（Arms）同工况且原文写三相/线电压时，可按 √3UI 估功率或反算相电流（默认 cosφ=1，局部对应）。功率因数未给出不得当成已检索到。",
+      "see_seq": [
+        28,
+        30,
+        43,
+        44,
+        45,
+        47,
+        58,
+        59
+      ]
+    },
+    {
+      "id": "p_tw",
+      "title": "机械功率",
+      "law": "P = T ω = T n / 9550",
+      "fill": false,
+      "derive": true,
+      "gloss": "扭矩(N·m)与转速(rpm)同工况时 P(kW)=T n/9550；亦可 T=9550 P/n。ω=2πn/60。禁止覆盖原文已写的功率或扭矩。",
+      "see_seq": [
+        28,
+        30,
+        31,
+        32,
+        45,
+        47,
+        48,
+        49
+      ]
+    },
+    {
+      "id": "omega",
+      "title": "角速度换算",
+      "law": "ω = 2 π n / 60",
+      "fill": false,
+      "derive": false,
+      "gloss": "转速 rpm 与机械角速度 rad/s 的换算，嵌在 P=Tω 中使用，不单独填格。",
+      "see_seq": [
+        31,
+        32,
+        33,
+        48,
+        49,
+        50
+      ]
+    },
+    {
+      "id": "eta",
+      "title": "效率",
+      "law": "η = P_out / P_in",
+      "fill": false,
+      "derive": true,
+      "gloss": "同一工况已给出输入与输出功率时，效率=输出/输入。用于逆变器效率、升压效率。禁止用库里的 99.5% 典型值。",
+      "see_seq": [
+        41,
+        56,
+        66
+      ]
+    },
+    {
+      "id": "rc_discharge",
+      "title": "电容放电",
+      "law": "V(t) = V0 e^{-t/RC}；t = RC ln(V0/V1)",
+      "fill": false,
+      "derive": true,
+      "gloss": "母线薄膜电容、放电电阻与降至 60V 的时间满足指数放电。已给出其中三个量时可推算第四个（局部对应）。Y 电容(nF)不得拿来算 DC-link 放电时间。",
+      "see_seq": [
+        24,
+        25,
+        26,
+        27
+      ]
+    },
+    {
+      "id": "cap_energy",
+      "title": "电容储能",
+      "law": "E = 1/2 C V²",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂 Y 电容/薄膜电容与残余能量条款。电压或容值未写全时不算能量去填。",
+      "see_seq": [
+        17,
+        24
+      ]
+    },
+    {
+      "id": "i2r",
+      "title": "电阻损耗",
+      "law": "P = I² R",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于理解热损失与绕组/线路发热。控制器热损失还含开关损耗，禁止只用 I²R 冒充整机热损失填格。",
+      "see_seq": [
+        120
+      ]
+    },
+    {
+      "id": "rms_peak",
+      "title": "有效值与峰值",
+      "law": "I_peak = √2 I_rms",
+      "fill": false,
+      "derive": false,
+      "gloss": "正弦波峰值与有效值换算。清单里的峰值电流与持续电流是不同工况能力，禁止把峰值除以 √2 当成持续电流去填。",
+      "see_seq": [
+        43,
+        44,
+        58,
+        59
+      ]
+    },
+    {
+      "id": "back_emf",
+      "title": "反电动势",
+      "law": "E = k_e ω",
+      "fill": false,
+      "derive": false,
+      "gloss": "反电动势与转速成正比。未给出 ke 或最高转速下的 E 时不得外推。P1/P3 反电势必须分列。",
+      "see_seq": [
+        11,
+        37
+      ]
+    },
+    {
+      "id": "kt",
+      "title": "转矩常数",
+      "law": "T = k_t I",
+      "fill": false,
+      "derive": false,
+      "gloss": "堵转/峰值扭矩与电流相关。未给出 kt 时不得用电流反推扭矩填格。",
+      "see_seq": [
+        31,
+        36,
+        40,
+        48,
+        53
+      ]
+    },
+    {
+      "id": "boost_d",
+      "title": "升压占空比",
+      "law": "V_out / V_in = 1 / (1-D)",
+      "fill": false,
+      "derive": false,
+      "gloss": "理想 Boost 变比。规格通常直接给输入/输出电压与功率，占空比未写时不得反推输出电压。",
+      "see_seq": [
+        61,
+        64,
+        67,
+        68
+      ]
+    },
+    {
+      "id": "ripple",
+      "title": "电容纹波",
+      "law": "ΔV ≈ I / (f C)",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂母线纹波、升压纹波与电容/开关频率的关系。频率或电流未同时给出时不算 ΔV 去填纹波条目。",
+      "see_seq": [
+        8,
+        12,
+        24,
+        69,
+        70
+      ]
+    },
+    {
+      "id": "hipot_2u",
+      "title": "耐电压常用式",
+      "law": "U_test = 2U + 1000 V",
+      "fill": false,
+      "derive": false,
+      "gloss": "GB/T 18488 / ISO 6469 等常见工频耐压算法。仅当原文写明该试验或该公式时才填耐电压；禁止用工作电压自行套 2U+1000。",
+      "see_seq": [
+        14,
+        19
+      ]
+    },
+    {
+      "id": "idc",
+      "title": "直流电流",
+      "law": "I = P / U",
+      "fill": false,
+      "derive": true,
+      "gloss": "直流工况已给出功率与电压、未写电流时，按 I=P/U 推算（升压输入电流等）。禁止拿交流相电流公式去填直流，也禁止用峰值功率去填额定电流。",
+      "see_seq": [
+        63,
+        64,
+        68
+      ]
+    },
+    {
+      "id": "ploss_eta",
+      "title": "损耗与效率",
+      "law": "P_loss = P_in (1 − η)",
+      "fill": false,
+      "derive": true,
+      "gloss": "同一段已写输入功率与效率、并出现热损失/散热能力时，可按 P(1−η) 估损耗（局部对应）。禁止只用 I²R 或库里的 0.8 kW 典型值。",
+      "see_seq": [
+        41,
+        56,
+        66,
+        72,
+        120
+      ]
+    },
+    {
+      "id": "elec_freq",
+      "title": "电频率与转速",
+      "law": "f = n p / 60（p 为极对数）",
+      "fill": false,
+      "derive": false,
+      "gloss": "同步转速/电频率换算。极对数未写时不得用开关频率或基波去反推额定转速。注意极对数 p 与极数 2p：n=120f/P。",
+      "see_seq": [
+        33,
+        35,
+        50,
+        52,
+        69
+      ]
+    },
+    {
+      "id": "star_delta",
+      "title": "线电压与相电压",
+      "law": "U_ll = √3 U_ph",
+      "fill": false,
+      "derive": false,
+      "gloss": "星形接法下线电压为相电压的 √3 倍。未写清线/相时不得换算后填相电流或功率。",
+      "see_seq": [
+        43,
+        44,
+        58,
+        59
+      ]
+    },
+    {
+      "id": "apparent_s",
+      "title": "视在功率",
+      "law": "S = √3 U I",
+      "fill": false,
+      "derive": false,
+      "gloss": "三相视在功率。有功还需乘 cosφ，未给功率因数时不得把 S 当成 P 填额定功率。",
+      "see_seq": [
+        28,
+        45,
+        58
+      ]
+    },
+    {
+      "id": "pf",
+      "title": "功率因数",
+      "law": "cosφ = P / S",
+      "fill": false,
+      "derive": false,
+      "gloss": "有功与视在功率之比。原文未给 cosφ 或 S 时不推算。",
+      "see_seq": [
+        28,
+        45
+      ]
+    },
+    {
+      "id": "energy_pt",
+      "title": "电能",
+      "law": "E = P t",
+      "fill": false,
+      "derive": false,
+      "gloss": "放电能量、峰值持续时间与能量相关。峰值 10s 不得拿来算额定能量去填。",
+      "see_seq": [
+        26,
+        27,
+        29,
+        46
+      ]
+    },
+    {
+      "id": "tau_l",
+      "title": "电感时间常数",
+      "law": "τ = L / R",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂升压电感、放电回路。L 未给出时不算 τ。",
+      "see_seq": [
+        25,
+        63,
+        69
+      ]
+    },
+    {
+      "id": "faraday",
+      "title": "法拉第电磁感应",
+      "law": "e = − dφ / dt",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于理解反电动势随转速变化。未给磁链或 ke 时不得外推反电势峰值。",
+      "see_seq": [
+        11,
+        37,
+        54
+      ]
+    },
+    {
+      "id": "inductance_v",
+      "title": "电感电压",
+      "law": "v = L di/dt",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂开关瞬态与升压电感应力。di/dt 或 L 缺一不算。",
+      "see_seq": [
+        63,
+        69
+      ]
+    },
+    {
+      "id": "resonance",
+      "title": "LC 谐振",
+      "law": "f0 = 1 / (2π √(L C))",
+      "fill": false,
+      "derive": false,
+      "gloss": "母线电容与寄生/升压电感的谐振。L、C 未同时给出时不算开关频率或纹波。",
+      "see_seq": [
+        8,
+        24,
+        69,
+        70
+      ]
+    },
+    {
+      "id": "filter_fc",
+      "title": "RC 截止频率",
+      "law": "fc = 1 / (2π R C)",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂采样滤波、Y 电容网络。不得用 nF 级 Y 电容去算 DC-link 放电。",
+      "see_seq": [
+        17,
+        91,
+        92
+      ]
+    },
+    {
+      "id": "pwm_mod",
+      "title": "调制度",
+      "law": "V_ph ≈ m V_dc / 2（SPWM）；SVPWM 最大 m=2/√3",
+      "fill": false,
+      "derive": false,
+      "gloss": "直流母线电压与交流相电压的调制关系。未写调制度时不得用母线电压反推相电压去填。",
+      "see_seq": [
+        5,
+        43,
+        58
+      ]
+    },
+    {
+      "id": "dq_torque",
+      "title": "矢量控制转矩",
+      "law": "T = (3/2) p λ I_q",
+      "fill": false,
+      "derive": false,
+      "gloss": "永磁同步电机交轴电流与转矩。未给极对数、磁链时不得用相电流反推扭矩（与 kt 同禁）。",
+      "see_seq": [
+        31,
+        36,
+        48,
+        53
+      ]
+    },
+    {
+      "id": "coolant_heat",
+      "title": "冷却带走热量",
+      "law": "P = ṁ c ΔT（水约 P(kW) ≈ 0.07 Q(L/min) ΔT(K)）",
+      "fill": false,
+      "derive": false,
+      "gloss": "流量、温升与散热能力的关系。冷却液比热/密度因水/乙二醇而异，未写清时不得用流量反推热损失或散热能力。",
+      "see_seq": [
+        72,
+        112,
+        113,
+        120
+      ]
+    },
+    {
+      "id": "slip",
+      "title": "转差率",
+      "law": "s = (n_s − n) / n_s",
+      "fill": false,
+      "derive": false,
+      "gloss": "异步机转差。清单以永磁/混动电控为主，未写同步转速时不套用。",
+      "see_seq": [
+        33,
+        50
+      ]
+    },
+    {
+      "id": "series_parallel",
+      "title": "串并联",
+      "law": "串联 R=ΣR_i；并联 1/R=Σ(1/R_i)；电容相反",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于读懂放电电阻串并联、薄膜电容并联容值。未写清串并联只数时不得把单只容值当成整机容值。",
+      "see_seq": [
+        17,
+        24,
+        25
+      ]
+    },
+    {
+      "id": "nyquist",
+      "title": "采样定理",
+      "law": "f_s > 2 f_max",
+      "fill": false,
+      "derive": false,
+      "gloss": "用于理解采样精度/延时条款。不得用开关频率去填采样精度。",
+      "see_seq": [
+        90,
+        91,
+        92
+      ]
+    },
+    {
+      "id": "column_split",
+      "title": "升压与非升压分列",
+      "law": "同一物理量在不同工况下列值不同，不得串列",
+      "fill": false,
+      "derive": false,
+      "gloss": "HVDC 电压、功率等常分非升压/升压两列。读表时按列归属条目，不得把非升压列填进升压条目。",
+      "see_seq": [
+        5,
+        6,
+        7,
+        61,
+        62,
+        63,
+        64,
+        115
+      ]
+    }
+  ]
+}

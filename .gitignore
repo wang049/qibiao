@@ -16,3 +16,6 @@ packaging/windows/.cache/
 .krow/**/*.db-shm
 :memory:.ses
 *.ses
+# 保密一级企标原文不入库，只收结构化 YAML
+*030602*.pdf
+Q*JLP*030602*.pdf

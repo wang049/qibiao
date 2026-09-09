@@ -159,10 +159,12 @@ def _scrub_text(text: str) -> str:
         ("docs/knowledge/physics.yaml", "电机控制器物理关系"),
         ("docs/knowledge/catalog.yaml", "知识库目录"),
         ("docs/knowledge/registry.yaml", "发布登记"),
+        ("docs/knowledge/enterprise_std.yaml", "企业标准"),
         ("clause_lexicon.yaml", "条款词典"),
         ("physics.yaml", "电机控制器物理关系"),
         ("catalog.yaml", "知识库目录"),
         ("registry.yaml", "发布登记"),
+        ("enterprise_std.yaml", "企业标准"),
     ):
         replaced = replaced.replace(needle, label)
     if _PATHISH.search(replaced) or "docs/" in replaced:
@@ -173,7 +175,7 @@ def _scrub_text(text: str) -> str:
 def _public_source(row: dict) -> dict:
     sid = str(row.get("id") or "").strip()
     title = _SOURCE_TITLE.get(sid) or _scrub_text(str(row.get("title") or sid))
-    if sid == "list-120":
+    if sid in {"list-120", "enterprise-std"}:
         given = _scrub_text(str(row.get("title") or ""))
         if given and "docs/" not in given and ".yaml" not in given:
             title = given
@@ -230,6 +232,8 @@ def browse_catalog() -> dict:
             "leave_site": False,
             "clauses": [],
             "physics": [],
+            "enterprise": [],
+            "enterprise_terms": [],
             "graph": {"nodes": [], "edges": []},
         }
     graph = load_graph()
@@ -336,7 +340,7 @@ def browse_catalog() -> dict:
                 "gloss": _scrub_text(str(row.get("gloss") or "")),
                 "aliases": _cap_list(row.get("aliases"), 12),
                 "reject": _cap_list(row.get("exclude") or row.get("reject_patterns"), 8),
-                "std": _cap_list(row.get("std"), 6),
+                "std": _cap_list(row.get("std"), 10),
                 "units": _cap_list(row.get("unit_cues"), 4),
                 "see": [int(x) for x in (row.get("see") or []) if str(x).isdigit()],
                 "retrieve": retrieve,
@@ -403,6 +407,31 @@ def browse_catalog() -> dict:
 
     scope = manifest.get("scope") if isinstance(manifest.get("scope"), dict) else {}
     citation = manifest.get("citation") if isinstance(manifest.get("citation"), dict) else {}
+    enterprise = manifest.get("enterprise") if isinstance(manifest.get("enterprise"), dict) else {}
+    enterprise_clauses = []
+    for row in enterprise.get("clauses") or []:
+        enterprise_clauses.append(
+            {
+                "id": _scrub_text(str(row.get("id") or "")),
+                "title": _scrub_text(str(row.get("title") or "")),
+                "kind": _scrub_text(str(row.get("kind") or "")),
+                "method_std": _cap_list(row.get("method_std"), 6),
+                "gloss": _scrub_text(str(row.get("gloss") or "")),
+                "look_in_dpr": _cap_list(row.get("look_in_dpr"), 16),
+                "see_seq": [int(x) for x in (row.get("see_seq") or []) if str(x).isdigit() or isinstance(x, int)],
+                "fill": False,
+            }
+        )
+    enterprise_terms = []
+    for row in enterprise.get("terms") or []:
+        enterprise_terms.append(
+            {
+                "name": _scrub_text(str(row.get("name") or "")),
+                "gloss": _scrub_text(str(row.get("gloss") or "")),
+                "see_seq": [int(x) for x in (row.get("see_seq") or []) if str(x).isdigit() or isinstance(x, int)],
+                "fill": False,
+            }
+        )
     return {
         "title": "电机控制器知识库",
         "version": version,
@@ -428,11 +457,21 @@ def browse_catalog() -> dict:
             "retrieve": retrieve_n,
             "edges": len(graph_edges),
             "groups": len(groups),
+            "enterprise": len(enterprise_clauses),
         },
         "groups": [
             {"name": name, "count": count} for name, count in groups.items()
         ],
         "clauses": clauses,
         "physics": physics,
+        "enterprise": enterprise_clauses,
+        "enterprise_terms": enterprise_terms,
+        "enterprise_meta": {
+            "std_id": _scrub_text(str(enterprise.get("std_id") or "")),
+            "title": _scrub_text(str(enterprise.get("title") or "")),
+            "coverage": _scrub_text(str(enterprise.get("coverage") or "")),
+            "rule": _scrub_text(str(enterprise.get("rule") or "")),
+            "fill": False,
+        },
         "graph": {"nodes": graph_nodes, "edges": graph_edges},
     }

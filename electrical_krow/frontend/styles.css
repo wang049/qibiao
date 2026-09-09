@@ -500,7 +500,7 @@ button.ghost:hover { border-color: var(--navy); color: var(--navy); }
 .progress.show { display: block; }
 .steps {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   margin-bottom: 14px;
   overflow: visible;
 }

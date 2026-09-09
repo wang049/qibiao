@@ -27,6 +27,9 @@ def ensure_electrical() -> Path:
     lexicon = PROJECT_ROOT / "docs" / "clause_lexicon.json"
     if lexicon.is_file():
         os.environ.setdefault("SPEC_SHEET_CLAUSE_LEXICON", str(lexicon))
+    manifest = PROJECT_ROOT / "docs" / "knowledge" / "published" / "manifest.json"
+    if manifest.is_file():
+        os.environ.setdefault("SPEC_SHEET_KB_MANIFEST", str(manifest))
     root = electrical_root()
     pkg = root / "electrical"
     if not pkg.is_dir():

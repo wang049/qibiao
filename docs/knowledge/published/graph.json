@@ -24,7 +24,7 @@
     {
       "id": "clause:4",
       "seq": 4,
-      "name": "设计范围是否包含充电升压功能",
+      "name": "设计范围是否包含行车升压功能",
       "group": "设计范围",
       "conflict": ""
     },
@@ -120,20 +120,6 @@
       "conflict": ""
     },
     {
-      "id": "clause:18",
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "group": "高压安全",
-      "conflict": "insulation"
-    },
-    {
-      "id": "clause:19",
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "group": "高压安全",
-      "conflict": "dielectric"
-    },
-    {
       "id": "clause:20",
       "seq": 20,
       "name": "低压电源电压工作范围",
@@ -172,20 +158,6 @@
       "id": "clause:25",
       "seq": 25,
       "name": "主动放电电阻",
-      "group": "高压安全",
-      "conflict": ""
-    },
-    {
-      "id": "clause:26",
-      "seq": 26,
-      "name": "主动放电时间",
-      "group": "高压安全",
-      "conflict": ""
-    },
-    {
-      "id": "clause:27",
-      "seq": 27,
-      "name": "被动放电时间",
       "group": "高压安全",
       "conflict": ""
     },
@@ -1108,6 +1080,11 @@
       "rel": "not"
     },
     {
+      "from": "clause:1",
+      "to": "clause:71",
+      "rel": "not"
+    },
+    {
       "from": "clause:2",
       "to": "clause:1",
       "rel": "related"
@@ -1115,6 +1092,11 @@
     {
       "from": "clause:2",
       "to": "clause:1",
+      "rel": "not"
+    },
+    {
+      "from": "clause:2",
+      "to": "clause:71",
       "rel": "not"
     },
     {
@@ -1168,6 +1150,11 @@
       "rel": "not"
     },
     {
+      "from": "clause:4",
+      "to": "clause:67",
+      "rel": "not"
+    },
+    {
       "from": "clause:5",
       "to": "clause:6",
       "rel": "related"
@@ -1195,11 +1182,6 @@
     {
       "from": "clause:5",
       "to": "clause:14",
-      "rel": "not"
-    },
-    {
-      "from": "clause:5",
-      "to": "clause:19",
       "rel": "not"
     },
     {
@@ -1394,11 +1376,6 @@
     },
     {
       "from": "clause:13",
-      "to": "clause:18",
-      "rel": "related"
-    },
-    {
-      "from": "clause:13",
       "to": "clause:25",
       "rel": "not"
     },
@@ -1406,11 +1383,6 @@
       "from": "clause:13",
       "to": "clause:95",
       "rel": "not"
-    },
-    {
-      "from": "clause:14",
-      "to": "clause:19",
-      "rel": "related"
     },
     {
       "from": "clause:14",
@@ -1425,11 +1397,6 @@
     {
       "from": "clause:15",
       "to": "clause:25",
-      "rel": "related"
-    },
-    {
-      "from": "clause:15",
-      "to": "clause:26",
       "rel": "related"
     },
     {
@@ -1443,16 +1410,6 @@
       "rel": "not"
     },
     {
-      "from": "clause:15",
-      "to": "clause:27",
-      "rel": "not"
-    },
-    {
-      "from": "clause:16",
-      "to": "clause:27",
-      "rel": "related"
-    },
-    {
       "from": "clause:16",
       "to": "clause:25",
       "rel": "related"
@@ -1463,11 +1420,6 @@
       "rel": "not"
     },
     {
-      "from": "clause:16",
-      "to": "clause:26",
-      "rel": "not"
-    },
-    {
       "from": "clause:17",
       "to": "clause:24",
       "rel": "related"
@@ -1475,31 +1427,6 @@
     {
       "from": "clause:17",
       "to": "clause:24",
-      "rel": "not"
-    },
-    {
-      "from": "clause:18",
-      "to": "clause:13",
-      "rel": "related"
-    },
-    {
-      "from": "clause:18",
-      "to": "clause:25",
-      "rel": "not"
-    },
-    {
-      "from": "clause:18",
-      "to": "clause:95",
-      "rel": "not"
-    },
-    {
-      "from": "clause:19",
-      "to": "clause:14",
-      "rel": "related"
-    },
-    {
-      "from": "clause:19",
-      "to": "clause:95",
       "rel": "not"
     },
     {
@@ -1589,12 +1516,7 @@
     },
     {
       "from": "clause:23",
-      "to": "clause:26",
-      "rel": "related"
-    },
-    {
-      "from": "clause:23",
-      "to": "clause:27",
+      "to": "clause:16",
       "rel": "related"
     },
     {
@@ -1604,12 +1526,12 @@
     },
     {
       "from": "clause:23",
-      "to": "clause:26",
+      "to": "clause:15",
       "rel": "not"
     },
     {
       "from": "clause:23",
-      "to": "clause:27",
+      "to": "clause:16",
       "rel": "not"
     },
     {
@@ -1639,77 +1561,12 @@
     },
     {
       "from": "clause:25",
-      "to": "clause:26",
-      "rel": "related"
-    },
-    {
-      "from": "clause:25",
       "to": "clause:13",
       "rel": "not"
     },
     {
       "from": "clause:25",
       "to": "clause:16",
-      "rel": "not"
-    },
-    {
-      "from": "clause:26",
-      "to": "clause:15",
-      "rel": "related"
-    },
-    {
-      "from": "clause:26",
-      "to": "clause:27",
-      "rel": "related"
-    },
-    {
-      "from": "clause:26",
-      "to": "clause:23",
-      "rel": "related"
-    },
-    {
-      "from": "clause:26",
-      "to": "clause:27",
-      "rel": "not"
-    },
-    {
-      "from": "clause:26",
-      "to": "clause:23",
-      "rel": "not"
-    },
-    {
-      "from": "clause:26",
-      "to": "clause:29",
-      "rel": "not"
-    },
-    {
-      "from": "clause:26",
-      "to": "clause:46",
-      "rel": "not"
-    },
-    {
-      "from": "clause:27",
-      "to": "clause:16",
-      "rel": "related"
-    },
-    {
-      "from": "clause:27",
-      "to": "clause:26",
-      "rel": "related"
-    },
-    {
-      "from": "clause:27",
-      "to": "clause:23",
-      "rel": "related"
-    },
-    {
-      "from": "clause:27",
-      "to": "clause:26",
-      "rel": "not"
-    },
-    {
-      "from": "clause:27",
-      "to": "clause:23",
       "rel": "not"
     },
     {
@@ -1744,12 +1601,12 @@
     },
     {
       "from": "clause:29",
-      "to": "clause:26",
+      "to": "clause:15",
       "rel": "not"
     },
     {
       "from": "clause:29",
-      "to": "clause:27",
+      "to": "clause:16",
       "rel": "not"
     },
     {
@@ -1888,9 +1745,19 @@
       "rel": "related"
     },
     {
+      "from": "clause:40",
+      "to": "clause:43",
+      "rel": "not"
+    },
+    {
       "from": "clause:41",
       "to": "clause:66",
       "rel": "related"
+    },
+    {
+      "from": "clause:41",
+      "to": "clause:56",
+      "rel": "not"
     },
     {
       "from": "clause:41",
@@ -1901,6 +1768,16 @@
       "from": "clause:42",
       "to": "clause:40",
       "rel": "related"
+    },
+    {
+      "from": "clause:42",
+      "to": "clause:43",
+      "rel": "not"
+    },
+    {
+      "from": "clause:42",
+      "to": "clause:40",
+      "rel": "not"
     },
     {
       "from": "clause:43",
@@ -1984,12 +1861,12 @@
     },
     {
       "from": "clause:46",
-      "to": "clause:26",
+      "to": "clause:15",
       "rel": "not"
     },
     {
       "from": "clause:46",
-      "to": "clause:27",
+      "to": "clause:16",
       "rel": "not"
     },
     {
@@ -2101,6 +1978,11 @@
       "from": "clause:56",
       "to": "clause:66",
       "rel": "related"
+    },
+    {
+      "from": "clause:56",
+      "to": "clause:41",
+      "rel": "not"
     },
     {
       "from": "clause:56",
@@ -3243,26 +3125,6 @@
       "rel": "not"
     },
     {
-      "from": "clause:13",
-      "to": "clause:18",
-      "rel": "same_slot"
-    },
-    {
-      "from": "clause:18",
-      "to": "clause:13",
-      "rel": "same_slot"
-    },
-    {
-      "from": "clause:14",
-      "to": "clause:19",
-      "rel": "same_slot"
-    },
-    {
-      "from": "clause:19",
-      "to": "clause:14",
-      "rel": "same_slot"
-    },
-    {
       "from": "clause:71",
       "to": "clause:119",
       "rel": "same_slot"
@@ -3309,22 +3171,12 @@
     },
     {
       "from": "physics:ohm",
-      "to": "clause:18",
-      "rel": "interprets"
-    },
-    {
-      "from": "physics:ohm",
       "to": "clause:22",
       "rel": "interprets"
     },
     {
       "from": "physics:ohm",
       "to": "clause:25",
-      "rel": "interprets"
-    },
-    {
-      "from": "physics:ohm",
-      "to": "clause:26",
       "rel": "interprets"
     },
     {
@@ -3534,12 +3386,12 @@
     },
     {
       "from": "physics:rc_discharge",
-      "to": "clause:26",
+      "to": "clause:15",
       "rel": "interprets"
     },
     {
       "from": "physics:rc_discharge",
-      "to": "clause:27",
+      "to": "clause:16",
       "rel": "interprets"
     },
     {
@@ -3663,11 +3515,6 @@
       "rel": "interprets"
     },
     {
-      "from": "physics:hipot_2u",
-      "to": "clause:19",
-      "rel": "interprets"
-    },
-    {
       "from": "physics:idc",
       "to": "clause:63",
       "rel": "interprets"
@@ -3779,12 +3626,12 @@
     },
     {
       "from": "physics:energy_pt",
-      "to": "clause:26",
+      "to": "clause:15",
       "rel": "interprets"
     },
     {
       "from": "physics:energy_pt",
-      "to": "clause:27",
+      "to": "clause:16",
       "rel": "interprets"
     },
     {

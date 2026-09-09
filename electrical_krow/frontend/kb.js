@@ -95,6 +95,7 @@
         (row.aliases || []).join(" "),
         (row.reject || []).join(" "),
         (row.std || []).join(" "),
+        (row.units || []).join(" "),
       ].join(" ")
     );
     return blob.indexOf(query) >= 0;
@@ -139,6 +140,7 @@
     $("kb-stats").innerHTML = [
       ["clauses", "条款卡片"],
       ["physics", "物理关系"],
+      ["enterprise", "企标试验"],
       ["groups", "业务分组"],
       ["edges", "图谱关系"],
       ["retrieve", "已开通检索"],
@@ -355,6 +357,44 @@
       <p class="kb-cite">${esc(scope.owner || "")}。${esc(scope.site || "")}</p>
       <h3>来源登记</h3>
       <div class="kb-sources">${sources}</div>
+      ${enterpriseBlock()}
+    `;
+  }
+
+  function enterpriseBlock() {
+    const meta = catalog.enterprise_meta || {};
+    const terms = (catalog.enterprise_terms || [])
+      .map((row) => {
+        const seqs = (row.see_seq || []).map((n) => "#" + n).join(" ");
+        return `<article class="kb-source">
+          <h4>${esc(row.name)}</h4>
+          ${row.gloss ? `<p class="kb-gloss">${esc(row.gloss)}</p>` : ""}
+          ${seqs ? `<p>对照 ${esc(seqs)}</p>` : ""}
+        </article>`;
+      })
+      .join("");
+    const clauses = (catalog.enterprise || [])
+      .map((row) => {
+        const seqs = (row.see_seq || []).map((n) => "#" + n).join(" ");
+        const methods = (row.method_std || []).join("、");
+        const look = (row.look_in_dpr || []).join("、");
+        return `<article class="kb-source">
+          <h4>${esc(row.id)} ${esc(row.title)}</h4>
+          <p>${methods ? "方法 " + esc(methods) + " · " : ""}${seqs ? "对照 " + esc(seqs) : "清单无直接对应条"}</p>
+          ${row.gloss ? `<p class="kb-gloss">${esc(row.gloss)}</p>` : ""}
+          ${look ? `<p class="kb-gloss">当份 DPR 里找：${esc(look)}</p>` : ""}
+        </article>`;
+      })
+      .join("");
+    if (!terms && !clauses) return "";
+    return `
+      <h3>${esc(meta.std_id || "企业标准")} · 定义与试验方法</h3>
+      <p class="kb-cite">${esc(meta.coverage || "")} ${esc(meta.rule || "评价看当份 DPR，不提供抽出值。")} 出表时空项：抽出值仍未检索到；企标方法号写在复核备注，不写入抽出值。</p>
+      <div class="kb-flags"><span class="kb-chip warn">不提供抽出值</span></div>
+      <h4>定义</h4>
+      <div class="kb-sources">${terms}</div>
+      <h4>6.2–6.36 / 7 / 7.1–7.9</h4>
+      <div class="kb-sources">${clauses}</div>
     `;
   }
 

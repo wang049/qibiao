@@ -15,7 +15,7 @@
 ## 二级依据
 
 - 用户格子：#5/#6/#7 条款 `6.4.2.4`，现场在该节对不上电压表。
-- 当份 Word：`6.4.2.4` 正文是 Protection 保护；高压范围标题是 `HVDC Voltage Range 高压范围`，未印条款号。修订记录只写了 6.5.2 低压功耗、6.5.4 BOOST。
+- 当份 Word：`6.4.2.4` 正文是 Protection 保护；高压范围标题印着大纲号 `6.5.3 HVDC Voltage Range`（python-docx 曾丢掉自动编号，见 `2026-09-08-word-outline-number-and-toc-page`）。未写进 Markdown 的片段仍不得臆造 6.5.3，也不得把 Protection 挂到电压表。
 - 既有复盘：`2026-09-07-ripple-lv-unnumbered-headings`（低压表同样抄 Protection）。印在标题上的 `6.5.3 HVDC Voltage Range` 仍应保留。
 
 ## 闸门

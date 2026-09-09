@@ -6,6 +6,6 @@ alwaysApply: true
 元规则全文：`.krow/AGENTS.md`。复盘目录：`.krow/lessons/`。
 
 - 抽出值只来自当份材料或当份已出现的量按已确认公式计算。禁止用 YAML 示例、lessons、AGENTS.md、Ontology 填格。
-- 工位不 `agent.run()`。作业路径：读文档 → 分流 → 规则先填 → 空缺项分段 JSON → Excel。
+- 工位不 `agent.run()`。作业路径：读文档 → 分流 → 文件质检（可交叉知识库主题，对照当份中英与内部逻辑，不填格）→ 规则先填 → 空缺项分段 JSON → Excel。
 - 修认条/出表前先 `python scripts/recall_lessons.py <序号或关键词>`。修认条/出表错误时：新增 `.krow/lessons/` 一篇，必须有「反事实」和「二级依据」；并改测试或规则闸门。没有闸门不算结案。
 - 未确认条目不开选段检索。客户 PRD/架构未经要求不要改。

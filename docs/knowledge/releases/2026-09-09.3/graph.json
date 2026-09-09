@@ -1,0 +1,4031 @@
+{
+  "nodes": [
+    {
+      "id": "clause:1",
+      "seq": 1,
+      "name": "设计范围是否包含OD本体物理集成",
+      "group": "设计范围",
+      "conflict": ""
+    },
+    {
+      "id": "clause:2",
+      "seq": 2,
+      "name": "设计范围是否包含OD上移功能",
+      "group": "设计范围",
+      "conflict": ""
+    },
+    {
+      "id": "clause:3",
+      "seq": 3,
+      "name": "设计范围是否包含驱动升压功能",
+      "group": "设计范围",
+      "conflict": ""
+    },
+    {
+      "id": "clause:4",
+      "seq": 4,
+      "name": "设计范围是否包含行车升压功能",
+      "group": "设计范围",
+      "conflict": ""
+    },
+    {
+      "id": "clause:5",
+      "seq": 5,
+      "name": "直流工作电压范围",
+      "group": "直流高压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:6",
+      "seq": 6,
+      "name": "满功率(电流)工作电压",
+      "group": "直流高压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:7",
+      "seq": 7,
+      "name": "降额工作电压范围",
+      "group": "直流高压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:8",
+      "seq": 8,
+      "name": "直流母线纹波电压要求",
+      "group": "直流高压",
+      "conflict": "bus_ripple"
+    },
+    {
+      "id": "clause:9",
+      "seq": 9,
+      "name": "直流电压过压保护",
+      "group": "直流高压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:10",
+      "seq": 10,
+      "name": "母线直流电流检测",
+      "group": "直流高压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:11",
+      "seq": 11,
+      "name": "反电动势峰值",
+      "group": "直流高压",
+      "conflict": "back_emf"
+    },
+    {
+      "id": "clause:12",
+      "seq": 12,
+      "name": "高压安全-纹波电压",
+      "group": "高压安全",
+      "conflict": "hv_safety_ripple"
+    },
+    {
+      "id": "clause:13",
+      "seq": 13,
+      "name": "高压安全-绝缘电阻",
+      "group": "高压安全",
+      "conflict": "insulation"
+    },
+    {
+      "id": "clause:14",
+      "seq": 14,
+      "name": "高压安全-耐电压",
+      "group": "高压安全",
+      "conflict": "dielectric"
+    },
+    {
+      "id": "clause:15",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
+      "group": "高压安全",
+      "conflict": ""
+    },
+    {
+      "id": "clause:16",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
+      "group": "高压安全",
+      "conflict": ""
+    },
+    {
+      "id": "clause:17",
+      "seq": 17,
+      "name": "高压安全-Y电容指标",
+      "group": "高压安全",
+      "conflict": ""
+    },
+    {
+      "id": "clause:18",
+      "seq": 18,
+      "name": "高压安全-绝缘电阻",
+      "group": "高压安全",
+      "conflict": "insulation"
+    },
+    {
+      "id": "clause:19",
+      "seq": 19,
+      "name": "高压安全-耐电压",
+      "group": "高压安全",
+      "conflict": "dielectric"
+    },
+    {
+      "id": "clause:20",
+      "seq": 20,
+      "name": "低压电源电压工作范围",
+      "group": "低压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:21",
+      "seq": 21,
+      "name": "低压功耗要求",
+      "group": "低压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:22",
+      "seq": 22,
+      "name": "静态电流",
+      "group": "低压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:23",
+      "seq": 23,
+      "name": "备份电源功能",
+      "group": "低压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:24",
+      "seq": 24,
+      "name": "薄膜电容容值",
+      "group": "高压安全",
+      "conflict": ""
+    },
+    {
+      "id": "clause:25",
+      "seq": 25,
+      "name": "主动放电电阻",
+      "group": "高压安全",
+      "conflict": ""
+    },
+    {
+      "id": "clause:26",
+      "seq": 26,
+      "name": "主动放电时间",
+      "group": "高压安全",
+      "conflict": ""
+    },
+    {
+      "id": "clause:27",
+      "seq": 27,
+      "name": "被动放电时间",
+      "group": "高压安全",
+      "conflict": ""
+    },
+    {
+      "id": "clause:28",
+      "seq": 28,
+      "name": "P1峰值功率",
+      "group": "P1",
+      "conflict": "p1_peak_power"
+    },
+    {
+      "id": "clause:29",
+      "seq": 29,
+      "name": "P1峰值功率持续时间",
+      "group": "P1",
+      "conflict": "p1_peak_power_duration"
+    },
+    {
+      "id": "clause:30",
+      "seq": 30,
+      "name": "P1额定功率",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:31",
+      "seq": 31,
+      "name": "P1峰值扭矩/时间/对应转速范围",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:32",
+      "seq": 32,
+      "name": "P1额定扭矩",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:33",
+      "seq": 33,
+      "name": "P1 额定转速",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:34",
+      "seq": 34,
+      "name": "P1 转速需求",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:35",
+      "seq": 35,
+      "name": "P1最高工作转速",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:36",
+      "seq": 36,
+      "name": "P1堵转扭矩/时间",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:37",
+      "seq": 37,
+      "name": "P1反电动势（Back EMF）",
+      "group": "P1",
+      "conflict": "p1_back_emf"
+    },
+    {
+      "id": "clause:38",
+      "seq": 38,
+      "name": "P1馈电要求",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:39",
+      "seq": 39,
+      "name": "P1位置传感器",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:40",
+      "seq": 40,
+      "name": "P1 ASC电流能力",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:41",
+      "seq": 41,
+      "name": "P1逆变器效率指标",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:42",
+      "seq": 42,
+      "name": "P1逆变器交流主动短路电流",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:43",
+      "seq": 43,
+      "name": "P1逆变器持续交流电流",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:44",
+      "seq": 44,
+      "name": "P1逆变器交流电流峰值",
+      "group": "P1",
+      "conflict": ""
+    },
+    {
+      "id": "clause:45",
+      "seq": 45,
+      "name": "P3峰值功率",
+      "group": "P3",
+      "conflict": "p3_peak_power"
+    },
+    {
+      "id": "clause:46",
+      "seq": 46,
+      "name": "P3峰值功率持续时间",
+      "group": "P3",
+      "conflict": "p3_peak_power_duration"
+    },
+    {
+      "id": "clause:47",
+      "seq": 47,
+      "name": "P3额定功率",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:48",
+      "seq": 48,
+      "name": "P3峰值扭矩/时间/对应转速范围",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:49",
+      "seq": 49,
+      "name": "P3额定扭矩",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:50",
+      "seq": 50,
+      "name": "P3 额定转速",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:51",
+      "seq": 51,
+      "name": "P3 转速需求",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:52",
+      "seq": 52,
+      "name": "P3最高工作转速",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:53",
+      "seq": 53,
+      "name": "P3堵转扭矩/时间",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:54",
+      "seq": 54,
+      "name": "P3 反电动势（Back EMF）",
+      "group": "P3",
+      "conflict": "p3_back_emf"
+    },
+    {
+      "id": "clause:55",
+      "seq": 55,
+      "name": "P3 ASC电流能力（是否整机提供？）",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:56",
+      "seq": 56,
+      "name": "P3逆变器效率指标",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:57",
+      "seq": 57,
+      "name": "P3逆变器交流主动短路电流",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:58",
+      "seq": 58,
+      "name": "P3额定功率相电流",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:59",
+      "seq": 59,
+      "name": "P3逆变器堵转电流",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:60",
+      "seq": 60,
+      "name": "P3逆变器交流电流峰值",
+      "group": "P3",
+      "conflict": ""
+    },
+    {
+      "id": "clause:61",
+      "seq": 61,
+      "name": "Boost功能要求",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:62",
+      "seq": 62,
+      "name": "BOOST最高工作电压",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:63",
+      "seq": 63,
+      "name": "BOOST输入峰值电流",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:64",
+      "seq": 64,
+      "name": "BOOST输入额定电流",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:65",
+      "seq": 65,
+      "name": "Boost输出性能",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:66",
+      "seq": 66,
+      "name": "升压效率",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:67",
+      "seq": 67,
+      "name": "升压输出电压",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:68",
+      "seq": 68,
+      "name": "升压输出功率",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:69",
+      "seq": 69,
+      "name": "升压开关频率",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:70",
+      "seq": 70,
+      "name": "升压纹波电压",
+      "group": "升压",
+      "conflict": "boost_ripple"
+    },
+    {
+      "id": "clause:71",
+      "seq": 71,
+      "name": "冷却回路压降",
+      "group": "冷却",
+      "conflict": "coolant_drop"
+    },
+    {
+      "id": "clause:72",
+      "seq": 72,
+      "name": "最大散热能力",
+      "group": "冷却",
+      "conflict": "heat_dissipation"
+    },
+    {
+      "id": "clause:73",
+      "seq": 73,
+      "name": "控制器重量",
+      "group": "环境与材料",
+      "conflict": "weight_controller"
+    },
+    {
+      "id": "clause:74",
+      "seq": 74,
+      "name": "防腐等级",
+      "group": "环境与材料",
+      "conflict": "corrosion_class"
+    },
+    {
+      "id": "clause:75",
+      "seq": 75,
+      "name": "振动要求",
+      "group": "环境与材料",
+      "conflict": "vibration"
+    },
+    {
+      "id": "clause:76",
+      "seq": 76,
+      "name": "EMC等级",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:77",
+      "seq": 77,
+      "name": "扭矩响应时间",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:78",
+      "seq": 78,
+      "name": "扭矩控制精度",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:79",
+      "seq": 79,
+      "name": "速比",
+      "group": "整机",
+      "conflict": ""
+    },
+    {
+      "id": "clause:80",
+      "seq": 80,
+      "name": "网络安全要求",
+      "group": "安全与功能",
+      "conflict": "cybersecurity"
+    },
+    {
+      "id": "clause:81",
+      "seq": 81,
+      "name": "功能安全",
+      "group": "安全与功能",
+      "conflict": ""
+    },
+    {
+      "id": "clause:82",
+      "seq": 82,
+      "name": "油温采样温度范围/采样精度/延时",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:83",
+      "seq": 83,
+      "name": "电驱回路水温/采样精度/延时",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:84",
+      "seq": 84,
+      "name": "电池回路出入水口水温/采样精度/延时",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:85",
+      "seq": 85,
+      "name": "CPSR电压范围/采样精度/延时",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:86",
+      "seq": 86,
+      "name": "加速踏板模拟量电压范围/采样精度/延时",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:87",
+      "seq": 87,
+      "name": "加速踏板PWM频率/占空比/高低电平范围",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:88",
+      "seq": 88,
+      "name": "油压采样高低电平范围/延时",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:89",
+      "seq": 89,
+      "name": "转矩控制精度",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:90",
+      "seq": 90,
+      "name": "相电流采样精度",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:91",
+      "seq": 91,
+      "name": "母线电压采样精度",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:92",
+      "seq": 92,
+      "name": "低压供电电源电压采样精度",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:93",
+      "seq": 93,
+      "name": "电机温度采样精度",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:94",
+      "seq": 94,
+      "name": "IGBT温度采样精度",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:95",
+      "seq": 95,
+      "name": "电机类型",
+      "group": "整机",
+      "conflict": ""
+    },
+    {
+      "id": "clause:96",
+      "seq": 96,
+      "name": "存储温度范围",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:97",
+      "seq": 97,
+      "name": "工作温度范围",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:98",
+      "seq": 98,
+      "name": "工作海拔高度",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:99",
+      "seq": 99,
+      "name": "存储相对湿度",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:100",
+      "seq": 100,
+      "name": "湿度要求",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:101",
+      "seq": 101,
+      "name": "重量要求",
+      "group": "环境与材料",
+      "conflict": "weight_requirement"
+    },
+    {
+      "id": "clause:102",
+      "seq": 102,
+      "name": "防腐要求",
+      "group": "环境与材料",
+      "conflict": "corrosion_std"
+    },
+    {
+      "id": "clause:103",
+      "seq": 103,
+      "name": "振动要求",
+      "group": "环境与材料",
+      "conflict": "vibration"
+    },
+    {
+      "id": "clause:104",
+      "seq": 104,
+      "name": "密封（IP等级）",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:105",
+      "seq": 105,
+      "name": "清洁度要求",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:106",
+      "seq": 106,
+      "name": "阻燃要求",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:107",
+      "seq": 107,
+      "name": "寿命要求",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:108",
+      "seq": 108,
+      "name": "禁用、限用物质",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:109",
+      "seq": 109,
+      "name": "高压连接器保护",
+      "group": "环境与材料",
+      "conflict": ""
+    },
+    {
+      "id": "clause:110",
+      "seq": 110,
+      "name": "冷却接口",
+      "group": "冷却",
+      "conflict": ""
+    },
+    {
+      "id": "clause:111",
+      "seq": 111,
+      "name": "冷却液温度范围",
+      "group": "冷却",
+      "conflict": ""
+    },
+    {
+      "id": "clause:112",
+      "seq": 112,
+      "name": "冷却流量范围",
+      "group": "冷却",
+      "conflict": ""
+    },
+    {
+      "id": "clause:113",
+      "seq": 113,
+      "name": "额定流量",
+      "group": "冷却",
+      "conflict": ""
+    },
+    {
+      "id": "clause:114",
+      "seq": 114,
+      "name": "通讯方式",
+      "group": "采样与控制",
+      "conflict": ""
+    },
+    {
+      "id": "clause:115",
+      "seq": 115,
+      "name": "升压充电功能",
+      "group": "升压",
+      "conflict": ""
+    },
+    {
+      "id": "clause:116",
+      "seq": 116,
+      "name": "主动保险功能",
+      "group": "安全与功能",
+      "conflict": ""
+    },
+    {
+      "id": "clause:117",
+      "seq": 117,
+      "name": "滑膜起步功能",
+      "group": "安全与功能",
+      "conflict": ""
+    },
+    {
+      "id": "clause:118",
+      "seq": 118,
+      "name": "网络安全要求",
+      "group": "安全与功能",
+      "conflict": "cybersecurity"
+    },
+    {
+      "id": "clause:119",
+      "seq": 119,
+      "name": "冷却回路压降",
+      "group": "冷却",
+      "conflict": "coolant_drop"
+    },
+    {
+      "id": "clause:120",
+      "seq": 120,
+      "name": "热损失",
+      "group": "冷却",
+      "conflict": "heat_dissipation"
+    },
+    {
+      "id": "physics:ohm",
+      "title": "欧姆定律",
+      "law": "U = I R",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:kirchhoff",
+      "title": "基尔霍夫电压电流定律",
+      "law": "ΣV = 0；ΣI = 0",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:p_ui",
+      "title": "直流电功率",
+      "law": "P = U I",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:p_ac3",
+      "title": "三相交流功率",
+      "law": "P = √3 U I cosφ",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:p_tw",
+      "title": "机械功率",
+      "law": "P = T ω = T n / 9550",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:omega",
+      "title": "角速度换算",
+      "law": "ω = 2 π n / 60",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:eta",
+      "title": "效率",
+      "law": "η = P_out / P_in",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:rc_discharge",
+      "title": "电容放电",
+      "law": "V(t) = V0 e^{-t/RC}；t = RC ln(V0/V1)",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:cap_energy",
+      "title": "电容储能",
+      "law": "E = 1/2 C V²",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:i2r",
+      "title": "电阻损耗",
+      "law": "P = I² R",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:rms_peak",
+      "title": "有效值与峰值",
+      "law": "I_peak = √2 I_rms",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:back_emf",
+      "title": "反电动势",
+      "law": "E = k_e ω",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:kt",
+      "title": "转矩常数",
+      "law": "T = k_t I",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:boost_d",
+      "title": "升压占空比",
+      "law": "V_out / V_in = 1 / (1-D)",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:ripple",
+      "title": "电容纹波",
+      "law": "ΔV ≈ I / (f C)",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:hipot_2u",
+      "title": "耐电压常用式",
+      "law": "U_test = 2U + 1000 V",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:idc",
+      "title": "直流电流",
+      "law": "I = P / U",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:ploss_eta",
+      "title": "损耗与效率",
+      "law": "P_loss = P_in (1 − η)",
+      "fill": false,
+      "derive": true
+    },
+    {
+      "id": "physics:elec_freq",
+      "title": "电频率与转速",
+      "law": "f = n p / 60（p 为极对数）",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:star_delta",
+      "title": "线电压与相电压",
+      "law": "U_ll = √3 U_ph",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:apparent_s",
+      "title": "视在功率",
+      "law": "S = √3 U I",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:pf",
+      "title": "功率因数",
+      "law": "cosφ = P / S",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:energy_pt",
+      "title": "电能",
+      "law": "E = P t",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:tau_l",
+      "title": "电感时间常数",
+      "law": "τ = L / R",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:faraday",
+      "title": "法拉第电磁感应",
+      "law": "e = − dφ / dt",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:inductance_v",
+      "title": "电感电压",
+      "law": "v = L di/dt",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:resonance",
+      "title": "LC 谐振",
+      "law": "f0 = 1 / (2π √(L C))",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:filter_fc",
+      "title": "RC 截止频率",
+      "law": "fc = 1 / (2π R C)",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:pwm_mod",
+      "title": "调制度",
+      "law": "V_ph ≈ m V_dc / 2（SPWM）；SVPWM 最大 m=2/√3",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:dq_torque",
+      "title": "矢量控制转矩",
+      "law": "T = (3/2) p λ I_q",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:coolant_heat",
+      "title": "冷却带走热量",
+      "law": "P = ṁ c ΔT（水约 P(kW) ≈ 0.07 Q(L/min) ΔT(K)）",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:slip",
+      "title": "转差率",
+      "law": "s = (n_s − n) / n_s",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:series_parallel",
+      "title": "串并联",
+      "law": "串联 R=ΣR_i；并联 1/R=Σ(1/R_i)；电容相反",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:nyquist",
+      "title": "采样定理",
+      "law": "f_s > 2 f_max",
+      "fill": false,
+      "derive": false
+    },
+    {
+      "id": "physics:column_split",
+      "title": "升压与非升压分列",
+      "law": "同一物理量在不同工况下列值不同，不得串列",
+      "fill": false,
+      "derive": false
+    }
+  ],
+  "edges": [
+    {
+      "from": "clause:1",
+      "to": "clause:2",
+      "rel": "related"
+    },
+    {
+      "from": "clause:1",
+      "to": "clause:22",
+      "rel": "related"
+    },
+    {
+      "from": "clause:1",
+      "to": "clause:22",
+      "rel": "not"
+    },
+    {
+      "from": "clause:1",
+      "to": "clause:2",
+      "rel": "not"
+    },
+    {
+      "from": "clause:1",
+      "to": "clause:71",
+      "rel": "not"
+    },
+    {
+      "from": "clause:2",
+      "to": "clause:1",
+      "rel": "related"
+    },
+    {
+      "from": "clause:2",
+      "to": "clause:1",
+      "rel": "not"
+    },
+    {
+      "from": "clause:2",
+      "to": "clause:71",
+      "rel": "not"
+    },
+    {
+      "from": "clause:3",
+      "to": "clause:4",
+      "rel": "related"
+    },
+    {
+      "from": "clause:3",
+      "to": "clause:61",
+      "rel": "related"
+    },
+    {
+      "from": "clause:3",
+      "to": "clause:115",
+      "rel": "related"
+    },
+    {
+      "from": "clause:3",
+      "to": "clause:4",
+      "rel": "not"
+    },
+    {
+      "from": "clause:3",
+      "to": "clause:115",
+      "rel": "not"
+    },
+    {
+      "from": "clause:3",
+      "to": "clause:62",
+      "rel": "not"
+    },
+    {
+      "from": "clause:3",
+      "to": "clause:70",
+      "rel": "not"
+    },
+    {
+      "from": "clause:4",
+      "to": "clause:3",
+      "rel": "related"
+    },
+    {
+      "from": "clause:4",
+      "to": "clause:115",
+      "rel": "related"
+    },
+    {
+      "from": "clause:4",
+      "to": "clause:3",
+      "rel": "not"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:6",
+      "rel": "related"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:7",
+      "rel": "related"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:9",
+      "rel": "related"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:62",
+      "rel": "related"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:9",
+      "rel": "not"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:14",
+      "rel": "not"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:19",
+      "rel": "not"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:91",
+      "rel": "not"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:20",
+      "rel": "not"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:62",
+      "rel": "not"
+    },
+    {
+      "from": "clause:5",
+      "to": "clause:67",
+      "rel": "not"
+    },
+    {
+      "from": "clause:6",
+      "to": "clause:5",
+      "rel": "related"
+    },
+    {
+      "from": "clause:6",
+      "to": "clause:7",
+      "rel": "related"
+    },
+    {
+      "from": "clause:6",
+      "to": "clause:28",
+      "rel": "related"
+    },
+    {
+      "from": "clause:6",
+      "to": "clause:45",
+      "rel": "related"
+    },
+    {
+      "from": "clause:6",
+      "to": "clause:28",
+      "rel": "not"
+    },
+    {
+      "from": "clause:6",
+      "to": "clause:45",
+      "rel": "not"
+    },
+    {
+      "from": "clause:6",
+      "to": "clause:7",
+      "rel": "not"
+    },
+    {
+      "from": "clause:7",
+      "to": "clause:5",
+      "rel": "related"
+    },
+    {
+      "from": "clause:7",
+      "to": "clause:6",
+      "rel": "related"
+    },
+    {
+      "from": "clause:7",
+      "to": "clause:6",
+      "rel": "not"
+    },
+    {
+      "from": "clause:8",
+      "to": "clause:12",
+      "rel": "related"
+    },
+    {
+      "from": "clause:8",
+      "to": "clause:70",
+      "rel": "related"
+    },
+    {
+      "from": "clause:8",
+      "to": "clause:24",
+      "rel": "related"
+    },
+    {
+      "from": "clause:8",
+      "to": "clause:70",
+      "rel": "not"
+    },
+    {
+      "from": "clause:8",
+      "to": "clause:12",
+      "rel": "not"
+    },
+    {
+      "from": "clause:9",
+      "to": "clause:5",
+      "rel": "related"
+    },
+    {
+      "from": "clause:9",
+      "to": "clause:20",
+      "rel": "not"
+    },
+    {
+      "from": "clause:10",
+      "to": "clause:90",
+      "rel": "related"
+    },
+    {
+      "from": "clause:10",
+      "to": "clause:43",
+      "rel": "not"
+    },
+    {
+      "from": "clause:10",
+      "to": "clause:44",
+      "rel": "not"
+    },
+    {
+      "from": "clause:10",
+      "to": "clause:58",
+      "rel": "not"
+    },
+    {
+      "from": "clause:10",
+      "to": "clause:90",
+      "rel": "not"
+    },
+    {
+      "from": "clause:10",
+      "to": "clause:63",
+      "rel": "not"
+    },
+    {
+      "from": "clause:10",
+      "to": "clause:64",
+      "rel": "not"
+    },
+    {
+      "from": "clause:11",
+      "to": "clause:37",
+      "rel": "related"
+    },
+    {
+      "from": "clause:11",
+      "to": "clause:54",
+      "rel": "related"
+    },
+    {
+      "from": "clause:11",
+      "to": "clause:44",
+      "rel": "related"
+    },
+    {
+      "from": "clause:11",
+      "to": "clause:60",
+      "rel": "related"
+    },
+    {
+      "from": "clause:11",
+      "to": "clause:28",
+      "rel": "not"
+    },
+    {
+      "from": "clause:11",
+      "to": "clause:44",
+      "rel": "not"
+    },
+    {
+      "from": "clause:12",
+      "to": "clause:8",
+      "rel": "related"
+    },
+    {
+      "from": "clause:12",
+      "to": "clause:70",
+      "rel": "related"
+    },
+    {
+      "from": "clause:12",
+      "to": "clause:8",
+      "rel": "not"
+    },
+    {
+      "from": "clause:12",
+      "to": "clause:70",
+      "rel": "not"
+    },
+    {
+      "from": "clause:13",
+      "to": "clause:18",
+      "rel": "related"
+    },
+    {
+      "from": "clause:13",
+      "to": "clause:25",
+      "rel": "not"
+    },
+    {
+      "from": "clause:13",
+      "to": "clause:95",
+      "rel": "not"
+    },
+    {
+      "from": "clause:14",
+      "to": "clause:19",
+      "rel": "related"
+    },
+    {
+      "from": "clause:14",
+      "to": "clause:95",
+      "rel": "related"
+    },
+    {
+      "from": "clause:14",
+      "to": "clause:95",
+      "rel": "not"
+    },
+    {
+      "from": "clause:15",
+      "to": "clause:25",
+      "rel": "related"
+    },
+    {
+      "from": "clause:15",
+      "to": "clause:26",
+      "rel": "related"
+    },
+    {
+      "from": "clause:15",
+      "to": "clause:23",
+      "rel": "related"
+    },
+    {
+      "from": "clause:15",
+      "to": "clause:16",
+      "rel": "not"
+    },
+    {
+      "from": "clause:15",
+      "to": "clause:27",
+      "rel": "not"
+    },
+    {
+      "from": "clause:16",
+      "to": "clause:27",
+      "rel": "related"
+    },
+    {
+      "from": "clause:16",
+      "to": "clause:25",
+      "rel": "related"
+    },
+    {
+      "from": "clause:16",
+      "to": "clause:15",
+      "rel": "not"
+    },
+    {
+      "from": "clause:16",
+      "to": "clause:26",
+      "rel": "not"
+    },
+    {
+      "from": "clause:17",
+      "to": "clause:24",
+      "rel": "related"
+    },
+    {
+      "from": "clause:17",
+      "to": "clause:24",
+      "rel": "not"
+    },
+    {
+      "from": "clause:18",
+      "to": "clause:13",
+      "rel": "related"
+    },
+    {
+      "from": "clause:18",
+      "to": "clause:25",
+      "rel": "not"
+    },
+    {
+      "from": "clause:18",
+      "to": "clause:95",
+      "rel": "not"
+    },
+    {
+      "from": "clause:19",
+      "to": "clause:14",
+      "rel": "related"
+    },
+    {
+      "from": "clause:19",
+      "to": "clause:95",
+      "rel": "not"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:21",
+      "rel": "related"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:22",
+      "rel": "related"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:92",
+      "rel": "related"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:85",
+      "rel": "related"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:92",
+      "rel": "not"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:21",
+      "rel": "not"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:85",
+      "rel": "not"
+    },
+    {
+      "from": "clause:20",
+      "to": "clause:5",
+      "rel": "not"
+    },
+    {
+      "from": "clause:21",
+      "to": "clause:22",
+      "rel": "related"
+    },
+    {
+      "from": "clause:21",
+      "to": "clause:120",
+      "rel": "related"
+    },
+    {
+      "from": "clause:21",
+      "to": "clause:120",
+      "rel": "not"
+    },
+    {
+      "from": "clause:21",
+      "to": "clause:22",
+      "rel": "not"
+    },
+    {
+      "from": "clause:22",
+      "to": "clause:21",
+      "rel": "related"
+    },
+    {
+      "from": "clause:22",
+      "to": "clause:1",
+      "rel": "related"
+    },
+    {
+      "from": "clause:22",
+      "to": "clause:14",
+      "rel": "not"
+    },
+    {
+      "from": "clause:22",
+      "to": "clause:21",
+      "rel": "not"
+    },
+    {
+      "from": "clause:23",
+      "to": "clause:15",
+      "rel": "related"
+    },
+    {
+      "from": "clause:23",
+      "to": "clause:26",
+      "rel": "related"
+    },
+    {
+      "from": "clause:23",
+      "to": "clause:27",
+      "rel": "related"
+    },
+    {
+      "from": "clause:23",
+      "to": "clause:20",
+      "rel": "not"
+    },
+    {
+      "from": "clause:23",
+      "to": "clause:26",
+      "rel": "not"
+    },
+    {
+      "from": "clause:23",
+      "to": "clause:27",
+      "rel": "not"
+    },
+    {
+      "from": "clause:24",
+      "to": "clause:17",
+      "rel": "related"
+    },
+    {
+      "from": "clause:24",
+      "to": "clause:8",
+      "rel": "related"
+    },
+    {
+      "from": "clause:24",
+      "to": "clause:17",
+      "rel": "not"
+    },
+    {
+      "from": "clause:25",
+      "to": "clause:15",
+      "rel": "related"
+    },
+    {
+      "from": "clause:25",
+      "to": "clause:16",
+      "rel": "related"
+    },
+    {
+      "from": "clause:25",
+      "to": "clause:26",
+      "rel": "related"
+    },
+    {
+      "from": "clause:25",
+      "to": "clause:13",
+      "rel": "not"
+    },
+    {
+      "from": "clause:25",
+      "to": "clause:16",
+      "rel": "not"
+    },
+    {
+      "from": "clause:26",
+      "to": "clause:15",
+      "rel": "related"
+    },
+    {
+      "from": "clause:26",
+      "to": "clause:27",
+      "rel": "related"
+    },
+    {
+      "from": "clause:26",
+      "to": "clause:23",
+      "rel": "related"
+    },
+    {
+      "from": "clause:26",
+      "to": "clause:27",
+      "rel": "not"
+    },
+    {
+      "from": "clause:26",
+      "to": "clause:23",
+      "rel": "not"
+    },
+    {
+      "from": "clause:26",
+      "to": "clause:29",
+      "rel": "not"
+    },
+    {
+      "from": "clause:26",
+      "to": "clause:46",
+      "rel": "not"
+    },
+    {
+      "from": "clause:27",
+      "to": "clause:16",
+      "rel": "related"
+    },
+    {
+      "from": "clause:27",
+      "to": "clause:26",
+      "rel": "related"
+    },
+    {
+      "from": "clause:27",
+      "to": "clause:23",
+      "rel": "related"
+    },
+    {
+      "from": "clause:27",
+      "to": "clause:26",
+      "rel": "not"
+    },
+    {
+      "from": "clause:27",
+      "to": "clause:23",
+      "rel": "not"
+    },
+    {
+      "from": "clause:28",
+      "to": "clause:29",
+      "rel": "related"
+    },
+    {
+      "from": "clause:28",
+      "to": "clause:30",
+      "rel": "related"
+    },
+    {
+      "from": "clause:28",
+      "to": "clause:68",
+      "rel": "related"
+    },
+    {
+      "from": "clause:28",
+      "to": "clause:68",
+      "rel": "not"
+    },
+    {
+      "from": "clause:29",
+      "to": "clause:28",
+      "rel": "related"
+    },
+    {
+      "from": "clause:29",
+      "to": "clause:77",
+      "rel": "not"
+    },
+    {
+      "from": "clause:29",
+      "to": "clause:26",
+      "rel": "not"
+    },
+    {
+      "from": "clause:29",
+      "to": "clause:27",
+      "rel": "not"
+    },
+    {
+      "from": "clause:30",
+      "to": "clause:28",
+      "rel": "related"
+    },
+    {
+      "from": "clause:30",
+      "to": "clause:58",
+      "rel": "not"
+    },
+    {
+      "from": "clause:31",
+      "to": "clause:32",
+      "rel": "related"
+    },
+    {
+      "from": "clause:31",
+      "to": "clause:36",
+      "rel": "related"
+    },
+    {
+      "from": "clause:31",
+      "to": "clause:78",
+      "rel": "not"
+    },
+    {
+      "from": "clause:31",
+      "to": "clause:89",
+      "rel": "not"
+    },
+    {
+      "from": "clause:31",
+      "to": "clause:77",
+      "rel": "not"
+    },
+    {
+      "from": "clause:32",
+      "to": "clause:31",
+      "rel": "related"
+    },
+    {
+      "from": "clause:33",
+      "to": "clause:35",
+      "rel": "related"
+    },
+    {
+      "from": "clause:33",
+      "to": "clause:34",
+      "rel": "related"
+    },
+    {
+      "from": "clause:34",
+      "to": "clause:35",
+      "rel": "related"
+    },
+    {
+      "from": "clause:34",
+      "to": "clause:33",
+      "rel": "related"
+    },
+    {
+      "from": "clause:35",
+      "to": "clause:37",
+      "rel": "related"
+    },
+    {
+      "from": "clause:35",
+      "to": "clause:37",
+      "rel": "not"
+    },
+    {
+      "from": "clause:36",
+      "to": "clause:31",
+      "rel": "related"
+    },
+    {
+      "from": "clause:36",
+      "to": "clause:59",
+      "rel": "not"
+    },
+    {
+      "from": "clause:37",
+      "to": "clause:11",
+      "rel": "related"
+    },
+    {
+      "from": "clause:37",
+      "to": "clause:35",
+      "rel": "related"
+    },
+    {
+      "from": "clause:38",
+      "to": "clause:28",
+      "rel": "related"
+    },
+    {
+      "from": "clause:38",
+      "to": "clause:30",
+      "rel": "related"
+    },
+    {
+      "from": "clause:38",
+      "to": "clause:4",
+      "rel": "not"
+    },
+    {
+      "from": "clause:38",
+      "to": "clause:115",
+      "rel": "not"
+    },
+    {
+      "from": "clause:39",
+      "to": "clause:93",
+      "rel": "not"
+    },
+    {
+      "from": "clause:39",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:39",
+      "to": "clause:90",
+      "rel": "not"
+    },
+    {
+      "from": "clause:39",
+      "to": "clause:88",
+      "rel": "not"
+    },
+    {
+      "from": "clause:40",
+      "to": "clause:42",
+      "rel": "related"
+    },
+    {
+      "from": "clause:41",
+      "to": "clause:66",
+      "rel": "related"
+    },
+    {
+      "from": "clause:41",
+      "to": "clause:56",
+      "rel": "not"
+    },
+    {
+      "from": "clause:41",
+      "to": "clause:66",
+      "rel": "not"
+    },
+    {
+      "from": "clause:42",
+      "to": "clause:40",
+      "rel": "related"
+    },
+    {
+      "from": "clause:43",
+      "to": "clause:44",
+      "rel": "related"
+    },
+    {
+      "from": "clause:43",
+      "to": "clause:58",
+      "rel": "related"
+    },
+    {
+      "from": "clause:43",
+      "to": "clause:58",
+      "rel": "not"
+    },
+    {
+      "from": "clause:43",
+      "to": "clause:44",
+      "rel": "not"
+    },
+    {
+      "from": "clause:43",
+      "to": "clause:42",
+      "rel": "not"
+    },
+    {
+      "from": "clause:43",
+      "to": "clause:10",
+      "rel": "not"
+    },
+    {
+      "from": "clause:43",
+      "to": "clause:64",
+      "rel": "not"
+    },
+    {
+      "from": "clause:44",
+      "to": "clause:43",
+      "rel": "related"
+    },
+    {
+      "from": "clause:44",
+      "to": "clause:42",
+      "rel": "related"
+    },
+    {
+      "from": "clause:44",
+      "to": "clause:37",
+      "rel": "related"
+    },
+    {
+      "from": "clause:45",
+      "to": "clause:46",
+      "rel": "related"
+    },
+    {
+      "from": "clause:45",
+      "to": "clause:47",
+      "rel": "related"
+    },
+    {
+      "from": "clause:45",
+      "to": "clause:68",
+      "rel": "related"
+    },
+    {
+      "from": "clause:45",
+      "to": "clause:68",
+      "rel": "not"
+    },
+    {
+      "from": "clause:46",
+      "to": "clause:45",
+      "rel": "related"
+    },
+    {
+      "from": "clause:46",
+      "to": "clause:77",
+      "rel": "not"
+    },
+    {
+      "from": "clause:46",
+      "to": "clause:26",
+      "rel": "not"
+    },
+    {
+      "from": "clause:46",
+      "to": "clause:27",
+      "rel": "not"
+    },
+    {
+      "from": "clause:47",
+      "to": "clause:45",
+      "rel": "related"
+    },
+    {
+      "from": "clause:47",
+      "to": "clause:58",
+      "rel": "not"
+    },
+    {
+      "from": "clause:48",
+      "to": "clause:49",
+      "rel": "related"
+    },
+    {
+      "from": "clause:48",
+      "to": "clause:53",
+      "rel": "related"
+    },
+    {
+      "from": "clause:48",
+      "to": "clause:78",
+      "rel": "not"
+    },
+    {
+      "from": "clause:48",
+      "to": "clause:89",
+      "rel": "not"
+    },
+    {
+      "from": "clause:48",
+      "to": "clause:77",
+      "rel": "not"
+    },
+    {
+      "from": "clause:49",
+      "to": "clause:48",
+      "rel": "related"
+    },
+    {
+      "from": "clause:50",
+      "to": "clause:52",
+      "rel": "related"
+    },
+    {
+      "from": "clause:50",
+      "to": "clause:51",
+      "rel": "related"
+    },
+    {
+      "from": "clause:51",
+      "to": "clause:52",
+      "rel": "related"
+    },
+    {
+      "from": "clause:51",
+      "to": "clause:50",
+      "rel": "related"
+    },
+    {
+      "from": "clause:52",
+      "to": "clause:54",
+      "rel": "related"
+    },
+    {
+      "from": "clause:52",
+      "to": "clause:37",
+      "rel": "not"
+    },
+    {
+      "from": "clause:52",
+      "to": "clause:35",
+      "rel": "not"
+    },
+    {
+      "from": "clause:53",
+      "to": "clause:48",
+      "rel": "related"
+    },
+    {
+      "from": "clause:53",
+      "to": "clause:59",
+      "rel": "related"
+    },
+    {
+      "from": "clause:53",
+      "to": "clause:59",
+      "rel": "not"
+    },
+    {
+      "from": "clause:54",
+      "to": "clause:11",
+      "rel": "related"
+    },
+    {
+      "from": "clause:54",
+      "to": "clause:52",
+      "rel": "related"
+    },
+    {
+      "from": "clause:55",
+      "to": "clause:57",
+      "rel": "related"
+    },
+    {
+      "from": "clause:56",
+      "to": "clause:66",
+      "rel": "related"
+    },
+    {
+      "from": "clause:56",
+      "to": "clause:41",
+      "rel": "not"
+    },
+    {
+      "from": "clause:56",
+      "to": "clause:66",
+      "rel": "not"
+    },
+    {
+      "from": "clause:57",
+      "to": "clause:55",
+      "rel": "related"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:43",
+      "rel": "related"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:47",
+      "rel": "related"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:60",
+      "rel": "related"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:43",
+      "rel": "not"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:60",
+      "rel": "not"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:57",
+      "rel": "not"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:47",
+      "rel": "not"
+    },
+    {
+      "from": "clause:58",
+      "to": "clause:90",
+      "rel": "not"
+    },
+    {
+      "from": "clause:59",
+      "to": "clause:53",
+      "rel": "related"
+    },
+    {
+      "from": "clause:59",
+      "to": "clause:55",
+      "rel": "related"
+    },
+    {
+      "from": "clause:59",
+      "to": "clause:53",
+      "rel": "not"
+    },
+    {
+      "from": "clause:60",
+      "to": "clause:58",
+      "rel": "related"
+    },
+    {
+      "from": "clause:60",
+      "to": "clause:57",
+      "rel": "related"
+    },
+    {
+      "from": "clause:60",
+      "to": "clause:54",
+      "rel": "related"
+    },
+    {
+      "from": "clause:60",
+      "to": "clause:44",
+      "rel": "not"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:3",
+      "rel": "related"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:4",
+      "rel": "related"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:62",
+      "rel": "related"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:115",
+      "rel": "related"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:3",
+      "rel": "not"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:4",
+      "rel": "not"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:62",
+      "rel": "not"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:70",
+      "rel": "not"
+    },
+    {
+      "from": "clause:61",
+      "to": "clause:115",
+      "rel": "not"
+    },
+    {
+      "from": "clause:62",
+      "to": "clause:67",
+      "rel": "related"
+    },
+    {
+      "from": "clause:62",
+      "to": "clause:5",
+      "rel": "related"
+    },
+    {
+      "from": "clause:62",
+      "to": "clause:5",
+      "rel": "not"
+    },
+    {
+      "from": "clause:62",
+      "to": "clause:67",
+      "rel": "not"
+    },
+    {
+      "from": "clause:63",
+      "to": "clause:64",
+      "rel": "related"
+    },
+    {
+      "from": "clause:63",
+      "to": "clause:68",
+      "rel": "related"
+    },
+    {
+      "from": "clause:63",
+      "to": "clause:64",
+      "rel": "not"
+    },
+    {
+      "from": "clause:63",
+      "to": "clause:44",
+      "rel": "not"
+    },
+    {
+      "from": "clause:63",
+      "to": "clause:60",
+      "rel": "not"
+    },
+    {
+      "from": "clause:64",
+      "to": "clause:63",
+      "rel": "related"
+    },
+    {
+      "from": "clause:64",
+      "to": "clause:67",
+      "rel": "related"
+    },
+    {
+      "from": "clause:64",
+      "to": "clause:63",
+      "rel": "not"
+    },
+    {
+      "from": "clause:65",
+      "to": "clause:62",
+      "rel": "related"
+    },
+    {
+      "from": "clause:65",
+      "to": "clause:63",
+      "rel": "related"
+    },
+    {
+      "from": "clause:65",
+      "to": "clause:64",
+      "rel": "related"
+    },
+    {
+      "from": "clause:65",
+      "to": "clause:67",
+      "rel": "related"
+    },
+    {
+      "from": "clause:65",
+      "to": "clause:68",
+      "rel": "related"
+    },
+    {
+      "from": "clause:65",
+      "to": "clause:63",
+      "rel": "not"
+    },
+    {
+      "from": "clause:65",
+      "to": "clause:64",
+      "rel": "not"
+    },
+    {
+      "from": "clause:66",
+      "to": "clause:41",
+      "rel": "related"
+    },
+    {
+      "from": "clause:66",
+      "to": "clause:56",
+      "rel": "related"
+    },
+    {
+      "from": "clause:66",
+      "to": "clause:41",
+      "rel": "not"
+    },
+    {
+      "from": "clause:66",
+      "to": "clause:56",
+      "rel": "not"
+    },
+    {
+      "from": "clause:67",
+      "to": "clause:62",
+      "rel": "related"
+    },
+    {
+      "from": "clause:67",
+      "to": "clause:64",
+      "rel": "related"
+    },
+    {
+      "from": "clause:67",
+      "to": "clause:62",
+      "rel": "not"
+    },
+    {
+      "from": "clause:67",
+      "to": "clause:5",
+      "rel": "not"
+    },
+    {
+      "from": "clause:68",
+      "to": "clause:28",
+      "rel": "related"
+    },
+    {
+      "from": "clause:68",
+      "to": "clause:45",
+      "rel": "related"
+    },
+    {
+      "from": "clause:68",
+      "to": "clause:28",
+      "rel": "not"
+    },
+    {
+      "from": "clause:68",
+      "to": "clause:45",
+      "rel": "not"
+    },
+    {
+      "from": "clause:69",
+      "to": "clause:87",
+      "rel": "related"
+    },
+    {
+      "from": "clause:69",
+      "to": "clause:87",
+      "rel": "not"
+    },
+    {
+      "from": "clause:70",
+      "to": "clause:8",
+      "rel": "related"
+    },
+    {
+      "from": "clause:70",
+      "to": "clause:12",
+      "rel": "related"
+    },
+    {
+      "from": "clause:70",
+      "to": "clause:8",
+      "rel": "not"
+    },
+    {
+      "from": "clause:70",
+      "to": "clause:12",
+      "rel": "not"
+    },
+    {
+      "from": "clause:71",
+      "to": "clause:119",
+      "rel": "related"
+    },
+    {
+      "from": "clause:71",
+      "to": "clause:112",
+      "rel": "related"
+    },
+    {
+      "from": "clause:71",
+      "to": "clause:113",
+      "rel": "related"
+    },
+    {
+      "from": "clause:71",
+      "to": "clause:88",
+      "rel": "not"
+    },
+    {
+      "from": "clause:72",
+      "to": "clause:120",
+      "rel": "related"
+    },
+    {
+      "from": "clause:72",
+      "to": "clause:21",
+      "rel": "not"
+    },
+    {
+      "from": "clause:73",
+      "to": "clause:101",
+      "rel": "related"
+    },
+    {
+      "from": "clause:74",
+      "to": "clause:102",
+      "rel": "related"
+    },
+    {
+      "from": "clause:75",
+      "to": "clause:103",
+      "rel": "related"
+    },
+    {
+      "from": "clause:76",
+      "to": "clause:80",
+      "rel": "related"
+    },
+    {
+      "from": "clause:76",
+      "to": "clause:81",
+      "rel": "related"
+    },
+    {
+      "from": "clause:76",
+      "to": "clause:80",
+      "rel": "not"
+    },
+    {
+      "from": "clause:76",
+      "to": "clause:81",
+      "rel": "not"
+    },
+    {
+      "from": "clause:77",
+      "to": "clause:78",
+      "rel": "related"
+    },
+    {
+      "from": "clause:77",
+      "to": "clause:89",
+      "rel": "related"
+    },
+    {
+      "from": "clause:77",
+      "to": "clause:78",
+      "rel": "not"
+    },
+    {
+      "from": "clause:77",
+      "to": "clause:89",
+      "rel": "not"
+    },
+    {
+      "from": "clause:77",
+      "to": "clause:82",
+      "rel": "not"
+    },
+    {
+      "from": "clause:77",
+      "to": "clause:88",
+      "rel": "not"
+    },
+    {
+      "from": "clause:77",
+      "to": "clause:65",
+      "rel": "not"
+    },
+    {
+      "from": "clause:78",
+      "to": "clause:89",
+      "rel": "related"
+    },
+    {
+      "from": "clause:78",
+      "to": "clause:77",
+      "rel": "related"
+    },
+    {
+      "from": "clause:78",
+      "to": "clause:90",
+      "rel": "not"
+    },
+    {
+      "from": "clause:78",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:78",
+      "to": "clause:77",
+      "rel": "not"
+    },
+    {
+      "from": "clause:79",
+      "to": "clause:87",
+      "rel": "not"
+    },
+    {
+      "from": "clause:80",
+      "to": "clause:118",
+      "rel": "related"
+    },
+    {
+      "from": "clause:80",
+      "to": "clause:81",
+      "rel": "related"
+    },
+    {
+      "from": "clause:80",
+      "to": "clause:81",
+      "rel": "not"
+    },
+    {
+      "from": "clause:80",
+      "to": "clause:12",
+      "rel": "not"
+    },
+    {
+      "from": "clause:80",
+      "to": "clause:19",
+      "rel": "not"
+    },
+    {
+      "from": "clause:81",
+      "to": "clause:80",
+      "rel": "related"
+    },
+    {
+      "from": "clause:81",
+      "to": "clause:40",
+      "rel": "related"
+    },
+    {
+      "from": "clause:81",
+      "to": "clause:55",
+      "rel": "related"
+    },
+    {
+      "from": "clause:81",
+      "to": "clause:80",
+      "rel": "not"
+    },
+    {
+      "from": "clause:81",
+      "to": "clause:40",
+      "rel": "not"
+    },
+    {
+      "from": "clause:81",
+      "to": "clause:55",
+      "rel": "not"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:83",
+      "rel": "related"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:88",
+      "rel": "related"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:93",
+      "rel": "not"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:97",
+      "rel": "not"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:83",
+      "rel": "not"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:84",
+      "rel": "not"
+    },
+    {
+      "from": "clause:82",
+      "to": "clause:88",
+      "rel": "not"
+    },
+    {
+      "from": "clause:83",
+      "to": "clause:84",
+      "rel": "related"
+    },
+    {
+      "from": "clause:83",
+      "to": "clause:111",
+      "rel": "related"
+    },
+    {
+      "from": "clause:83",
+      "to": "clause:93",
+      "rel": "not"
+    },
+    {
+      "from": "clause:83",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:83",
+      "to": "clause:97",
+      "rel": "not"
+    },
+    {
+      "from": "clause:83",
+      "to": "clause:84",
+      "rel": "not"
+    },
+    {
+      "from": "clause:83",
+      "to": "clause:111",
+      "rel": "not"
+    },
+    {
+      "from": "clause:84",
+      "to": "clause:83",
+      "rel": "related"
+    },
+    {
+      "from": "clause:84",
+      "to": "clause:93",
+      "rel": "not"
+    },
+    {
+      "from": "clause:84",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:84",
+      "to": "clause:97",
+      "rel": "not"
+    },
+    {
+      "from": "clause:84",
+      "to": "clause:83",
+      "rel": "not"
+    },
+    {
+      "from": "clause:85",
+      "to": "clause:20",
+      "rel": "related"
+    },
+    {
+      "from": "clause:85",
+      "to": "clause:92",
+      "rel": "related"
+    },
+    {
+      "from": "clause:85",
+      "to": "clause:86",
+      "rel": "related"
+    },
+    {
+      "from": "clause:85",
+      "to": "clause:20",
+      "rel": "not"
+    },
+    {
+      "from": "clause:85",
+      "to": "clause:92",
+      "rel": "not"
+    },
+    {
+      "from": "clause:85",
+      "to": "clause:86",
+      "rel": "not"
+    },
+    {
+      "from": "clause:86",
+      "to": "clause:87",
+      "rel": "related"
+    },
+    {
+      "from": "clause:86",
+      "to": "clause:87",
+      "rel": "not"
+    },
+    {
+      "from": "clause:86",
+      "to": "clause:85",
+      "rel": "not"
+    },
+    {
+      "from": "clause:87",
+      "to": "clause:86",
+      "rel": "related"
+    },
+    {
+      "from": "clause:87",
+      "to": "clause:69",
+      "rel": "related"
+    },
+    {
+      "from": "clause:87",
+      "to": "clause:88",
+      "rel": "related"
+    },
+    {
+      "from": "clause:87",
+      "to": "clause:69",
+      "rel": "not"
+    },
+    {
+      "from": "clause:87",
+      "to": "clause:88",
+      "rel": "not"
+    },
+    {
+      "from": "clause:88",
+      "to": "clause:82",
+      "rel": "related"
+    },
+    {
+      "from": "clause:88",
+      "to": "clause:87",
+      "rel": "related"
+    },
+    {
+      "from": "clause:88",
+      "to": "clause:71",
+      "rel": "not"
+    },
+    {
+      "from": "clause:88",
+      "to": "clause:82",
+      "rel": "not"
+    },
+    {
+      "from": "clause:89",
+      "to": "clause:78",
+      "rel": "related"
+    },
+    {
+      "from": "clause:89",
+      "to": "clause:90",
+      "rel": "not"
+    },
+    {
+      "from": "clause:89",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:89",
+      "to": "clause:77",
+      "rel": "not"
+    },
+    {
+      "from": "clause:90",
+      "to": "clause:10",
+      "rel": "related"
+    },
+    {
+      "from": "clause:90",
+      "to": "clause:58",
+      "rel": "related"
+    },
+    {
+      "from": "clause:90",
+      "to": "clause:10",
+      "rel": "not"
+    },
+    {
+      "from": "clause:90",
+      "to": "clause:42",
+      "rel": "not"
+    },
+    {
+      "from": "clause:90",
+      "to": "clause:43",
+      "rel": "not"
+    },
+    {
+      "from": "clause:90",
+      "to": "clause:44",
+      "rel": "not"
+    },
+    {
+      "from": "clause:91",
+      "to": "clause:5",
+      "rel": "related"
+    },
+    {
+      "from": "clause:91",
+      "to": "clause:92",
+      "rel": "related"
+    },
+    {
+      "from": "clause:91",
+      "to": "clause:5",
+      "rel": "not"
+    },
+    {
+      "from": "clause:91",
+      "to": "clause:92",
+      "rel": "not"
+    },
+    {
+      "from": "clause:91",
+      "to": "clause:9",
+      "rel": "not"
+    },
+    {
+      "from": "clause:92",
+      "to": "clause:20",
+      "rel": "related"
+    },
+    {
+      "from": "clause:92",
+      "to": "clause:85",
+      "rel": "related"
+    },
+    {
+      "from": "clause:92",
+      "to": "clause:20",
+      "rel": "not"
+    },
+    {
+      "from": "clause:92",
+      "to": "clause:85",
+      "rel": "not"
+    },
+    {
+      "from": "clause:92",
+      "to": "clause:86",
+      "rel": "not"
+    },
+    {
+      "from": "clause:93",
+      "to": "clause:94",
+      "rel": "related"
+    },
+    {
+      "from": "clause:93",
+      "to": "clause:82",
+      "rel": "related"
+    },
+    {
+      "from": "clause:93",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:93",
+      "to": "clause:82",
+      "rel": "not"
+    },
+    {
+      "from": "clause:93",
+      "to": "clause:83",
+      "rel": "not"
+    },
+    {
+      "from": "clause:93",
+      "to": "clause:84",
+      "rel": "not"
+    },
+    {
+      "from": "clause:94",
+      "to": "clause:93",
+      "rel": "related"
+    },
+    {
+      "from": "clause:94",
+      "to": "clause:93",
+      "rel": "not"
+    },
+    {
+      "from": "clause:94",
+      "to": "clause:97",
+      "rel": "not"
+    },
+    {
+      "from": "clause:95",
+      "to": "clause:14",
+      "rel": "related"
+    },
+    {
+      "from": "clause:95",
+      "to": "clause:13",
+      "rel": "related"
+    },
+    {
+      "from": "clause:96",
+      "to": "clause:97",
+      "rel": "related"
+    },
+    {
+      "from": "clause:96",
+      "to": "clause:97",
+      "rel": "not"
+    },
+    {
+      "from": "clause:96",
+      "to": "clause:111",
+      "rel": "not"
+    },
+    {
+      "from": "clause:97",
+      "to": "clause:96",
+      "rel": "related"
+    },
+    {
+      "from": "clause:97",
+      "to": "clause:111",
+      "rel": "related"
+    },
+    {
+      "from": "clause:97",
+      "to": "clause:96",
+      "rel": "not"
+    },
+    {
+      "from": "clause:97",
+      "to": "clause:111",
+      "rel": "not"
+    },
+    {
+      "from": "clause:97",
+      "to": "clause:94",
+      "rel": "not"
+    },
+    {
+      "from": "clause:97",
+      "to": "clause:82",
+      "rel": "not"
+    },
+    {
+      "from": "clause:97",
+      "to": "clause:84",
+      "rel": "not"
+    },
+    {
+      "from": "clause:99",
+      "to": "clause:100",
+      "rel": "related"
+    },
+    {
+      "from": "clause:99",
+      "to": "clause:100",
+      "rel": "not"
+    },
+    {
+      "from": "clause:100",
+      "to": "clause:99",
+      "rel": "related"
+    },
+    {
+      "from": "clause:100",
+      "to": "clause:99",
+      "rel": "not"
+    },
+    {
+      "from": "clause:101",
+      "to": "clause:73",
+      "rel": "related"
+    },
+    {
+      "from": "clause:102",
+      "to": "clause:74",
+      "rel": "related"
+    },
+    {
+      "from": "clause:103",
+      "to": "clause:75",
+      "rel": "related"
+    },
+    {
+      "from": "clause:104",
+      "to": "clause:109",
+      "rel": "related"
+    },
+    {
+      "from": "clause:104",
+      "to": "clause:109",
+      "rel": "not"
+    },
+    {
+      "from": "clause:109",
+      "to": "clause:104",
+      "rel": "related"
+    },
+    {
+      "from": "clause:109",
+      "to": "clause:9",
+      "rel": "not"
+    },
+    {
+      "from": "clause:109",
+      "to": "clause:104",
+      "rel": "not"
+    },
+    {
+      "from": "clause:110",
+      "to": "clause:111",
+      "rel": "related"
+    },
+    {
+      "from": "clause:110",
+      "to": "clause:109",
+      "rel": "not"
+    },
+    {
+      "from": "clause:111",
+      "to": "clause:83",
+      "rel": "related"
+    },
+    {
+      "from": "clause:111",
+      "to": "clause:97",
+      "rel": "related"
+    },
+    {
+      "from": "clause:111",
+      "to": "clause:83",
+      "rel": "not"
+    },
+    {
+      "from": "clause:111",
+      "to": "clause:84",
+      "rel": "not"
+    },
+    {
+      "from": "clause:111",
+      "to": "clause:97",
+      "rel": "not"
+    },
+    {
+      "from": "clause:111",
+      "to": "clause:82",
+      "rel": "not"
+    },
+    {
+      "from": "clause:112",
+      "to": "clause:113",
+      "rel": "related"
+    },
+    {
+      "from": "clause:112",
+      "to": "clause:71",
+      "rel": "related"
+    },
+    {
+      "from": "clause:112",
+      "to": "clause:113",
+      "rel": "not"
+    },
+    {
+      "from": "clause:112",
+      "to": "clause:71",
+      "rel": "not"
+    },
+    {
+      "from": "clause:113",
+      "to": "clause:112",
+      "rel": "related"
+    },
+    {
+      "from": "clause:113",
+      "to": "clause:71",
+      "rel": "related"
+    },
+    {
+      "from": "clause:113",
+      "to": "clause:112",
+      "rel": "not"
+    },
+    {
+      "from": "clause:113",
+      "to": "clause:71",
+      "rel": "not"
+    },
+    {
+      "from": "clause:114",
+      "to": "clause:20",
+      "rel": "related"
+    },
+    {
+      "from": "clause:114",
+      "to": "clause:80",
+      "rel": "related"
+    },
+    {
+      "from": "clause:114",
+      "to": "clause:20",
+      "rel": "not"
+    },
+    {
+      "from": "clause:114",
+      "to": "clause:80",
+      "rel": "not"
+    },
+    {
+      "from": "clause:115",
+      "to": "clause:4",
+      "rel": "related"
+    },
+    {
+      "from": "clause:115",
+      "to": "clause:61",
+      "rel": "related"
+    },
+    {
+      "from": "clause:115",
+      "to": "clause:3",
+      "rel": "not"
+    },
+    {
+      "from": "clause:116",
+      "to": "clause:107",
+      "rel": "related"
+    },
+    {
+      "from": "clause:116",
+      "to": "clause:107",
+      "rel": "not"
+    },
+    {
+      "from": "clause:117",
+      "to": "clause:53",
+      "rel": "related"
+    },
+    {
+      "from": "clause:118",
+      "to": "clause:80",
+      "rel": "related"
+    },
+    {
+      "from": "clause:118",
+      "to": "clause:81",
+      "rel": "not"
+    },
+    {
+      "from": "clause:118",
+      "to": "clause:12",
+      "rel": "not"
+    },
+    {
+      "from": "clause:118",
+      "to": "clause:19",
+      "rel": "not"
+    },
+    {
+      "from": "clause:119",
+      "to": "clause:71",
+      "rel": "related"
+    },
+    {
+      "from": "clause:119",
+      "to": "clause:88",
+      "rel": "not"
+    },
+    {
+      "from": "clause:120",
+      "to": "clause:72",
+      "rel": "related"
+    },
+    {
+      "from": "clause:120",
+      "to": "clause:21",
+      "rel": "not"
+    },
+    {
+      "from": "clause:120",
+      "to": "clause:41",
+      "rel": "not"
+    },
+    {
+      "from": "clause:120",
+      "to": "clause:56",
+      "rel": "not"
+    },
+    {
+      "from": "clause:120",
+      "to": "clause:66",
+      "rel": "not"
+    },
+    {
+      "from": "clause:13",
+      "to": "clause:18",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:18",
+      "to": "clause:13",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:14",
+      "to": "clause:19",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:19",
+      "to": "clause:14",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:71",
+      "to": "clause:119",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:119",
+      "to": "clause:71",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:72",
+      "to": "clause:120",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:120",
+      "to": "clause:72",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:75",
+      "to": "clause:103",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:103",
+      "to": "clause:75",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:80",
+      "to": "clause:118",
+      "rel": "same_slot"
+    },
+    {
+      "from": "clause:118",
+      "to": "clause:80",
+      "rel": "same_slot"
+    },
+    {
+      "from": "physics:ohm",
+      "to": "clause:13",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ohm",
+      "to": "clause:18",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ohm",
+      "to": "clause:22",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ohm",
+      "to": "clause:25",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ohm",
+      "to": "clause:26",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kirchhoff",
+      "to": "clause:5",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kirchhoff",
+      "to": "clause:20",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kirchhoff",
+      "to": "clause:22",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:5",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:6",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:7",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:21",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:28",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:30",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:45",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:47",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:62",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:63",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ui",
+      "to": "clause:68",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:28",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:30",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:43",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:44",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:45",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:47",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:58",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_ac3",
+      "to": "clause:59",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:28",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:30",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:31",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:32",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:45",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:47",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:48",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:p_tw",
+      "to": "clause:49",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:omega",
+      "to": "clause:31",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:omega",
+      "to": "clause:32",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:omega",
+      "to": "clause:33",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:omega",
+      "to": "clause:48",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:omega",
+      "to": "clause:49",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:omega",
+      "to": "clause:50",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:eta",
+      "to": "clause:41",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:eta",
+      "to": "clause:56",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:eta",
+      "to": "clause:66",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rc_discharge",
+      "to": "clause:24",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rc_discharge",
+      "to": "clause:25",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rc_discharge",
+      "to": "clause:26",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rc_discharge",
+      "to": "clause:27",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:cap_energy",
+      "to": "clause:17",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:cap_energy",
+      "to": "clause:24",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:i2r",
+      "to": "clause:120",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rms_peak",
+      "to": "clause:43",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rms_peak",
+      "to": "clause:44",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rms_peak",
+      "to": "clause:58",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:rms_peak",
+      "to": "clause:59",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:back_emf",
+      "to": "clause:11",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:back_emf",
+      "to": "clause:37",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kt",
+      "to": "clause:31",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kt",
+      "to": "clause:36",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kt",
+      "to": "clause:40",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kt",
+      "to": "clause:48",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:kt",
+      "to": "clause:53",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:boost_d",
+      "to": "clause:61",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:boost_d",
+      "to": "clause:64",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:boost_d",
+      "to": "clause:67",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:boost_d",
+      "to": "clause:68",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ripple",
+      "to": "clause:8",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ripple",
+      "to": "clause:12",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ripple",
+      "to": "clause:24",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ripple",
+      "to": "clause:69",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ripple",
+      "to": "clause:70",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:hipot_2u",
+      "to": "clause:14",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:hipot_2u",
+      "to": "clause:19",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:idc",
+      "to": "clause:63",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:idc",
+      "to": "clause:64",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:idc",
+      "to": "clause:68",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ploss_eta",
+      "to": "clause:41",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ploss_eta",
+      "to": "clause:56",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ploss_eta",
+      "to": "clause:66",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ploss_eta",
+      "to": "clause:72",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:ploss_eta",
+      "to": "clause:120",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:elec_freq",
+      "to": "clause:33",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:elec_freq",
+      "to": "clause:35",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:elec_freq",
+      "to": "clause:50",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:elec_freq",
+      "to": "clause:52",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:elec_freq",
+      "to": "clause:69",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:star_delta",
+      "to": "clause:43",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:star_delta",
+      "to": "clause:44",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:star_delta",
+      "to": "clause:58",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:star_delta",
+      "to": "clause:59",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:apparent_s",
+      "to": "clause:28",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:apparent_s",
+      "to": "clause:45",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:apparent_s",
+      "to": "clause:58",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:pf",
+      "to": "clause:28",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:pf",
+      "to": "clause:45",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:energy_pt",
+      "to": "clause:26",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:energy_pt",
+      "to": "clause:27",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:energy_pt",
+      "to": "clause:29",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:energy_pt",
+      "to": "clause:46",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:tau_l",
+      "to": "clause:25",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:tau_l",
+      "to": "clause:63",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:tau_l",
+      "to": "clause:69",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:faraday",
+      "to": "clause:11",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:faraday",
+      "to": "clause:37",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:faraday",
+      "to": "clause:54",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:inductance_v",
+      "to": "clause:63",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:inductance_v",
+      "to": "clause:69",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:resonance",
+      "to": "clause:8",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:resonance",
+      "to": "clause:24",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:resonance",
+      "to": "clause:69",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:resonance",
+      "to": "clause:70",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:filter_fc",
+      "to": "clause:17",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:filter_fc",
+      "to": "clause:91",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:filter_fc",
+      "to": "clause:92",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:pwm_mod",
+      "to": "clause:5",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:pwm_mod",
+      "to": "clause:43",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:pwm_mod",
+      "to": "clause:58",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:dq_torque",
+      "to": "clause:31",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:dq_torque",
+      "to": "clause:36",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:dq_torque",
+      "to": "clause:48",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:dq_torque",
+      "to": "clause:53",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:coolant_heat",
+      "to": "clause:72",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:coolant_heat",
+      "to": "clause:112",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:coolant_heat",
+      "to": "clause:113",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:coolant_heat",
+      "to": "clause:120",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:slip",
+      "to": "clause:33",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:slip",
+      "to": "clause:50",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:series_parallel",
+      "to": "clause:17",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:series_parallel",
+      "to": "clause:24",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:series_parallel",
+      "to": "clause:25",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:nyquist",
+      "to": "clause:90",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:nyquist",
+      "to": "clause:91",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:nyquist",
+      "to": "clause:92",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:5",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:6",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:7",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:61",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:62",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:63",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:64",
+      "rel": "interprets"
+    },
+    {
+      "from": "physics:column_split",
+      "to": "clause:115",
+      "rel": "interprets"
+    }
+  ]
+}

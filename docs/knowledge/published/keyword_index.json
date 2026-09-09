@@ -145,8 +145,8 @@
   ],
   "activedischargeduration": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -169,8 +169,8 @@
   ],
   "activedischargetime": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -200,18 +200,6 @@
     },
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
@@ -523,8 +511,8 @@
   ],
   "bleeddowntime": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -692,7 +680,7 @@
   "boostmodecharging": [
     {
       "seq": 4,
-      "name": "设计范围是否包含充电升压功能",
+      "name": "设计范围是否包含行车升压功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -1066,12 +1054,6 @@
   "breakdown": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -1976,7 +1958,7 @@
   "dcchargingboost": [
     {
       "seq": 4,
-      "name": "设计范围是否包含充电升压功能",
+      "name": "设计范围是否包含行车升压功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -2169,18 +2151,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "deltap": [
@@ -2259,12 +2229,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "dielectricstrength": [
@@ -2276,18 +2240,6 @@
     },
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
@@ -2305,18 +2257,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "dielectricwithstand": [
@@ -2328,18 +2268,6 @@
     },
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
@@ -2409,8 +2337,8 @@
   ],
   "dischargetimeto60v": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -2544,12 +2472,6 @@
   "electricstrength": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -2747,8 +2669,8 @@
   ],
   "fastdischargetime": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -2844,12 +2766,6 @@
   "flashover": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -3245,18 +3161,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "highspeedcan": [
@@ -3300,18 +3204,6 @@
     },
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
@@ -3675,12 +3567,6 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "insulationresistance": [
@@ -3689,23 +3575,11 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "insulationresistancetest": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -3851,23 +3725,11 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "irtest": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -3994,12 +3856,6 @@
   "leakagecurrent": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -4351,23 +4207,11 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "megohm": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -4443,12 +4287,6 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "motortempaccuracy": [
@@ -4510,12 +4348,6 @@
   "mω": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -6121,8 +5953,8 @@
   ],
   "passivebleedtime": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -6137,8 +5969,8 @@
   ],
   "passivedischargeduration": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -6153,8 +5985,8 @@
   ],
   "passivedischargetime": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -7527,8 +7359,8 @@
   ],
   "timetobelow60v": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -7931,18 +7763,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "woundrotorsynchronous": [
@@ -8183,14 +8003,6 @@
       "retrieve": false
     }
   ],
-  "主动放电≤": [
-    {
-      "seq": 26,
-      "name": "主动放电时间",
-      "kind": "strong",
-      "retrieve": false
-    }
-  ],
   "主动放电功能": [
     {
       "seq": 15,
@@ -8209,31 +8021,25 @@
   ],
   "主动放电完成时间": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
   ],
   "主动放电时长": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
   ],
   "主动放电时间": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 26,
-      "name": "主动放电时间",
-      "kind": "name",
       "retrieve": false
     }
   ],
@@ -8319,18 +8125,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "介电强度": [
@@ -8342,18 +8136,6 @@
     },
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
@@ -8760,7 +8542,7 @@
   "充电boost": [
     {
       "seq": 4,
-      "name": "设计范围是否包含充电升压功能",
+      "name": "设计范围是否包含行车升压功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -8800,7 +8582,7 @@
   "充电模式升压": [
     {
       "seq": 4,
-      "name": "设计范围是否包含充电升压功能",
+      "name": "设计范围是否包含行车升压功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -8824,12 +8606,6 @@
   "兆欧": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -9199,12 +8975,6 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "减速器速比": [
@@ -9250,12 +9020,6 @@
   "击穿": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -10851,18 +10615,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "带走热量": [
@@ -10963,8 +10715,8 @@
   ],
   "快速放电时间": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -11043,8 +10795,8 @@
   ],
   "慢放电时间": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -11076,12 +10828,6 @@
   "打耐压": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -11389,8 +11135,8 @@
   ],
   "放电到60v时间": [
     {
-      "seq": 26,
-      "name": "主动放电时间",
+      "seq": 15,
+      "name": "高压安全-主动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -11574,12 +11320,6 @@
   "无击穿": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -12895,12 +12635,6 @@
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
     }
   ],
   "激励熔断器": [
@@ -12946,12 +12680,6 @@
   "热态绝缘电阻": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -13306,12 +13034,6 @@
   "电气强度": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -13775,18 +13497,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "直流过压": [
@@ -14087,23 +13797,11 @@
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
     }
   ],
   "绝缘性能": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -14123,23 +13821,11 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "绝缘电阻值": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -14151,23 +13837,11 @@
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
     }
   ],
   "绝缘电阻要求": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -14184,12 +13858,6 @@
   "绝缘阻值": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -14331,29 +13999,11 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "耐压值": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -14371,29 +14021,11 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "耐压要求": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -14408,18 +14040,6 @@
     },
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
@@ -14445,18 +14065,6 @@
       "name": "高压安全-耐电压",
       "kind": "retrieve",
       "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
-      "name": "高压安全-耐电压",
-      "kind": "retrieve",
-      "retrieve": true
     }
   ],
   "能量回馈": [
@@ -14477,8 +14085,8 @@
   ],
   "自然放电时间": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -14557,8 +14165,8 @@
   ],
   "行车升压": [
     {
-      "seq": 3,
-      "name": "设计范围是否包含驱动升压功能",
+      "seq": 4,
+      "name": "设计范围是否包含行车升压功能",
       "kind": "strong",
       "retrieve": false
     }
@@ -14579,14 +14187,6 @@
       "retrieve": false
     }
   ],
-  "被动放电≤": [
-    {
-      "seq": 27,
-      "name": "被动放电时间",
-      "kind": "strong",
-      "retrieve": false
-    }
-  ],
   "被动放电功能": [
     {
       "seq": 16,
@@ -14597,23 +14197,17 @@
   ],
   "被动放电时长": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
       "retrieve": false
     }
   ],
   "被动放电时间": [
     {
-      "seq": 27,
-      "name": "被动放电时间",
+      "seq": 16,
+      "name": "高压安全-被动放电功能",
       "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 27,
-      "name": "被动放电时间",
-      "kind": "name",
       "retrieve": false
     }
   ],
@@ -14681,10 +14275,10 @@
       "retrieve": false
     }
   ],
-  "设计范围是否包含充电升压功能": [
+  "设计范围是否包含行车升压功能": [
     {
       "seq": 4,
-      "name": "设计范围是否包含充电升压功能",
+      "name": "设计范围是否包含行车升压功能",
       "kind": "name",
       "retrieve": false
     }
@@ -15230,12 +14824,6 @@
   "闪络": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true
@@ -15797,23 +15385,11 @@
       "name": "高压安全-绝缘电阻",
       "kind": "name",
       "retrieve": false
-    },
-    {
-      "seq": 18,
-      "name": "高压安全-绝缘电阻",
-      "kind": "name",
-      "retrieve": false
     }
   ],
   "高压安全耐电压": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "name",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "name",
       "retrieve": true
@@ -15838,12 +15414,6 @@
   "高压对地绝缘": [
     {
       "seq": 13,
-      "name": "高压安全-绝缘电阻",
-      "kind": "strong",
-      "retrieve": false
-    },
-    {
-      "seq": 18,
       "name": "高压安全-绝缘电阻",
       "kind": "strong",
       "retrieve": false
@@ -15900,12 +15470,6 @@
   "高压绝缘测试": [
     {
       "seq": 14,
-      "name": "高压安全-耐电压",
-      "kind": "strong",
-      "retrieve": true
-    },
-    {
-      "seq": 19,
       "name": "高压安全-耐电压",
       "kind": "strong",
       "retrieve": true

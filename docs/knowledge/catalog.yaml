@@ -5,9 +5,13 @@ scope:
     - 易混条目如何互斥（P1/P3、升压/非升压、三种纹波等）
     - 规格常见写法（强别名）与单位形态
     - 物理量之间的关系：读表、校验；当份规格书已出现的量可按已登记公式推算缺项（局部对应）
+    - 企标试验条款对应哪几条清单、方法标准号（评价看当份 DPR）
+    - 当份未给出时，方法标准号写入复核备注；抽出值和核对状态仍为未检索到
   does_not:
     - 用行业常识或清单「参考示例」填写抽出值
     - 用知识库里的典型值填格
+    - 用企标「通常」寿命、试验箱边界电压/温度填抽出值
+    - 用方法标准号或「参考 标准号」顶替未检索到的抽出值
     - 把「符合欧姆定律」等定律名称原句当成抽出值
     - 用 .krow/lessons 或 AGENTS.md 填写抽出值
     - 开放问答、跨项目通用知识、甲方业务系统数据
@@ -22,7 +26,7 @@ sources:
     provided_by: 甲方
     classification: 内部
     leave_site: false
-    used_for: 120 项卡片骨架、需求说明、必要性、参考示例（示例只说明长什么样）
+    used_for: 120 项卡片骨架、需求说明、必要性、参考示例（示例只说明长什么样）；#18/#19、#26/#27 重复项已从出表删除
   - id: clause-yaml
     title: docs/clause_lexicon.yaml
     provided_by: 乙方整理，待甲方确认
@@ -36,11 +40,12 @@ sources:
     leave_site: false
     used_for: 读表与校验关系，fill 必须为 false
   - id: enterprise-std
-    title: 甲方企标（第五节，待提供）
+    title: Q/JLP 030602-07-2026A 电机控制器设计验证规范
+    version: Q/JLP 030602-07-2026A
     provided_by: 甲方
-    classification: 内部
+    classification: 保密一级
     leave_site: false
-    used_for: 确认后补 std 与禁配，未提供前不进检索
+    used_for: 第3章定义、6.2–6.36 零部件试验、第7章及 7.1–7.9 整机试验的方法引用与认条对照；确认前不进选段；不得填抽出值。保密一级原文不入库。
   - id: manuals
     title: 手册/过往文档（第五节，待提供）
     provided_by: 甲方

@@ -65,6 +65,7 @@ const result = $("result");
 const steps = {
   read: $("st-read"),
   ocr: $("st-ocr"),
+  qc: $("st-qc"),
   extract: $("st-extract"),
   write: $("st-write"),
 };
@@ -135,10 +136,11 @@ function explainErr(e) {
   return msg;
 }
 function setStage(stage) {
-  const order = ["read", "ocr", "extract", "write"];
+  const order = ["read", "ocr", "qc", "extract", "write"];
   let hit = order.indexOf(stage);
   if (hit < 0) hit = 0;
   order.forEach((key, i) => {
+    if (!steps[key]) return;
     steps[key].className = "step" + (i < hit ? " done" : i === hit ? " on" : "");
   });
 }
@@ -373,10 +375,11 @@ function resultMarkup(data) {
   } else if (extract && Number(data.llm_calls || 0) < 1 && Number(miss) > 0) {
     tip = "识别没有成功调用。请退出后重新登录再出表。";
   }
-  const kbVer = String(data.knowledge_version || "").trim();
-  const kbNote = kbVer
-    ? "知识库 " + kbVer + "。抽出值只来自当份规格书，库不提供取值。"
-    : "";
+  const verdict = String(data.qa_verdict || "").trim();
+  const qa = String(data.qa_summary || "").trim();
+  const qaNote = (
+    (verdict === "warn" || verdict === "fail") && qa && qa !== tip
+  ) ? ("质检：" + qa) : "";
   const heading = data.stopped_early ? "已按已抽出内容出表" : "核对表已生成";
   const dl = data.download
     ? "<a class='dl' href='" + escText(apiUrl(data.download)) + "' download>下载核对表</a>"
@@ -388,8 +391,8 @@ function resultMarkup(data) {
     + "<div class='stat'><b>" + partial + "</b><span>局部对应</span></div>"
     + "<div class='stat'><b>" + miss + "</b><span>未检索到</span></div>"
     + "</div>"
-    + (kbNote || tip
-      ? "<p class='result-note'>" + [kbNote, tip].filter(Boolean).join(" ") + "</p>"
+    + (qaNote || tip
+      ? "<p class='result-note'>" + [qaNote, tip].filter(Boolean).join(" ") + "</p>"
       : "");
 }
 

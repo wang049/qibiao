@@ -130,6 +130,8 @@ def recall_related(query: str, *, limit: int = 8) -> list[Lesson]:
     """按序号或关键词召回复盘。不调 LLM，不返回抽出值。"""
     ranked = []
     for lesson in load_lessons():
+        if lesson.status in {"superseded", "retired"}:
+            continue
         score = _score(lesson, query)
         if score:
             ranked.append((score, lesson.name, lesson))

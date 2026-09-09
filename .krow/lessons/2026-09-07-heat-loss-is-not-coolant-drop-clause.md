@@ -14,7 +14,7 @@ DHTS160 #120 抽出值 `≤6.17kW（恒速）` 来自未印号标题 `Heat loss 
 
 ## 二级依据
 
-- 清单 #120：热损失 / 需冷却带走的损耗。DHTS：`### Heat loss 热损失`，恒速 ≤6.17kW。
+- 清单 #120：热损失 / 需冷却带走的损耗。DHTS Word 标题印大纲号 `6.8.4 Heat loss 热损失`（读文件曾丢掉，见 `2026-09-08-word-outline-number-and-toc-page`）。未印号的 Markdown 片段条款应空，不得写成 6.8.3。
 - 清单 #71：冷却回路压降。上一节 `### Coolant pressure drop 冷却回路压降`，35kPa@10L/min@65℃。`_HEADING_CLAUSE` 只把该标题映成 6.8.3。
 - 交叉 `2026-09-07-ripple-lv-unnumbered-headings`、`2026-09-07-shown-in-hv-safety-is-not-back-emf-clause`：未印号分节不得抄上一节号。
 

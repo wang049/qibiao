@@ -42,14 +42,14 @@ class ReviewSheetNameTests(unittest.TestCase):
         when = datetime(2026, 9, 4, 10, 25, 33)
         self.assertEqual(
             review_sheet_name("DHTS160规格书.pdf", when),
-            "DHTS160规格书_20260904102533.xlsx",
+            "DHTS160规格书_2026年09月04日10：25：33.xlsx",
         )
 
     def test_strips_unsafe_chars_and_extension(self) -> None:
         when = datetime(2026, 1, 2, 3, 4, 5)
         self.assertEqual(
             review_sheet_name("foo bar.docx", when),
-            "foo_bar_20260102030405.xlsx",
+            "foo_bar_2026年01月02日03：04：05.xlsx",
         )
 
 
@@ -116,7 +116,10 @@ class JobTests(unittest.TestCase):
         self.assertTrue(str(data.get("knowledge_version") or "").strip())
         self.assertNotIn(".yaml", str(data.get("knowledge_version") or ""))
         name = str(data["download"]).rsplit("/", 1)[-1]
-        self.assertRegex(name, r"^spec_\d{14}\.xlsx$")
+        self.assertRegex(
+            name,
+            r"^spec_\d{4}年\d{2}月\d{2}日\d{2}：\d{2}：\d{2}\.xlsx$",
+        )
         dl = self.client.get(f"/files/{name}")
         self.assertEqual(dl.status_code, 200)
         self.assertEqual(dl.content, b"xlsx-ok")

@@ -116,6 +116,26 @@ class KnowledgePublishTests(unittest.TestCase):
         self.assertTrue(ohm.get("law"))
         self.assertTrue(ohm.get("gloss"))
 
+    def test_browse_hides_contract_parties_on_sources(self) -> None:
+        data = browse_catalog()
+        scope = json.dumps(data.get("scope") or {}, ensure_ascii=False)
+        self.assertNotIn("甲方", scope)
+        self.assertNotIn("乙方", scope)
+        self.assertIn("口径经确认后使用", data["scope"]["owner"])
+        self.assertIn("业务系统数据", " ".join(data["scope"]["does_not"]))
+        self.assertFalse(any("甲方" in x or "乙方" in x for x in data["scope"]["does_not"]))
+        by_id = {s["id"]: s for s in data["sources"]}
+        self.assertEqual(by_id["list-120"]["status"], "已确认")
+        self.assertEqual(by_id["clause-yaml"]["status"], "待确认")
+        self.assertEqual(by_id["physics"]["status"], "待确认")
+        self.assertEqual(by_id["enterprise-std"]["status"], "待确认")
+        self.assertEqual(by_id["manuals"]["status"], "待确认")
+        for src in data["sources"]:
+            blob = json.dumps(src, ensure_ascii=False)
+            self.assertNotIn("甲方", blob, src["id"])
+            self.assertNotIn("乙方", blob, src["id"])
+            self.assertNotIn("provided_by", src)
+
     def test_enterprise_std_is_method_not_fill(self) -> None:
         import yaml
 

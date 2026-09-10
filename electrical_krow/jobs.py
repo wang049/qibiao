@@ -72,10 +72,14 @@ def _safe_stem(name: str) -> str:
     return stem[:80]
 
 
+def review_sheet_stamp(when: datetime | None = None) -> str:
+    """出表时刻：2026年09月10日17：25：14。时分秒用全角冒号，避免 Windows 文件名非法。"""
+    return (when or datetime.now()).strftime("%Y年%m月%d日%H：%M：%S")
+
+
 def review_sheet_name(original_name: str, when: datetime | None = None) -> str:
-    """核对表文件名：原文件名 + 出表时间（年月日时分秒）。"""
-    stamp = (when or datetime.now()).strftime("%Y%m%d%H%M%S")
-    return f"{_safe_stem(original_name or 'upload')}_{stamp}.xlsx"
+    """核对表文件名：原文件名 + 出表时间。"""
+    return f"{_safe_stem(original_name or 'upload')}_{review_sheet_stamp(when)}.xlsx"
 
 
 def _run_pipeline(incoming: Path, out: Path, *, model: str = ""):

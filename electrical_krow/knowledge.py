@@ -172,21 +172,49 @@ def _scrub_text(text: str) -> str:
     return replaced
 
 
+def _scrub_party(text: str) -> str:
+    """工位页不出现合同角色「甲方/乙方」。catalog 里仍可记谁提供。"""
+    out = _scrub_text(text or "")
+    for old, new in (
+        ("甲方确认口径；乙方整理卡片与发布", "口径经确认后使用"),
+        ("甲方确认口径", "口径经确认后使用"),
+        ("乙方按电控常识整理，待甲方确认", "待确认"),
+        ("乙方整理，待甲方确认", "待确认"),
+        ("待甲方确认", "待确认"),
+        ("甲方业务系统数据", "业务系统数据"),
+        ("甲方材料", "当份材料"),
+    ):
+        out = out.replace(old, new)
+    out = re.sub(r"甲方|乙方", "", out)
+    out = re.sub(r"[ \t]{2,}", " ", out)
+    out = re.sub(r"[；;]{2,}", "；", out)
+    return out.strip(" ；;·，,")
+
+
+def _source_confirm_status(row: dict) -> str:
+    blob = _scrub_party(
+        f"{row.get('provided_by') or ''}\n{row.get('used_for') or ''}"
+    )
+    if re.search(r"待确认|确认前|未提供", blob):
+        return "待确认"
+    return "已确认"
+
+
 def _public_source(row: dict) -> dict:
     sid = str(row.get("id") or "").strip()
-    title = _SOURCE_TITLE.get(sid) or _scrub_text(str(row.get("title") or sid))
+    title = _SOURCE_TITLE.get(sid) or _scrub_party(str(row.get("title") or sid))
     if sid in {"list-120", "enterprise-std"}:
-        given = _scrub_text(str(row.get("title") or ""))
+        given = _scrub_party(str(row.get("title") or ""))
         if given and "docs/" not in given and ".yaml" not in given:
             title = given
     return {
         "id": sid,
         "title": title,
         "version": str(row.get("version") or "").strip(),
-        "provided_by": str(row.get("provided_by") or "").strip(),
+        "status": _source_confirm_status(row),
         "classification": str(row.get("classification") or "内部").strip() or "内部",
         "leave_site": False,
-        "used_for": _scrub_text(str(row.get("used_for") or "")),
+        "used_for": _scrub_party(str(row.get("used_for") or "")),
     }
 
 
@@ -445,10 +473,10 @@ def browse_catalog() -> dict:
             )
         ),
         "scope": {
-            "answers": [_scrub_text(str(x)) for x in (scope.get("answers") or [])],
-            "does_not": [_scrub_text(str(x)) for x in (scope.get("does_not") or [])],
-            "owner": _scrub_text(str(scope.get("owner") or "甲方确认口径")),
-            "site": _scrub_text(str(scope.get("site") or "指定场所内使用，整库不出公网")),
+            "answers": [_scrub_party(str(x)) for x in (scope.get("answers") or [])],
+            "does_not": [_scrub_party(str(x)) for x in (scope.get("does_not") or [])],
+            "owner": _scrub_party(str(scope.get("owner") or "口径经确认后使用")),
+            "site": _scrub_party(str(scope.get("site") or "指定场所内使用，整库不出公网")),
         },
         "sources": [_public_source(row) for row in (manifest.get("sources") or [])],
         "stats": {

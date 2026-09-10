@@ -338,7 +338,7 @@
       .map((s) => {
         return `<article class="kb-source">
           <h4>${esc(s.title)}</h4>
-          <p>${esc(s.provided_by || "")}${s.version ? " · " + esc(s.version) : ""} · 密级 ${esc(s.classification || "内部")} · 不出场所</p>
+          <p>${[s.status, s.version, "密级 " + (s.classification || "内部"), "不出场所"].filter(Boolean).map(esc).join(" · ")}</p>
           ${s.used_for ? `<p class="kb-gloss">${esc(s.used_for)}</p>` : ""}
         </article>`;
       })
@@ -354,7 +354,7 @@
           <ul>${doesNot}</ul>
         </section>
       </div>
-      <p class="kb-cite">${esc(scope.owner || "")}。${esc(scope.site || "")}</p>
+      <p class="kb-cite">${esc([scope.owner, scope.site].filter(Boolean).join("。"))}</p>
       <h3>来源登记</h3>
       <div class="kb-sources">${sources}</div>
       ${enterpriseBlock()}

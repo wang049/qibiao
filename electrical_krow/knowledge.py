@@ -515,3 +515,37 @@ def browse_catalog() -> dict:
         },
         "graph": {"nodes": graph_nodes, "edges": graph_edges},
     }
+
+
+_PENDING = PROJECT_ROOT / "docs" / "knowledge" / "pending_rulings.json"
+
+
+def pending_rulings_count() -> int:
+    """待专家口径的条目数（pending_rulings.json 里的 rulings 条数）。"""
+    if not _PENDING.is_file():
+        return 0
+    try:
+        data = json.loads(_PENDING.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return 0
+    rows = data.get("rulings") if isinstance(data, dict) else data
+    return len(rows) if isinstance(rows, list) else 0
+
+
+@lru_cache(maxsize=1)
+def knowledge_summary() -> dict:
+    """工作台摘要卡：版本 + 数量。不含条目内容，不含取值。"""
+    version = knowledge_version()
+    if not version:
+        return {}
+    stats = dict(browse_catalog().get("stats") or {})
+    out = {
+        "version": version,
+        "clauses": int(stats.get("clauses") or 0),
+        "physics": int(stats.get("physics") or 0),
+        "enterprise": int(stats.get("enterprise") or 0),
+        "groups": int(stats.get("groups") or 0),
+        "edges": int(stats.get("edges") or 0),
+        "retrieve": int(stats.get("retrieve") or 0),
+    }
+    return out

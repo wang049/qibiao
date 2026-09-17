@@ -44,9 +44,18 @@ _HISTORY_FIELDS = (
     "download",
     "llm_calls",
     "rule_filled",
+    "chunk_count",
+    "topup_count",
     "chunk_failures",
+    # 结果摘要：待专家口径格数、按业务分组的检索结论、与上次同名文件的差异
+    "pending_note",
+    "groups",
+    "compare",
     "detail",
 )
+# 出表中的实时计数（不进历史）：已处理分段 / 分段总数 / 已抽出格数
+_LIVE_FIELDS = {"chunk_done", "chunk_total", "filled"}
+_COMPARE_LIST_LIMIT = 20
 _HISTORY_LIMIT = 40
 _OPEN_STATUSES = frozenset({"running", "paused", "pausing", "stopping", "queued"})
 
@@ -65,6 +74,104 @@ def retrieval_counts(cells: object) -> tuple[int, int, int]:
         elif status.startswith("局部对应"):
             partial += 1
     return found, miss, partial
+
+
+def _template_cells(cells: object) -> list:
+    if not isinstance(cells, (list, tuple)):
+        return []
+    return [c for c in cells if not bool(getattr(c, "extra", False))]
+
+
+def pending_note_count(cells: object) -> int:
+    """复核备注里带「待专家口径」的模板格数。electrical 不在时按 0。"""
+    rows = _template_cells(cells)
+    if not rows:
+        return 0
+    try:
+        from electrical.pending_rulings import pending_text
+    except Exception:  # noqa: BLE001
+        return 0
+    return sum(1 for c in rows if pending_text(str(getattr(c, "note", "") or "")))
+
+
+def group_summary(cells: object) -> list[dict[str, object]]:
+    """按业务分组数三类检索结论。顺序按清单序号首次出现。"""
+    rows = _template_cells(cells)
+    if not rows:
+        return []
+    try:
+        from electrical.schema import item_group
+    except Exception:  # noqa: BLE001
+        return []
+    order: list[str] = []
+    acc: dict[str, dict[str, object]] = {}
+    for cell in rows:
+        name = str(getattr(cell, "name", "") or "")
+        seq = int(getattr(cell, "seq", 0) or 0)
+        group = str(item_group(name, seq) or "其他")
+        if group not in acc:
+            order.append(group)
+            acc[group] = {"name": group, "total": 0, "found": 0, "partial": 0, "miss": 0}
+        item = acc[group]
+        item["total"] = int(item["total"]) + 1
+        status = str(getattr(cell, "review_status", "") or "").strip()
+        if status == "已检索到":
+            item["found"] = int(item["found"]) + 1
+        elif status.startswith("局部对应"):
+            item["partial"] = int(item["partial"]) + 1
+        elif status == "未检索到":
+            item["miss"] = int(item["miss"]) + 1
+    return [acc[g] for g in order]
+
+
+def _found_names(cells: object) -> dict[str, str]:
+    """已检索到的格子（含表外补充项，与 found 计数口径一致）：键 = 序号或名称，值 = 显示名。"""
+    out: dict[str, str] = {}
+    if not isinstance(cells, (list, tuple)):
+        return out
+    for cell in cells:
+        if str(getattr(cell, "review_status", "") or "").strip() != "已检索到":
+            continue
+        name = str(getattr(cell, "name", "") or "").strip()
+        seq = int(getattr(cell, "seq", 0) or 0)
+        key = f"{seq}" if seq else name
+        if key and key not in out:
+            out[key] = name or key
+    return out
+
+
+def compare_with_previous(
+    cells: object, previous: dict[str, object] | None, output_dir: Path
+) -> dict[str, object]:
+    """同名文件再出表：与上一份核对表逐条比已检索到。读不到上一份就返回空。"""
+    if not previous or not isinstance(cells, (list, tuple)):
+        return {}
+    name = str(previous.get("download") or "").rsplit("/", 1)[-1]
+    if not name or "/" in name or "\\" in name:
+        return {}
+    path = (output_dir / name).resolve()
+    if path.parent != output_dir.resolve() or not path.is_file():
+        return {}
+    try:
+        from electrical.write_excel import load_review_cells
+
+        prev_cells, _meta = load_review_cells(path)
+    except Exception:  # noqa: BLE001
+        return {}
+    before = _found_names(prev_cells)
+    after = _found_names(cells)
+    gained = [after[k] for k in after if k not in before]
+    lost = [before[k] for k in before if k not in after]
+    return {
+        "prev_id": str(previous.get("id") or ""),
+        "prev_at": _created_at(previous),
+        "prev_found": len(before),
+        "found": len(after),
+        "gained": gained[:_COMPARE_LIST_LIMIT],
+        "lost": lost[:_COMPARE_LIST_LIMIT],
+        "gained_n": len(gained),
+        "lost_n": len(lost),
+    }
 
 
 def _safe_stem(name: str) -> str:
@@ -329,8 +436,39 @@ class JobStore:
         worker.start()
         return job_id
 
+    def _previous_done(self, job_id: str, source: str) -> dict[str, object] | None:
+        """同名文件上一次成功出表的记录（含核对表文件）。"""
+        want = (source or "").strip()
+        if not want:
+            return None
+        rows = [
+            rec
+            for rec in self.list_recent(limit=80)
+            if str(rec.get("id") or "") != job_id
+            and str(rec.get("status") or "") == "done"
+            and str(rec.get("source") or "").strip() == want
+            and rec.get("download")
+            and rec.get("extract", True) is not False
+        ]
+        return rows[0] if rows else None
+
     def _run(self, job_id: str, incoming: Path, out: Path, model: str = "") -> None:
         from electrical.progress import set_control, set_reporter
+
+        try:
+            from electrical.progress import set_stats_reporter
+        except ImportError:  # 旧版流水线没有实时计数
+            set_stats_reporter = None
+
+        def stats_reporter(fields: dict[str, int]) -> None:
+            picked = {k: int(v) for k, v in fields.items() if k in _LIVE_FIELDS}
+            if not picked:
+                return
+            with self._lock:
+                job = self._jobs.get(job_id)
+                if job is None or job.get("status") in {"done", "error"}:
+                    return
+                job.update(picked)
 
         def reporter(message: str, percent: int, stage: str) -> None:
             fields: dict[str, object] = {"message": message, "stage": stage}
@@ -352,10 +490,22 @@ class JobStore:
         ctrl = self._controls.get(job_id)
         set_reporter(reporter)
         set_control(ctrl)
+        if set_stats_reporter is not None:
+            set_stats_reporter(stats_reporter)
+        with self._lock:
+            source = str((self._jobs.get(job_id) or {}).get("source") or "")
+        previous = self._previous_done(job_id, source)
         try:
             result = _run_pipeline(incoming, out, model=model)
             stopped = bool(result.stopped_early)
-            found, miss, partial = retrieval_counts(getattr(result, "cells", None))
+            cells = getattr(result, "cells", None)
+            found, miss, partial = retrieval_counts(cells)
+            extract_on = bool(getattr(result, "extract", True))
+            compare = (
+                compare_with_previous(cells, previous, self._output_dir)
+                if extract_on and not stopped
+                else {}
+            )
             self.update(
                 job_id,
                 status="done",
@@ -381,6 +531,9 @@ class JobStore:
                 chunk_count=getattr(result, "chunk_count", 0),
                 topup_count=getattr(result, "topup_count", 0),
                 chunk_failures=getattr(result, "chunk_failures", 0),
+                pending_note=pending_note_count(cells) if extract_on else 0,
+                groups=group_summary(cells) if extract_on else [],
+                compare=compare,
                 knowledge_version=knowledge_version(),
             )
         except (FileNotFoundError, ValueError) as exc:
@@ -392,6 +545,8 @@ class JobStore:
             self._remember(job_id)
             set_reporter(None)
             set_control(None)
+            if set_stats_reporter is not None:
+                set_stats_reporter(None)
             self._run_lock.release()
 
     def _history_path(self) -> Path:

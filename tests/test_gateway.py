@@ -43,8 +43,8 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260917g", resp.text)
-        self.assertIn("app.js?v=20260917g", resp.text)
+        self.assertIn("styles.css?v=20260917h", resp.text)
+        self.assertIn("app.js?v=20260917h", resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
         # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题
@@ -498,6 +498,72 @@ class GatewayTests(unittest.TestCase):
         pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
         self.assertEqual(re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1), __version__)
         self.assertEqual(data.get("output_dir"), self._tmp.name)
+
+    def test_health_carries_workbench_summary_numbers_only(self) -> None:
+        """工作台统计卡 / 知识库摘要卡：只有版本与数量，不带条目内容或源文件。"""
+        data = self.client.get("/api/health").json()
+        kb = data.get("knowledge") or {}
+        self.assertTrue(kb.get("version"))
+        for key in ("clauses", "physics", "enterprise", "groups"):
+            self.assertIsInstance(kb.get(key), int)
+        self.assertGreater(kb["clauses"], 100)
+        self.assertNotIn("clauses_list", kb)
+        self.assertFalse(any(isinstance(v, (list, dict)) for v in kb.values()))
+        self.assertIsInstance(data.get("pending_rulings"), int)
+
+    def test_workbench_and_result_summary_markup(self) -> None:
+        """工作台四块（流程条 / 统计卡 / 知识库卡 / 最近核对表）与出表页体检卡、实时计数、分组条形。"""
+        page = self.client.get("/").text
+        for marker in (
+            'id="home-flow"', 'id="home-stats"', 'id="home-kb"', 'id="home-kb-stats"',
+            'id="home-recent"', 'id="home-recent-list"', 'id="home-open-dir"',
+            'id="file-info"', 'id="live"',
+        ):
+            self.assertIn(marker, page)
+        self.assertIn("人工复核定稿", page)
+        js = self.client.get("/static/app.js").text
+        for marker in (
+            "/api/inspect", "renderHome", "groupBarsMarkup", "compareMarkup",
+            "liveLine", "chunk_done", "pending_note", "kindTag", "待专家口径",
+            "与上次同名文件对比", "/api/output/open",
+        ):
+            self.assertIn(marker, js)
+        css = self.client.get("/static/styles.css").text
+        for marker in (".flow-step", ".home-stat", ".recent-row", ".file-info", ".gbar-track", ".compare", ".job-tag", ".live"):
+            self.assertIn(marker, css)
+
+    def test_inspect_requires_login_and_reports_type_pages_estimate(self) -> None:
+        from electrical_krow.mock_server import DEMO_USER
+
+        pdf = self._tiny_pdf()
+        resp = self.client.post("/api/inspect", files={"file": ("x.pdf", pdf, "application/pdf")})
+        self.assertEqual(resp.status_code, 401)
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        bad = self.client.post("/api/inspect", files={"file": ("x.bin", b"xx", "application/octet-stream")})
+        self.assertEqual(bad.status_code, 400)
+        resp = self.client.post("/api/inspect", files={"file": ("spec.pdf", pdf, "application/pdf")})
+        self.assertEqual(resp.status_code, 200, resp.text)
+        info = resp.json()
+        self.assertEqual(info["page_count"], 1)
+        self.assertEqual(info["size"], len(pdf))
+        self.assertIn("kind_label", info)
+        self.assertIn("likely_scan", info)
+        # 没有历史就不估时，不编数字
+        self.assertEqual(info["estimate_n"], 0)
+        self.assertEqual(info["estimate_seconds"], 0)
+
+    @staticmethod
+    def _tiny_pdf() -> bytes:
+        import fitz
+
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), "XCM DPR 电控 P1逆变器 额定功率 120 kW " * 8)
+        data = doc.tobytes()
+        doc.close()
+        return data
 
     def test_jobs_thinking_flag_sets_env_and_rejects_bad_value(self) -> None:
         """/api/jobs 表单 thinking（留给父壳 / 运维）：off 落成 SPEC_SHEET_LLM_THINKING=disabled，on / 空清掉。"""

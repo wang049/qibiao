@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器 · SOR填表</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260917g" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260917h" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -138,6 +138,24 @@
               <h2>你好，我是<span>电子电器智能体</span></h2>
               <p>登录后导入当份规格书，按既定步骤生成核对表。不由模型自行规划路径。同一时刻只处理一份任务。</p>
             </div>
+            <ol class="flow" id="home-flow" aria-label="出表流程">
+              <li class="flow-step">
+                <b>1</b>
+                <strong>导入规格书</strong>
+                <span>PDF / Word / Excel，文件只在本机读取</span>
+              </li>
+              <li class="flow-step">
+                <b>2</b>
+                <strong>规则先填，模型补空缺</strong>
+                <span>抽出值只来自当份材料，不由模型自行规划路径</span>
+              </li>
+              <li class="flow-step">
+                <b>3</b>
+                <strong>人工复核定稿</strong>
+                <span>三类检索结论逐条核对，待专家口径已在表内标出</span>
+              </li>
+            </ol>
+            <div class="home-stats" id="home-stats"></div>
             <div class="home-grid">
               <button type="button" class="fn-card" data-go="extract">
                 <span class="fn-kicker">SOR 出表</span>
@@ -152,7 +170,23 @@
                   <span class="fn-go">进入出表</span>
                 </span>
               </button>
+              <button type="button" class="fn-card fn-kb" data-go="kb" id="home-kb">
+                <span class="fn-kicker">场所知识库</span>
+                <strong>电机控制器知识库</strong>
+                <p>条款、物理关系与企标试验已建图谱，只用于认条与互斥判断。库不提供取值，抽出值只来自当份规格书。</p>
+                <span class="fn-kb-stats" id="home-kb-stats"></span>
+                <span class="fn-actions">
+                  <span class="fn-go" id="home-kb-version">进入知识库</span>
+                </span>
+              </button>
             </div>
+            <section class="home-recent" id="home-recent">
+              <div class="home-recent-head">
+                <h3>最近核对表</h3>
+                <button type="button" class="ghost header-btn" id="home-open-dir">打开核对表目录</button>
+              </div>
+              <div id="home-recent-list" class="recent-list"></div>
+            </section>
             <p class="home-foot" id="home-foot">文件只在本机读取，不上传公网。核对表须人工确认后定稿。</p>
           </div>
 
@@ -175,7 +209,7 @@
                   </svg>
                 </div>
                 <div class="drop-title">拖入规格书，或点击选择</div>
-                <div class="drop-hint" id="drop-hint">文件只在本机读取，不超过 80MB</div>
+                <div class="drop-hint" id="drop-hint">支持 DPR / 逆变器 SR 的文字稿与扫描件。文件只在本机读取，不超过 80MB</div>
                 <div class="chips">
                   <span>PDF</span><span>Word</span><span>Excel</span>
                 </div>
@@ -194,6 +228,7 @@
                 </div>
               </div>
             </div>
+            <div id="file-info" class="file-info" hidden></div>
             <input id="file" class="sr-only" type="file" accept=".pdf,.docx,.xlsx,.xlsm" />
             <div class="actions">
               <button id="pick" type="button">选择文件</button>
@@ -226,6 +261,7 @@
               </div>
               <div class="bar" aria-hidden="true"><i id="barfill"></i></div>
               <div id="status" class="status"></div>
+              <div id="live" class="live" hidden></div>
             </div>
             <div id="result" class="result"></div>
           </div>
@@ -427,7 +463,7 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/app.js?v=20260917g" defer></script>
+  <script src="/static/app.js?v=20260917h" defer></script>
   <script src="/static/kb.js?v=20260910a" defer></script>
 </body>
 </html>

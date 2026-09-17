@@ -233,6 +233,65 @@ class JobTests(unittest.TestCase):
         self.assertEqual(data["partial"], 1)
         self.assertEqual(data["miss"], 2)
 
+    def test_job_reports_groups_pending_and_live_counts(self) -> None:
+        """结果摘要：分组结论 + 待专家口径格数；出表中：分段 n/N 与已抽出实时计数。"""
+        from electrical_krow.bridge import ensure_electrical
+
+        ensure_electrical()
+        from electrical.progress import report_stats
+        from electrical.schema import ExtractedCell
+
+        seen_live: dict[str, object] = {}
+
+        def fake_run(incoming, out, **kwargs):
+            report_stats(chunk_done=3, chunk_total=9, filled=41)
+            jid = self.client.get("/api/health").json()["active_job"]["id"]
+            snap = self.client.get(f"/api/jobs/{jid}").json()
+            seen_live.update({k: snap.get(k) for k in ("chunk_done", "chunk_total", "filled")})
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"xlsx-ok")
+            cells = [
+                ExtractedCell(name="设计范围是否包含P1", seq=1, value="是", review_status="已检索到"),
+                ExtractedCell(name="设计范围是否包含P3", seq=2, value="", review_status="未检索到"),
+                ExtractedCell(name="直流母线电压范围", seq=5, value="250-450V", review_status="已检索到",
+                              note="待专家口径：区间还是标称"),
+                ExtractedCell(name="额外项", seq=0, value="x", review_status="已检索到", extra=True,
+                              note="待专家口径：不算"),
+            ]
+            return SimpleNamespace(
+                output_xlsx=out, cells=cells, elapsed_seconds=0.4, likely_scan=False,
+                pending_review=2, filled=3, extract=True, kind_label="电控 DPR", kind_note="",
+                stopped_early=False,
+            )
+
+        with patch("electrical_krow.jobs._run_pipeline", side_effect=fake_run), \
+             patch("electrical_krow.jobs.JobStore._previous_done", return_value=None):
+            started = self.client.post(
+                "/api/jobs",
+                files={"file": ("spec.txt", "额定功率 400 W".encode(), "text/plain")},
+            )
+            self.assertEqual(started.status_code, 200, started.text)
+            job_ids = [started.json()["id"]]
+            data = None
+            for _ in range(60):
+                data = self.client.get(f"/api/jobs/{job_ids[0]}").json()
+                if data["status"] in {"done", "error"}:
+                    break
+                time.sleep(0.05)
+        self.assertEqual(data["status"], "done", data)
+        self.assertEqual(data["pending_note"], 1)
+        groups = {g["name"]: g for g in data["groups"]}
+        self.assertEqual(groups["设计范围"], {"name": "设计范围", "total": 2, "found": 1, "partial": 0, "miss": 1})
+        self.assertEqual(groups["直流高压"]["found"], 1)
+        self.assertNotIn("其他", groups)
+        self.assertEqual(data["compare"], {})
+        self.assertEqual(seen_live, {"chunk_done": 3, "chunk_total": 9, "filled": 41})
+        # 历史里也带摘要字段
+        rows = self.client.get("/api/jobs").json()["jobs"]
+        rec = next(r for r in rows if r["id"] == job_ids[0])
+        self.assertEqual(rec["pending_note"], 1)
+        self.assertEqual(len(rec["groups"]), 2)
+
     def test_unsupported_type(self) -> None:
         resp = self.client.post(
             "/api/jobs",
@@ -532,6 +591,72 @@ class JobHistoryTests(unittest.TestCase):
             with self.assertRaises(HTTPException) as raised:
                 store.snapshot("other", username="alice")
             self.assertEqual(raised.exception.status_code, 404)
+
+
+class ResultSummaryTests(unittest.TestCase):
+    """同名文件对比与按历史估时：纯函数。"""
+
+    def test_compare_with_previous_reads_last_sheet_and_lists_diff(self) -> None:
+        from electrical_krow.bridge import ensure_electrical
+        from electrical_krow.jobs import compare_with_previous
+
+        ensure_electrical()
+        from electrical.schema import ExtractedCell, empty_template_rows
+        from electrical.write_excel import write_review_workbook
+
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            prev_cells = empty_template_rows()
+            for cell in prev_cells[:3]:
+                cell.value = "1"
+                cell.review_status = "已检索到"
+                cell.confidence = 0.95
+                cell.page = "3"
+                cell.excerpt = "value 1"
+            for cell in prev_cells[3:]:
+                cell.review_status = "未检索到"
+            write_review_workbook(
+                prev_cells, out / "spec_prev.xlsx",
+                source_name="spec.docx", likely_scan=False, parser="test",
+            )
+            now_cells = empty_template_rows()
+            for cell in now_cells[1:5]:
+                cell.value = "2"
+                cell.review_status = "已检索到"
+            for cell in [now_cells[0]] + now_cells[5:]:
+                cell.review_status = "未检索到"
+            previous = {"id": "p1", "download": "/files/spec_prev.xlsx", "created_at": 10}
+            cmp = compare_with_previous(now_cells, previous, out)
+            self.assertEqual((cmp["prev_found"], cmp["found"]), (3, 4))
+            self.assertEqual(cmp["gained"], [now_cells[3].name, now_cells[4].name])
+            self.assertEqual(cmp["lost"], [prev_cells[0].name])
+            self.assertEqual(cmp["prev_id"], "p1")
+            # 上一份文件不在目录 / 路径越界 → 空，不报错
+            self.assertEqual(compare_with_previous(now_cells, {"download": "/files/none.xlsx"}, out), {})
+            self.assertEqual(compare_with_previous(now_cells, {"download": "/files/../x.xlsx"}, out), {})
+            self.assertEqual(compare_with_previous(now_cells, None, out), {})
+
+    def test_estimate_prefers_same_kind_and_medium_then_falls_back(self) -> None:
+        from electrical_krow.inspect_doc import estimate_seconds
+
+        hist = [
+            {"status": "done", "kind_label": "电控 DPR", "likely_scan": False, "elapsed_seconds": 600},
+            {"status": "done", "kind_label": "电控 DPR", "likely_scan": False, "elapsed_seconds": 900},
+            {"status": "done", "kind_label": "电控 DPR", "likely_scan": True, "elapsed_seconds": 1700},
+            {"status": "done", "kind_label": "逆变器 SR", "likely_scan": False, "elapsed_seconds": 300},
+            {"status": "error", "kind_label": "电控 DPR", "likely_scan": False, "elapsed_seconds": 5},
+            {"status": "done", "kind_label": "电控 DPR", "extract": False, "elapsed_seconds": 2},
+            {"status": "done", "kind_label": "电控 DPR", "stopped_early": True, "elapsed_seconds": 50},
+        ]
+        est = estimate_seconds(hist, kind_label="电控 DPR", likely_scan=False)
+        self.assertEqual((est["estimate_seconds"], est["estimate_n"], est["estimate_scope"]), (750, 2, "同类型同介质"))
+        est = estimate_seconds(hist, kind_label="电控 DPR", likely_scan=True)
+        self.assertEqual((est["estimate_seconds"], est["estimate_scope"]), (1700, "同类型同介质"))
+        est = estimate_seconds(hist, kind_label="逆变器 SR", likely_scan=True)
+        self.assertEqual((est["estimate_seconds"], est["estimate_scope"]), (300, "同类型"))
+        est = estimate_seconds(hist, kind_label="非电控规格", likely_scan=False)
+        self.assertEqual((est["estimate_n"], est["estimate_scope"]), (4, "全部历史"))
+        self.assertEqual(estimate_seconds([], kind_label="电控 DPR", likely_scan=False)["estimate_n"], 0)
 
 
 if __name__ == "__main__":

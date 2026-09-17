@@ -37,7 +37,8 @@ from electrical_krow.config import (
 )
 from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.jobs import JobStore
-from electrical_krow.knowledge import browse_catalog
+from electrical_krow.inspect_doc import inspect_upload
+from electrical_krow.knowledge import browse_catalog, knowledge_summary, pending_rulings_count
 from electrical_krow.llm import complete, list_models
 from electrical_krow.login import login_with_password, refresh_sdk_key, revoke_sdk_key
 from electrical_krow.ocr import decode_image_payload, prepare_page_ocr, recognize_page
@@ -195,6 +196,9 @@ def create_app(
             # 「关于」页：版本与核对表目录
             "versions": about_versions(),
             "output_dir": str(app.state.jobs.output_dir),
+            # 工作台摘要卡：知识库数量与待专家口径条目数（只有数字，不含条目内容）
+            "knowledge": knowledge_summary(),
+            "pending_rulings": pending_rulings_count(),
         }
 
     @app.get("/api/settings")
@@ -456,6 +460,23 @@ def create_app(
             incoming.unlink(missing_ok=True)
             raise
         return {"id": job_id}
+
+    @app.post("/api/inspect")
+    async def inspect_file(
+        request: Request,
+        file: UploadFile = File(...),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """选中文件后的体检：类型 / 页数 / 是否扫描件 / 按历史估时。不落盘、不抽取。"""
+        item = _require_session(request, authorization)
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix not in {".pdf", ".docx", ".xlsx", ".xlsm"}:
+            raise HTTPException(400, f"暂不支持 {suffix or '该类型'}。请用 PDF / Word / Excel。")
+        data = await file.read()
+        if not data:
+            raise HTTPException(400, "文件是空的")
+        history = request.app.state.jobs.list_recent(limit=80, username=item.auth.username)
+        return await asyncio.to_thread(inspect_upload, file.filename or "", data, history)
 
     @app.get("/api/jobs")
     def list_jobs(

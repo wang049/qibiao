@@ -337,11 +337,34 @@ function stopJobTimer() {
   jobTimer = null;
 }
 
+// 文档类型短标签：侧栏任务行 / 最近核对表用
+function kindTag(row) {
+  if (!row || row.extract === false) return row && row.kind_label ? "不抽取" : "";
+  const label = String(row.kind_label || "");
+  if (row.likely_scan) return "扫描件";
+  if (/DPR/i.test(label)) return "DPR";
+  if (/逆变器/.test(label) || /\bSR\b/.test(label)) return "SR";
+  return label.slice(0, 6);
+}
+
+function fileNameOf(download) {
+  const raw = String(download || "").split("/").pop() || "";
+  try { return decodeURIComponent(raw); } catch (_) { return raw; }
+}
+
+const EMPTY_JOBS_SVG = "<svg viewBox='0 0 64 48' width='64' height='48' fill='none' aria-hidden='true'>"
+  + "<rect x='8' y='6' width='34' height='38' rx='3' stroke='currentColor' stroke-width='1.5'/>"
+  + "<path d='M15 16h20M15 23h20M15 30h12' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'/>"
+  + "<circle cx='48' cy='34' r='9' fill='var(--surface)' stroke='currentColor' stroke-width='1.5'/>"
+  + "<path d='M48 30v8M44 34h8' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'/></svg>";
+
 function renderJobs() {
   const host = $("job-list");
   if (!host) return;
   if (!jobRows.length) {
-    host.innerHTML = "<p class='job-empty'>还没有出表任务。</p>";
+    host.innerHTML = "<div class='job-empty'>" + EMPTY_JOBS_SVG
+      + "<p>还没有出表记录</p><small>点「新建出表」导入第一份规格书，完成后会在这里列出。</small></div>";
+    renderHome();
     return;
   }
   const active = viewingJob || currentJob || "";
@@ -354,21 +377,119 @@ function renderJobs() {
     const bits = [];
     if (when) bits.push(when);
     if (row.status === "done" && row.found != null) bits.push("已检索到 " + row.found);
+    if (row.status === "done" && Number(row.pending_note || 0) > 0) bits.push("待口径 " + Number(row.pending_note));
     if (row.status === "error" && row.detail) bits.push(String(row.detail).slice(0, 24));
+    const tag = kindTag(row);
     const on = id && id === active;
     const block = busy && id !== currentJob;
     return "<button type='button' class='job-row" + (on ? " is-on" : "") + "'"
       + " data-id='" + escText(id) + "'"
       + (block ? " disabled" : "") + ">"
       + "<span class='job-status " + st.cls + "'>" + st.text + "</span>"
-      + "<span class='job-name'>" + escText(name) + "</span>"
+      + "<span class='job-name'>" + escText(name)
+      + (tag ? "<i class='job-tag'>" + escText(tag) + "</i>" : "") + "</span>"
       + "<span class='job-meta'>" + escText(bits.join(" · ") || (row.message || "")) + "</span>"
       + "</button>";
   }).join("");
   host.querySelectorAll(".job-row").forEach((btn) => {
     btn.addEventListener("click", () => openHistory(btn.getAttribute("data-id") || ""));
   });
+  renderHome();
 }
+
+// ===== 工作台：统计卡 / 知识库摘要 / 最近核对表 =====
+let lastHealth = null;
+
+function fmtMinutes(sec) {
+  const n = Number(sec);
+  if (!isFinite(n) || n <= 0) return "—";
+  if (n < 90) return Math.round(n) + " 秒";
+  return (n / 60).toFixed(n < 600 ? 1 : 0).replace(/\.0$/, "") + " 分钟";
+}
+
+function homeStatCards() {
+  const done = jobRows.filter((r) => r.status === "done" && r.extract !== false);
+  const timed = done.filter((r) => Number(r.elapsed_seconds || 0) > 0 && !r.stopped_early);
+  const avg = timed.length
+    ? timed.reduce((a, r) => a + Number(r.elapsed_seconds), 0) / timed.length
+    : 0;
+  const latest = done.length ? done[0] : null;
+  const kb = (lastHealth && lastHealth.knowledge) || {};
+  const pending = Number((lastHealth && lastHealth.pending_rulings) || 0);
+  return [
+    { n: String(done.length), l: "累计出表", s: done.length ? "本账号，含已结束抽取" : "还没有出表" },
+    { n: fmtMinutes(avg), l: "平均耗时", s: timed.length ? "按 " + timed.length + " 份完整出表" : "出表后统计" },
+    { n: latest ? fmtWhen(latest.created_at) : "—", l: "最近一次", s: latest ? String(latest.source || "").slice(0, 22) : "—" },
+    { n: kb.version || "—", l: "知识库版本", s: kb.clauses ? kb.clauses + " 条款 · 只认条不取值" : "尚未发布" },
+    { n: String(pending), l: "待专家口径", s: pending ? "出表时在表内标注，不改抽出值" : "当前没有待定口径" },
+  ];
+}
+
+function renderHome() {
+  const stats = $("home-stats");
+  if (!stats) return;
+  stats.innerHTML = homeStatCards().map((c) =>
+    "<div class='home-stat'><b>" + escText(c.n) + "</b><span>" + escText(c.l) + "</span><small>" + escText(c.s) + "</small></div>"
+  ).join("");
+
+  const kb = (lastHealth && lastHealth.knowledge) || {};
+  const kbHost = $("home-kb-stats");
+  if (kbHost) {
+    kbHost.innerHTML = kb.version
+      ? [[kb.clauses, "条款"], [kb.physics, "物理关系"], [kb.enterprise, "企标试验"], [kb.groups, "业务分组"]]
+        .map(([n, l]) => "<span><b>" + escText(n || 0) + "</b>" + l + "</span>").join("")
+      : "<span class='is-muted'>知识库尚未发布</span>";
+    const v = $("home-kb-version");
+    if (v) v.textContent = kb.version ? "进入知识库 · 版本 " + kb.version : "进入知识库";
+  }
+
+  const list = $("home-recent-list");
+  if (!list) return;
+  const rows = jobRows.filter((r) => r.status === "done" && r.download).slice(0, 5);
+  const busy = !!currentJob;
+  if (!rows.length) {
+    list.innerHTML = "<div class='recent-empty'>" + EMPTY_JOBS_SVG
+      + "<p>还没有生成过核对表</p><small>导入一份 DPR 或逆变器 SR，出表后会列在这里，可直接打开或下载。</small></div>";
+    return;
+  }
+  list.innerHTML = rows.map((r) => {
+    const id = String(r.id || "");
+    const total = Number(r.field_count || 0);
+    const found = r.found != null ? Number(r.found) : null;
+    const tag = kindTag(r);
+    const pend = Number(r.pending_note || 0);
+    const bits = [];
+    if (r.extract === false) bits.push("未按清单抽取");
+    else if (found != null) bits.push("已检索到 " + found + (total ? "/" + total : ""));
+    if (pend > 0) bits.push("待口径 " + pend);
+    if (r.stopped_early) bits.push("提前结束");
+    const open = embedMode() ? "" : "<button type='button' class='recent-btn' data-open='" + escText(r.download) + "'>打开</button>";
+    return "<div class='recent-row' data-id='" + escText(id) + "'>"
+      + "<div class='recent-main'>"
+      + "<span class='recent-name'>" + escText(r.source || "规格书")
+      + (tag ? "<i class='job-tag'>" + escText(tag) + "</i>" : "") + "</span>"
+      + "<span class='recent-meta'>" + escText([fmtWhen(r.created_at), fmtElapsed(r.elapsed_seconds)].filter(Boolean).join(" · ")) + "</span>"
+      + "</div>"
+      + "<span class='recent-found'>" + escText(bits.join(" · ") || "—") + "</span>"
+      + "<span class='recent-actions'>"
+      + "<button type='button' class='recent-btn' data-view='" + escText(id) + "'" + (busy && id !== currentJob ? " disabled" : "") + ">查看</button>"
+      + open
+      + "<a class='recent-btn' href='" + escText(apiUrl(r.download)) + "' download>下载</a>"
+      + "</span></div>";
+  }).join("");
+  list.querySelectorAll("[data-view]").forEach((btn) => {
+    btn.addEventListener("click", () => openHistory(btn.getAttribute("data-view") || ""));
+  });
+  list.querySelectorAll("[data-open]").forEach((btn) => {
+    btn.addEventListener("click", () => openWorkbookLocally(btn.getAttribute("data-open") || ""));
+  });
+}
+
+$("home-open-dir")?.addEventListener("click", async () => {
+  try {
+    await json("/api/output/open", { method: "POST", body: "{}" });
+  } catch (_) { /* 打不开目录就不提示 */ }
+});
 
 async function loadJobs() {
   if (!loggedIn) return;
@@ -413,20 +534,74 @@ function resultMarkup(data) {
   const dl = data.download
     ? "<a class='dl' href='" + escText(apiUrl(data.download)) + "' download>下载核对表</a>"
     : "";
+  const pending = extract && data.pending_note != null ? Number(data.pending_note) : null;
+  const pendingStat = pending != null
+    ? "<div class='stat" + (pending > 0 ? " is-pend" : "") + "'><b>" + pending + "</b><span>待专家口径</span></div>"
+    : "";
   return "<div class='result-head'><h2>" + heading + "</h2>" + dl + "</div>"
-    + "<div class='stats'>"
+    + "<div class='stats" + (pendingStat ? " has-5" : "") + "'>"
     + "<div class='stat'><b>" + elapsed + "</b><span>耗时</span></div>"
-    + "<div class='stat'><b>" + found + "</b><span>已检索到</span></div>"
-    + "<div class='stat'><b>" + partial + "</b><span>局部对应</span></div>"
-    + "<div class='stat'><b>" + miss + "</b><span>未检索到</span></div>"
+    + "<div class='stat is-found'><b>" + found + "</b><span>已检索到</span></div>"
+    + "<div class='stat is-partial'><b>" + partial + "</b><span>局部对应</span></div>"
+    + "<div class='stat is-miss'><b>" + miss + "</b><span>未检索到</span></div>"
+    + pendingStat
     + "</div>"
+    + (extract ? groupBarsMarkup(data.groups) : "")
+    + (extract ? compareMarkup(data.compare) : "")
     + (qaNote || tip
       ? "<p class='result-note'>" + [qaNote, tip].filter(Boolean).join(" ") + "</p>"
       : "");
 }
 
+// 按 12 个业务分组的检索结论小条形：已检索到 / 局部对应 / 未检索到
+function groupBarsMarkup(groups) {
+  if (!Array.isArray(groups) || !groups.length) return "";
+  const rows = groups.map((g) => {
+    const total = Math.max(1, Number(g.total || 0));
+    const f = Number(g.found || 0), p = Number(g.partial || 0), m = Number(g.miss || 0);
+    const pct = (n) => (100 * n / total).toFixed(1) + "%";
+    const weak = f === 0 && total >= 2;
+    return "<div class='gbar" + (weak ? " is-weak" : "") + "' title='已检索到 " + f + " · 局部对应 " + p + " · 未检索到 " + m + "'>"
+      + "<span class='gbar-name'>" + escText(g.name) + "</span>"
+      + "<span class='gbar-track'>"
+      + "<i class='f' style='width:" + pct(f) + "'></i>"
+      + "<i class='p' style='width:" + pct(p) + "'></i>"
+      + "<i class='m' style='width:" + pct(m) + "'></i>"
+      + "</span>"
+      + "<span class='gbar-num'>" + f + "<small>/" + Number(g.total || 0) + "</small></span>"
+      + "</div>";
+  }).join("");
+  return "<div class='groups'><div class='groups-head'><span>分组检索结论</span>"
+    + "<span class='groups-legend'><i class='f'></i>已检索到<i class='p'></i>局部对应<i class='m'></i>未检索到</span></div>"
+    + rows + "</div>";
+}
+
+// 同名文件与上一次出表逐条比已检索到
+function compareMarkup(cmp) {
+  if (!cmp || cmp.prev_found == null) return "";
+  const prev = Number(cmp.prev_found), now = Number(cmp.found);
+  const delta = now - prev;
+  const sign = delta > 0 ? "+" + delta : String(delta);
+  const gained = Array.isArray(cmp.gained) ? cmp.gained : [];
+  const lost = Array.isArray(cmp.lost) ? cmp.lost : [];
+  const more = (list, n) => (n > list.length ? " 等 " + n + " 条" : "");
+  let body = "";
+  if (!gained.length && !lost.length) {
+    body = "<p>已检索到的条目与上次完全一致。</p>";
+  } else {
+    if (gained.length) body += "<p><b class='up'>新增 " + Number(cmp.gained_n || gained.length) + "</b>：" + escText(gained.join("、")) + more(gained, Number(cmp.gained_n || 0)) + "</p>";
+    if (lost.length) body += "<p><b class='down'>减少 " + Number(cmp.lost_n || lost.length) + "</b>：" + escText(lost.join("、")) + more(lost, Number(cmp.lost_n || 0)) + "</p>";
+  }
+  return "<div class='compare'><div class='compare-head'>与上次同名文件对比"
+    + "<span>" + escText(fmtWhen(cmp.prev_at)) + "</span></div>"
+    + "<p class='compare-sum'>已检索到 " + prev + " → " + now
+    + " <b class='" + (delta > 0 ? "up" : (delta < 0 ? "down" : "")) + "'>" + (delta === 0 ? "持平" : sign) + "</b></p>"
+    + body + "</div>";
+}
+
 function showFinishedJob(data) {
   progress.classList.add("show");
+  liveLine({});
   barfill.style.width = "100%";
   setStage("write");
   steps.write.className = "step done";
@@ -473,8 +648,10 @@ async function openHistory(id) {
 async function refresh() {
   try {
     const h = await json("/api/health");
+    lastHealth = h;
     delivery = h.delivery === "site" ? "site" : "client";
     applyShellCopy();
+    renderHome();
     llmOk = !!h.ok;
     health.className = "health " + (h.ok ? "ok" : "err");
     let ready = "服务就绪 · 请登录";
@@ -601,6 +778,77 @@ function setFile(f) {
   result.classList.remove("show");
   result.innerHTML = "";
   $("work-card")?.classList.remove("has-result");
+  inspectChosen(chosen);
+}
+
+// ===== 选中文件后的体检卡：类型 / 页数 / 大小 / 是否 OCR / 预计耗时 =====
+let inspectSeq = 0;
+function fileInfoMarkup(info) {
+  const chips = [];
+  const label = String(info.kind_label || "");
+  if (label) chips.push("<span class='fi-chip" + (info.extract === false ? " warn" : " ok") + "'>" + escText(label) + "</span>");
+  else chips.push("<span class='fi-chip'>类型待读取</span>");
+  if (Number(info.page_count || 0) > 0) chips.push("<span class='fi-chip'>" + Number(info.page_count) + " " + escText(info.page_unit || "页") + "</span>");
+  chips.push("<span class='fi-chip'>" + escText(fmtSize(Number(info.size || 0))) + "</span>");
+  if (String(info.suffix || "") === ".pdf") {
+    chips.push(info.likely_scan
+      ? "<span class='fi-chip warn'>扫描件 · 需本机 OCR</span>"
+      : "<span class='fi-chip'>文字稿 · 不用 OCR</span>");
+  }
+  let est = "";
+  if (info.extract === false) {
+    est = escText(info.kind_note || "不按 120 项电控清单抽取。");
+  } else if (Number(info.estimate_seconds || 0) > 0) {
+    est = "预计约 " + fmtMinutes(info.estimate_seconds)
+      + "（按 " + Number(info.estimate_n || 0) + " 份" + escText(info.estimate_scope || "历史") + "的中位耗时）";
+    if (info.likely_scan) est += "；扫描件 OCR 会更久";
+  } else {
+    est = "还没有可参照的历史耗时；文字稿通常十几分钟，扫描件更久。";
+  }
+  return "<div class='fi-chips'>" + chips.join("") + "</div><p class='fi-est'>" + est + "</p>";
+}
+
+async function inspectChosen(f) {
+  const host = $("file-info");
+  if (!host) return;
+  const seq = ++inspectSeq;
+  if (!f) {
+    host.hidden = true;
+    host.innerHTML = "";
+    return;
+  }
+  host.hidden = false;
+  host.className = "file-info is-loading";
+  host.innerHTML = fileInfoMarkup({ size: f.size, suffix: "." + String(f.name.split(".").pop() || "").toLowerCase() })
+    .replace("类型待读取", "正在读取文件信息…");
+  if (!loggedIn) return;
+  try {
+    const body = new FormData();
+    body.append("file", f);
+    const res = await fetch(apiUrl("/api/inspect"), {
+      method: "POST", body, credentials: "same-origin", headers: authHeaders(),
+    });
+    const info = await res.json().catch(() => ({}));
+    if (seq !== inspectSeq || !chosen) return;
+    if (!res.ok) throw new Error(detailText(info) || info.detail || "读取文件信息失败");
+    host.className = "file-info" + (info.extract === false ? " is-warn" : "");
+    host.innerHTML = fileInfoMarkup(info);
+  } catch (e) {
+    if (seq !== inspectSeq || !chosen) return;
+    host.className = "file-info";
+    host.innerHTML = "<p class='fi-est'>" + escText(explainErr(e)) + "</p>";
+  }
+}
+
+function liveLine(data) {
+  const el = $("live");
+  if (!el) return;
+  const bits = [];
+  const done = Number(data.chunk_done || 0), total = Number(data.chunk_total || 0);
+  if (total > 0) bits.push("分段 " + Math.min(done, total) + "/" + total);
+  if (data.filled != null) bits.push("已抽出 " + Number(data.filled) + " 项");
+  el.hidden = !bits.length;
+  el.textContent = bits.join(" · ");
 }
 function openPicker() { fileInput.click(); }
 pick.addEventListener("click", openPicker);
@@ -690,10 +938,12 @@ async function followJob(jobId, t0, opts) {
     setStage(data.stage || "extract");
     status.dataset.stage = data.message || "正在出表…";
     status.textContent = status.dataset.stage + "  ·  已用 " + fmtElapsed((Date.now() - t0) / 1000);
+    liveLine(data);
     const st = data.status || "";
     runPaused = st === "paused" || st === "pausing";
     setRunButtons(true, runPaused, st === "stopping" || st === "queued");
     if (st === "done") {
+      liveLine({});
       showFinishedJob(data);
       // 只对本页发起的出表自动打开 / 提醒；刷新后接回的旧任务不打开
       if (startedHere) {
@@ -705,6 +955,7 @@ async function followJob(jobId, t0, opts) {
       break;
     }
     if (st === "error") {
+      liveLine({});
       const why = detailText(data) || data.detail || "出表失败";
       if (startedHere) finishAlert("出表失败", why);
       throw new Error(why);

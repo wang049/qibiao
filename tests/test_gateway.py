@@ -43,19 +43,23 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260917b", resp.text)
-        self.assertIn("app.js?v=20260917e", resp.text)
+        self.assertIn("styles.css?v=20260917g", resp.text)
+        self.assertIn("app.js?v=20260917g", resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
         # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题
-        for tab in ("appearance", "layout", "extract", "env", "about"):
+        for tab in ("appearance", "layout", "general", "extract", "env", "about"):
             self.assertIn(f'data-tab="{tab}"', resp.text)
             self.assertIn(f'data-panel="{tab}"', resp.text)
-        for pref in ("theme", "accent", "zoom", "font", "density", "rail", "autoOpen"):
+        for pref in (
+            "theme", "accent", "zoom", "font", "density", "rail", "autoOpen",
+            "rememberUser", "notify", "sound", "confirmClose",
+        ):
             self.assertIn(f'data-pref="{pref}"', resp.text)
         # 模型推理不进设置：跟上游默认（开）
         self.assertNotIn('data-pref="thinking"', resp.text)
         self.assertIn('id="pref-model"', resp.text)
+        self.assertIn('id="about-open-output"', resp.text)
         self.assertIn('id="about-list"', resp.text)
         self.assertIn('data-about="knowledge"', resp.text)
         self.assertIn('data-value="system"', resp.text)
@@ -143,6 +147,13 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("startedHere", js.text)
         self.assertIn("function applyDefaultModel(", js.text)
         self.assertIn("function loadAbout(", js.text)
+        # 通用：记住邮箱只存邮箱不存密码；完成提醒只对本页任务；关窗确认走 beforeunload
+        self.assertIn('"electrical.lastUser"', js.text)
+        self.assertNotIn("electrical.lastPass", js.text)
+        self.assertIn("function finishAlert(", js.text)
+        self.assertIn("Notification.requestPermission", js.text)
+        self.assertIn('addEventListener("beforeunload"', js.text)
+        self.assertIn("/api/output/open", js.text)
         self.assertIn('name + "（推荐）"', js.text)
         self.assertNotIn("data-pick", js.text)
         self.assertNotIn("data-pick", self.client.get("/").text)
@@ -532,6 +543,16 @@ class GatewayTests(unittest.TestCase):
             escape = self.client.post("/api/files/..%2Fetc%2Fpasswd/open")
             self.assertIn(escape.status_code, (404, 400, 422))
         self.assertEqual(opened.call_count, 1)
+
+    def test_open_output_dir_opens_output_root(self) -> None:
+        self.assertEqual(self.client.post("/api/output/open").status_code, 401)
+        self._login()
+        with patch("electrical_krow.gateway.open_locally") as opened:
+            resp = self.client.post("/api/output/open")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(Path(resp.json()["path"]).resolve(), Path(self._tmp.name).resolve())
+        opened.assert_called_once()
+        self.assertEqual(Path(opened.call_args.args[0]).resolve(), Path(self._tmp.name).resolve())
 
     def test_open_file_requires_login(self) -> None:
         resp = self.client.post("/api/files/a.xlsx/open")

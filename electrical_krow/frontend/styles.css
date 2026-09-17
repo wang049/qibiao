@@ -85,8 +85,7 @@ header {
 }
 body.is-logged header { display: none; }
 body.is-embed header,
-body.is-embed .rail,
-body.is-embed .work-top {
+body.is-embed .rail {
   display: none !important;
 }
 body.is-embed .desk {
@@ -221,11 +220,28 @@ body.is-home .kicker,
 body.is-home h1,
 body.is-home .lead { display: none; }
 body.is-home .hero {
-  text-align: center;
-  max-width: 42em;
-  margin: 0 auto 8px;
+  justify-content: center;
+  margin: 8px auto 4px;
 }
-.hero { margin-bottom: 20px; }
+body.is-home .hero-text { display: none; }
+.hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.hero-text { min-width: 0; }
+.hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding-top: 2px;
+}
+body.is-logged .hero { padding-top: 16px; }
+body.is-logged.is-home .hero { padding-top: 12px; }
+main.is-work .lead { margin-bottom: 0; }
 .kicker {
   margin: 0 0 6px;
   font-size: 11px;
@@ -366,7 +382,7 @@ select:disabled {
   gap: 12px;
 }
 .embed-settings { display: none; }
-body.is-embed .embed-settings { display: inline-flex; }
+body.is-embed .embed-settings { display: inline-flex; align-items: center; justify-content: center; height: 42px; align-self: flex-end; }
 .model-pick { margin-bottom: 0; }
 .pass-wrap {
   position: relative;
@@ -733,7 +749,6 @@ button.ghost:hover { border-color: var(--navy); color: var(--navy); }
   .kb-layout { grid-template-columns: 1fr; }
   .kb-list { max-height: 240px; }
   .kb-stats { grid-template-columns: repeat(3, 1fr); }
-  .home-grid { grid-template-columns: 1fr; }
 }
 .rail {
   display: none;
@@ -768,7 +783,17 @@ body.is-logged .rail:not([hidden]) {
 }
 .rail-new:hover { background: var(--accent-ink); }
 .rail-block { min-width: 0; }
-.rail-jobs { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.rail-jobs { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.rail-jobs::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 26px;
+  background: linear-gradient(to bottom, transparent, var(--surface));
+  pointer-events: none;
+}
 .rail-label {
   font-size: 11px;
   font-weight: 650;
@@ -912,6 +937,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   gap: 6px;
   overflow: auto;
   min-height: 0;
+  padding-bottom: 22px;
 }
 .job-empty {
   margin: 0;
@@ -989,10 +1015,12 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   color: var(--ink-2);
 }
 .home-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 14px;
 }
+.home-grid .fn-card { flex: 0 1 600px; }
 .fn-card {
   height: auto;
   min-height: 168px;
@@ -1081,44 +1109,12 @@ button.fn-card:hover {
   color: var(--ink-3);
   font-weight: 550;
 }
-.home-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  margin: 22px 0 10px;
-}
-.home-chips span {
-  font-size: 12px;
-  color: var(--ink-2);
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  padding: 5px 12px;
-}
 .home-foot {
-  margin: 0;
+  margin: 18px 0 0;
   text-align: center;
   font-size: 12px;
   color: var(--ink-3);
   line-height: 1.6;
-}
-.work-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 0 8px;
-}
-.work-top-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.work-top-left strong {
-  font-size: 15px;
-  color: var(--navy);
 }
 .live-badge {
   display: inline-flex;
@@ -1138,10 +1134,6 @@ button.fn-card:hover {
   height: 6px;
   border-radius: 50%;
   background: var(--ok);
-}
-.work-top-meta {
-  font-size: 12px;
-  color: var(--ink-3);
 }
 .kb-card { padding: 18px 18px 20px; }
 .kb-toolbar {
@@ -1674,5 +1666,5 @@ button.settings-tab:focus-visible { outline: 2px solid var(--accent-rule); outli
 .about-list dt { color: var(--ink-3); }
 .about-list dd { margin: 0; color: var(--ink); word-break: break-all; }
 .about-list .about-path { font-family: Menlo, Consolas, monospace; font-size: 12px; }
-.about-actions { margin-top: 14px; }
+.about-actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
 .about-actions button { height: 32px; font-size: 12px; }

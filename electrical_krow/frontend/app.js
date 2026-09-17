@@ -232,7 +232,8 @@ async function showWork(on, username) {
   }
   $("login-card").hidden = on;
   $("who-wrap").hidden = !on || embedMode();
-  $("work-top").hidden = !on || embedMode();
+  const badge = $("local-badge");
+  if (badge) badge.hidden = !on || embedMode();
   const name = on ? (username || "") : "";
   $("who").textContent = name;
   const av = $("who-avatar");
@@ -514,6 +515,7 @@ $("login").onclick = async () => {
       password: $("pass").value,
     };
     const data = await json("/api/login", { method: "POST", body: JSON.stringify(body) });
+    rememberLoginUser(body.username);
     await showWork(true, data.username);
     await refresh();
   } catch (err) {
@@ -693,12 +695,20 @@ async function followJob(jobId, t0, opts) {
     setRunButtons(true, runPaused, st === "stopping" || st === "queued");
     if (st === "done") {
       showFinishedJob(data);
-      // 只对本页发起的出表自动打开；刷新后接回的旧任务不打开
-      if (startedHere && prefs.autoOpen === "on" && !embedMode()) openWorkbookLocally(data.download);
+      // 只对本页发起的出表自动打开 / 提醒；刷新后接回的旧任务不打开
+      if (startedHere) {
+        const sheet = decodeURIComponent(String(data.download || "").split("/").pop() || "");
+        finishAlert("出表完成", sheet || "核对表已生成");
+        if (prefs.autoOpen === "on" && !embedMode()) openWorkbookLocally(data.download);
+      }
       await waitUntilIdle();
       break;
     }
-    if (st === "error") throw new Error(detailText(data) || data.detail || "出表失败");
+    if (st === "error") {
+      const why = detailText(data) || data.detail || "出表失败";
+      if (startedHere) finishAlert("出表失败", why);
+      throw new Error(why);
+    }
   }
 }
 
@@ -910,6 +920,11 @@ const PREF_DEFAULTS = {
   // 出表：默认模型（空 = 用服务端默认）、完成后自动打开。模型推理不进设置，跟上游默认（开）
   model: "",
   autoOpen: "off",
+  // 通用：记住邮箱、完成通知 / 提示音、出表中关窗确认
+  rememberUser: "on",
+  notify: "off",
+  sound: "off",
+  confirmClose: "on",
 };
 const PREF_ALLOWED = {
   theme: ["system", "light", "dark"],
@@ -919,6 +934,10 @@ const PREF_ALLOWED = {
   density: ["cozy", "compact"],
   rail: ["left", "right"],
   autoOpen: ["off", "on"],
+  rememberUser: ["off", "on"],
+  notify: ["off", "on"],
+  sound: ["off", "on"],
+  confirmClose: ["off", "on"],
 };
 // 挂到 <html> 的只有外观 / 布局；出表偏好走请求参数
 const PREF_ATTRS = ["theme", "accent", "zoom", "font", "density", "rail"];
@@ -972,6 +991,7 @@ function applyPrefs(prefs) {
 
 let prefs = loadPrefs();
 applyPrefs(prefs);
+prefillLoginUser();
 if (darkQuery) {
   const onScheme = () => {
     if (prefs.theme === "system") applyPrefs(prefs);
@@ -990,7 +1010,90 @@ function setPref(key, value) {
   savePrefs(prefs);
   applyPrefs(prefs);
   renderPrefControls();
+  if (key === "notify" && value === "on") askNotifyPermission();
+  if (key === "rememberUser" && value === "off") rememberLoginUser("");
 }
+
+// ===== 通用：记住邮箱 / 完成提醒 / 关窗确认 =====
+const LAST_USER_KEY = "electrical.lastUser";
+
+function rememberLoginUser(email) {
+  try {
+    if (prefs.rememberUser === "on" && email) localStorage.setItem(LAST_USER_KEY, String(email).trim());
+    else localStorage.removeItem(LAST_USER_KEY);
+  } catch (_) { /* 写不进去就不记 */ }
+}
+
+function prefillLoginUser() {
+  const input = $("user");
+  if (!input || input.value || prefs.rememberUser !== "on") return;
+  try {
+    input.value = localStorage.getItem(LAST_USER_KEY) || "";
+  } catch (_) { /* ignore */ }
+}
+
+function askNotifyPermission() {
+  const msg = $("settings-msg");
+  const say = (text, info) => {
+    if (!msg) return;
+    msg.hidden = false;
+    msg.classList.toggle("is-info", !!info);
+    msg.textContent = text;
+  };
+  if (!("Notification" in window)) {
+    say("当前窗口不支持系统通知。");
+    return;
+  }
+  if (Notification.permission === "granted") return;
+  if (Notification.permission === "denied") {
+    say("系统通知已被拒绝，请在系统或浏览器的通知设置里允许本程序。");
+    return;
+  }
+  Notification.requestPermission().then((p) => {
+    if (p !== "granted") say("没有拿到通知权限，完成时不会弹系统通知。");
+    else say("已允许系统通知。", true);
+  }).catch(() => {});
+}
+
+function playDoneSound() {
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const now = ctx.currentTime;
+    [[880, 0], [1174.66, 0.16]].forEach(([freq, at]) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, now + at);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + at + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + at + 0.22);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now + at);
+      osc.stop(now + at + 0.25);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 800);
+  } catch (_) { /* 无音频设备等 */ }
+}
+
+// 出表完成 / 失败提醒：只对本页发起的任务；系统通知只在窗口不在前台时弹
+function finishAlert(title, body) {
+  if (prefs.sound === "on") playDoneSound();
+  if (prefs.notify !== "on" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+  if (document.hasFocus() && document.visibilityState === "visible") return;
+  try {
+    const n = new Notification(title, { body: String(body || ""), tag: "electrical-krow-job" });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch (_) { /* ignore */ }
+}
+
+window.addEventListener("beforeunload", (ev) => {
+  if (prefs.confirmClose !== "on" || !currentJob || embedMode()) return;
+  ev.preventDefault();
+  ev.returnValue = "";
+});
 
 function renderPrefControls() {
   const modelSel = $("pref-model");
@@ -1058,7 +1161,8 @@ async function applyDefaultModel() {
 
 $("settings-reset")?.addEventListener("click", () => {
   // 只恢复外观 / 布局；出表偏好保留
-  const keep = { model: prefs.model, autoOpen: prefs.autoOpen };
+  const keep = {};
+  ["model", "autoOpen", "rememberUser", "notify", "sound", "confirmClose"].forEach((k) => { keep[k] = prefs[k]; });
   prefs = Object.assign({}, PREF_DEFAULTS, keep);
   const forced = themeFromQuery();
   if (forced) prefs.theme = forced;
@@ -1102,6 +1206,15 @@ async function loadAbout() {
     put("server", String(err.message || err));
   }
 }
+
+$("about-open-output")?.addEventListener("click", async () => {
+  const msg = $("settings-msg");
+  try {
+    await json("/api/output/open", { method: "POST" });
+  } catch (err) {
+    if (msg) { msg.hidden = false; msg.classList.remove("is-info"); msg.textContent = String(err.message || err); }
+  }
+});
 
 $("about-copy")?.addEventListener("click", async () => {
   const rows = Array.from($("about-list")?.querySelectorAll("dt") || []);

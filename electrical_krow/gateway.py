@@ -571,6 +571,21 @@ def create_app(
             raise HTTPException(500, str(exc)) from exc
         return {"ok": True, "name": path.name}
 
+    @app.post("/api/output/open")
+    def open_output_dir(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """用系统文件管理器打开核对表目录（gateway.log 也在这里）。"""
+        _require_session(request, authorization)
+        root = request.app.state.jobs.output_dir
+        root.mkdir(parents=True, exist_ok=True)
+        try:
+            open_locally(root)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        return {"ok": True, "path": str(root)}
+
     if FRONTEND.is_dir():
         app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器 · SOR填表</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260917b" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260917g" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -84,18 +84,16 @@
       </aside>
       <main>
         <div class="stage-inner">
-          <div id="work-top" class="work-top" hidden>
-            <div class="work-top-left">
-              <strong>电子电器智能体</strong>
-              <span id="local-badge" class="live-badge">本机读取</span>
-            </div>
-            <span class="work-top-meta">工位客户端</span>
-          </div>
           <div class="hero">
-            <p class="kicker" id="kicker">工位登录</p>
-            <h1 id="title">登录后<span>出表</span></h1>
-            <p class="lead" id="lead">请使用开通的邮箱和密码，不要填手机号。</p>
-            <p id="health" class="health"><i class="dot"></i><span id="health-text">正在检查…</span></p>
+            <div class="hero-text">
+              <p class="kicker" id="kicker">工位登录</p>
+              <h1 id="title">登录后<span>出表</span></h1>
+              <p class="lead" id="lead">请使用开通的邮箱和密码，不要填手机号。</p>
+            </div>
+            <div class="hero-meta">
+              <p id="health" class="health"><i class="dot"></i><span id="health-text">正在检查…</span></p>
+              <span id="local-badge" class="live-badge" hidden>本机读取</span>
+            </div>
           </div>
 
           <div id="login-card" class="card">
@@ -155,11 +153,7 @@
                 </span>
               </button>
             </div>
-            <div class="home-chips">
-              <span>电机控制器知识库</span>
-              <span>同一时刻一份</span>
-            </div>
-            <p class="home-foot">文件只在本机读取，不上传公网。出表按既定步骤执行，不由模型自行规划路径。</p>
+            <p class="home-foot" id="home-foot">文件只在本机读取，不上传公网。核对表须人工确认后定稿。</p>
           </div>
 
           <div id="work-card" class="card" hidden>
@@ -291,6 +285,7 @@
         <nav class="settings-tabs" aria-label="设置分组">
           <button type="button" class="settings-tab is-on" data-tab="appearance">外观</button>
           <button type="button" class="settings-tab" data-tab="layout">布局</button>
+          <button type="button" class="settings-tab" data-tab="general">通用</button>
           <button type="button" class="settings-tab" data-tab="extract">出表</button>
           <button type="button" class="settings-tab" data-tab="env">识别环境</button>
           <button type="button" class="settings-tab" data-tab="about">关于</button>
@@ -355,6 +350,37 @@
         </div>
       </section>
 
+      <section class="settings-panel" data-panel="general" hidden>
+        <div class="pref">
+          <div class="pref-label"><b>记住登录邮箱</b><span>下次打开自动填好邮箱；密码不保存</span></div>
+          <div class="seg" data-pref="rememberUser" role="radiogroup">
+            <button type="button" data-value="off">关</button>
+            <button type="button" data-value="on">开</button>
+          </div>
+        </div>
+        <div class="pref">
+          <div class="pref-label"><b>出表完成系统通知</b><span>切到别的窗口时，完成或失败弹系统通知；首次开启需允许通知权限</span></div>
+          <div class="seg" data-pref="notify" role="radiogroup">
+            <button type="button" data-value="off">关</button>
+            <button type="button" data-value="on">开</button>
+          </div>
+        </div>
+        <div class="pref">
+          <div class="pref-label"><b>完成提示音</b><span>出表完成或失败时响一声</span></div>
+          <div class="seg" data-pref="sound" role="radiogroup">
+            <button type="button" data-value="off">关</button>
+            <button type="button" data-value="on">开</button>
+          </div>
+        </div>
+        <div class="pref">
+          <div class="pref-label"><b>出表进行中关闭前确认</b><span>任务未完成就关窗口时先提示，避免误关</span></div>
+          <div class="seg" data-pref="confirmClose" role="radiogroup">
+            <button type="button" data-value="off">关</button>
+            <button type="button" data-value="on">开</button>
+          </div>
+        </div>
+      </section>
+
       <section class="settings-panel" data-panel="extract" hidden>
         <div class="pref">
           <div class="pref-label"><b>默认模型</b><span>登录后自动选中；出表表单里改模型也会记到这里</span></div>
@@ -389,6 +415,7 @@
           <dt>运行环境</dt><dd data-about="platform">—</dd>
         </dl>
         <div class="about-actions">
+          <button id="about-open-output" type="button" class="ghost">打开核对表目录</button>
           <button id="about-copy" type="button" class="ghost">复制诊断信息</button>
         </div>
       </section>
@@ -400,7 +427,7 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/app.js?v=20260917e" defer></script>
+  <script src="/static/app.js?v=20260917g" defer></script>
   <script src="/static/kb.js?v=20260910a" defer></script>
 </body>
 </html>

@@ -397,8 +397,8 @@ function renderJobs() {
   renderHome();
 }
 
-// ===== 工作台：知识库摘要卡；出表页：一行统计 + 最近核对表 =====
-// 嵌入模式只有出表页会显示，所以和出表相关的数字与历史都放出表页；工作台只留导航与说明。
+// ===== 出表页：一行统计 + 最近核对表 =====
+// 嵌入模式只有出表页会显示，所以数字与历史都放出表页；工作台只留 SOR 出表一张卡。
 let lastHealth = null;
 
 function fmtMinutes(sec) {
@@ -432,16 +432,6 @@ function renderHome() {
     meta.hidden = !meta.textContent;
   }
 
-  const kb = (lastHealth && lastHealth.knowledge) || {};
-  const kbHost = $("home-kb-stats");
-  if (kbHost) {
-    kbHost.innerHTML = kb.version
-      ? [[kb.clauses, "条款"], [kb.physics, "物理关系"], [kb.enterprise, "企标试验"], [kb.groups, "业务分组"]]
-        .map(([n, l]) => "<span><b>" + escText(n || 0) + "</b>" + l + "</span>").join("")
-      : "<span class='is-muted'>知识库尚未发布</span>";
-    const v = $("home-kb-version");
-    if (v) v.textContent = kb.version ? "进入知识库 · 版本 " + kb.version : "进入知识库";
-  }
   renderRecent();
 }
 

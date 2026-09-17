@@ -1184,79 +1184,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   justify-content: center;
   gap: 14px;
 }
-.home-grid .fn-card { flex: 1 1 380px; }
-/* 工作台：三步流程条 */
-.flow {
-  list-style: none;
-  margin: 0 0 16px;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-.flow-step {
-  position: relative;
-  display: grid;
-  grid-template-columns: 26px 1fr;
-  column-gap: 10px;
-  row-gap: 2px;
-  padding: 12px 14px;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 12px;
-}
-.flow-step b {
-  grid-row: 1 / span 2;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: var(--accent-wash);
-  border: 1px solid var(--accent-rule);
-  color: var(--accent-ink);
-  font-size: 12px;
-  font-weight: 650;
-  line-height: 24px;
-  text-align: center;
-}
-.flow-step strong {
-  font-size: 13px;
-  font-weight: 650;
-  color: var(--navy);
-}
-.flow-step span {
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-3);
-}
-.flow-step:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  right: -8px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border-top: 1px solid var(--rule);
-  border-right: 1px solid var(--rule);
-  transform: translateY(-50%) rotate(45deg);
-}
-/* 工作台：知识库摘要卡 */
-.fn-kb-stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 14px;
-  margin-top: 10px;
-}
-.fn-kb-stats span {
-  font-size: 12px;
-  color: var(--ink-3);
-}
-.fn-kb-stats span b {
-  font-size: 15px;
-  font-weight: 650;
-  color: var(--navy);
-  margin-right: 3px;
-}
-.fn-kb-stats .is-muted { color: var(--ink-3); }
+.home-grid .fn-card { flex: 0 1 600px; }
 /* 出表页：一行统计 + 最近核对表 */
 .work-meta {
   margin: 10px 0 0;
@@ -1336,8 +1264,6 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   text-align: center;
 }
 @media (max-width: 860px) {
-  .flow { grid-template-columns: repeat(2, 1fr); }
-  .flow-step:not(:last-child)::after { display: none; }
   .recent-row { grid-template-columns: 1fr; gap: 6px; }
 }
 .fn-card {

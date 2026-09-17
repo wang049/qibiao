@@ -1609,11 +1609,46 @@ button.fn-card:hover {
   margin-right: 4px;
   vertical-align: -1px;
 }
-.lg-c { background: #1e3a4c; }
-.lg-p { background: #1f6f8a; }
-.lg-x { background: #c9a36b; }
-.lg-n { background: #d48a84; }
-.lg-f { background: #7eb3c4; }
+.lg-c { background: var(--kbg-clause); }
+.lg-p { background: var(--kbg-physics); }
+.lg-x { background: var(--kbg-same); }
+.lg-n { background: var(--kbg-not); }
+.lg-f { background: var(--kbg-interp); }
+/* 图谱：颜色跟主题；文字加描边光晕，压在连线上也能读 */
+:root {
+  --kbg-clause: #1e3a4c;
+  --kbg-physics: #1f6f8a;
+  --kbg-physics-fill: #eef6f8;
+  --kbg-related: #c5ced6;
+  --kbg-same: #c9a36b;
+  --kbg-not: #d48a84;
+  --kbg-interp: #7eb3c4;
+  --kbg-halo: var(--surface);
+}
+.kb-ge { stroke: var(--kbg-related); }
+.kb-ge-not { stroke: var(--kbg-not); }
+.kb-ge-same_slot { stroke: var(--kbg-same); }
+.kb-ge-interprets { stroke: var(--kbg-interp); }
+.kb-gc-clause { fill: var(--surface); stroke: var(--kbg-clause); }
+.kb-gc-physics { fill: var(--kbg-physics-fill); stroke: var(--kbg-physics); }
+.kb-gc-group { fill: var(--kbg-clause); stroke: var(--kbg-clause); }
+.kb-gn.is-on .kb-gc { stroke: var(--accent); }
+.kb-gl, .kb-gm {
+  font-family: var(--sans);
+  pointer-events: none;
+}
+.kb-gl {
+  fill: var(--ink);
+  font-weight: 550;
+  paint-order: stroke fill;
+  stroke: var(--kbg-halo);
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+}
+.kb-gn-group .kb-gl { font-weight: 650; fill: var(--navy); }
+.kb-gm-group { fill: #fff; }
+.kb-gm-clause { fill: var(--kbg-clause); }
+.kb-gn:hover .kb-gl { fill: var(--accent-ink); }
 .kb-back {
   position: absolute;
   top: 10px;
@@ -1754,6 +1789,19 @@ html[data-theme="dark"] {
 html[data-theme="dark"] .mark { background: var(--accent); }
 html[data-theme="dark"] .settings-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
 html[data-theme="dark"] .kb-group.is-on { background: var(--accent); color: #fff; border-color: var(--accent); }
+html[data-theme="dark"] {
+  --kbg-clause: #8fb4d6;
+  --kbg-physics: #5fb3cf;
+  --kbg-physics-fill: #17303a;
+  --kbg-related: rgba(143, 160, 180, 0.32);
+  --kbg-same: #d3b177;
+  --kbg-not: #e08f88;
+  --kbg-interp: #7fc4d8;
+  --kbg-halo: #161c26;
+}
+html[data-theme="dark"] .kb-gc-clause { fill: #1e2734; }
+html[data-theme="dark"] .kb-gc-group { fill: #24405a; stroke: #8fb4d6; }
+html[data-theme="dark"] .kb-gm-clause { fill: #cfe0f0; }
 
 /* 主题色：浅色用实色淡底，深色用半透明淡底 */
 html[data-accent="blue"]   { --accent: #2563eb; --accent-ink: #1d4ed8; --accent-wash: #eff6ff; --accent-rule: #d5e6eb; }

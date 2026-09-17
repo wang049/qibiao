@@ -43,8 +43,8 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260917j", resp.text)
-        self.assertIn("app.js?v=20260917j", resp.text)
+        self.assertIn("styles.css?v=20260917k", resp.text)
+        self.assertIn("app.js?v=20260917k", resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
         # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题

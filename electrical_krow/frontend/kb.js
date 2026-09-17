@@ -1,11 +1,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
-  const REL_COLOR = {
-    related: "#c5ced6",
-    not: "#d48a84",
-    same_slot: "#c9a36b",
-    interprets: "#7eb3c4",
-  };
+  // 关系种类；颜色在 styles.css（.kb-ge-*），跟随主题
+  const REL_KINDS = new Set(["related", "not", "same_slot", "interprets"]);
   const REL_RANK = { not: 0, same_slot: 1, interprets: 2, related: 3 };
 
   let catalog = null;
@@ -430,52 +426,50 @@
       const a = byId[e.from];
       const b = byId[e.to];
       if (!a || !b) return;
+      // 颜色都在 styles.css 的 .kb-ge-* / .kb-gc-* / .kb-gl 里，跟随深浅色主题
+      const rel = REL_KINDS.has(e.rel) ? e.rel : "related";
       const line = svgEl("line", {
         x1: a.x,
         y1: a.y,
         x2: b.x,
         y2: b.y,
-        stroke: REL_COLOR[e.rel] || REL_COLOR.related,
+        class: "kb-ge kb-ge-" + rel,
         "stroke-width": e.rel === "related" ? 1 : 1.6,
         "stroke-linecap": "round",
       });
       svg.appendChild(line);
     });
     (spec.nodes || []).forEach((n) => {
-      const g = svgEl("g", { class: "kb-gn", style: "cursor:pointer" });
       const on = spec.active && spec.active === n.id;
-      const fill = n.kind === "physics" ? "#eef6f8" : n.kind === "group" ? "#1e3a4c" : "#fff";
-      const stroke = on ? "#1f6f8a" : n.kind === "physics" ? "#1f6f8a" : "#1e3a4c";
-      const r = n.kind === "group" ? 22 : n.kind === "physics" ? 16 : 11;
+      const kind = n.kind === "physics" || n.kind === "group" ? n.kind : "clause";
+      const g = svgEl("g", { class: "kb-gn kb-gn-" + kind + (on ? " is-on" : ""), style: "cursor:pointer" });
+      const r = kind === "group" ? 22 : kind === "physics" ? 16 : 11;
       g.appendChild(
         svgEl("circle", {
           cx: n.x,
           cy: n.y,
           r: on ? r + 3 : r,
-          fill,
-          stroke,
+          class: "kb-gc kb-gc-" + kind,
           "stroke-width": on ? 2.4 : 1.4,
         })
       );
       const label = svgEl("text", {
         x: n.x,
-        y: n.y + (n.kind === "group" ? 36 : n.kind === "physics" ? 28 : 22),
+        y: n.y + (kind === "group" ? 38 : kind === "physics" ? 30 : 23),
         "text-anchor": "middle",
-        fill: "#1a2330",
-        "font-size": n.kind === "group" ? 11 : 10,
-        "font-family": "PingFang SC, Microsoft YaHei, sans-serif",
+        class: "kb-gl",
+        "font-size": kind === "group" ? 12 : 11,
       });
       label.textContent = n.label;
       g.appendChild(label);
-      if (n.kind === "clause" || n.kind === "group") {
+      if (kind === "clause" || kind === "group") {
         const inner = svgEl("text", {
           x: n.x,
           y: n.y + 4,
           "text-anchor": "middle",
-          fill: n.kind === "group" ? "#fff" : "#1e3a4c",
-          "font-size": 9,
+          class: "kb-gm kb-gm-" + kind,
+          "font-size": kind === "group" ? 10 : 9,
           "font-weight": 650,
-          "font-family": "PingFang SC, Microsoft YaHei, sans-serif",
         });
         inner.textContent = n.mark || "";
         g.appendChild(inner);

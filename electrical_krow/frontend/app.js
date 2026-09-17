@@ -397,7 +397,8 @@ function renderJobs() {
   renderHome();
 }
 
-// ===== 工作台：统计卡 / 知识库摘要 / 最近核对表 =====
+// ===== 工作台：知识库摘要卡；出表页：一行统计 + 最近核对表 =====
+// 嵌入模式只有出表页会显示，所以和出表相关的数字与历史都放出表页；工作台只留导航与说明。
 let lastHealth = null;
 
 function fmtMinutes(sec) {
@@ -407,30 +408,29 @@ function fmtMinutes(sec) {
   return (n / 60).toFixed(n < 600 ? 1 : 0).replace(/\.0$/, "") + " 分钟";
 }
 
-function homeStatCards() {
+// 出表页顶部一行：知识库版本 · 待专家口径 · 本账号已出 N 份 · 平均耗时
+function workMetaText() {
   const done = jobRows.filter((r) => r.status === "done" && r.extract !== false);
   const timed = done.filter((r) => Number(r.elapsed_seconds || 0) > 0 && !r.stopped_early);
   const avg = timed.length
     ? timed.reduce((a, r) => a + Number(r.elapsed_seconds), 0) / timed.length
     : 0;
-  const latest = done.length ? done[0] : null;
   const kb = (lastHealth && lastHealth.knowledge) || {};
   const pending = Number((lastHealth && lastHealth.pending_rulings) || 0);
-  return [
-    { n: String(done.length), l: "累计出表", s: done.length ? "本账号，含已结束抽取" : "还没有出表" },
-    { n: fmtMinutes(avg), l: "平均耗时", s: timed.length ? "按 " + timed.length + " 份完整出表" : "出表后统计" },
-    { n: latest ? fmtWhen(latest.created_at) : "—", l: "最近一次", s: latest ? String(latest.source || "").slice(0, 22) : "—" },
-    { n: kb.version || "—", l: "知识库版本", s: kb.clauses ? kb.clauses + " 条款 · 只认条不取值" : "尚未发布" },
-    { n: String(pending), l: "待专家口径", s: pending ? "出表时在表内标注，不改抽出值" : "当前没有待定口径" },
-  ];
+  const bits = [];
+  bits.push(kb.version ? "知识库 " + kb.version : "知识库尚未发布");
+  if (pending > 0) bits.push("待专家口径 " + pending + " 条");
+  if (done.length) bits.push("本账号已出 " + done.length + " 份");
+  if (timed.length) bits.push("平均 " + fmtMinutes(avg));
+  return bits.join(" · ");
 }
 
 function renderHome() {
-  const stats = $("home-stats");
-  if (!stats) return;
-  stats.innerHTML = homeStatCards().map((c) =>
-    "<div class='home-stat'><b>" + escText(c.n) + "</b><span>" + escText(c.l) + "</span><small>" + escText(c.s) + "</small></div>"
-  ).join("");
+  const meta = $("work-meta");
+  if (meta) {
+    meta.textContent = workMetaText();
+    meta.hidden = !meta.textContent;
+  }
 
   const kb = (lastHealth && lastHealth.knowledge) || {};
   const kbHost = $("home-kb-stats");
@@ -442,16 +442,18 @@ function renderHome() {
     const v = $("home-kb-version");
     if (v) v.textContent = kb.version ? "进入知识库 · 版本 " + kb.version : "进入知识库";
   }
+  renderRecent();
+}
 
-  const list = $("home-recent-list");
-  if (!list) return;
+// 出表页底部的最近核对表：出表进行中收起，别挤着正在跑的任务
+function renderRecent() {
+  const host = $("work-recent");
+  const list = $("work-recent-list");
+  if (!host || !list) return;
   const rows = jobRows.filter((r) => r.status === "done" && r.download).slice(0, 5);
-  const busy = !!currentJob;
-  if (!rows.length) {
-    list.innerHTML = "<div class='recent-empty'>" + EMPTY_JOBS_SVG
-      + "<p>还没有生成过核对表</p><small>导入一份 DPR 或逆变器 SR，出表后会列在这里，可直接打开或下载。</small></div>";
-    return;
-  }
+  const busy = !!currentJob || submitting || attaching;
+  host.hidden = busy || !rows.length;
+  if (host.hidden) return;
   list.innerHTML = rows.map((r) => {
     const id = String(r.id || "");
     const total = Number(r.field_count || 0);
@@ -472,7 +474,7 @@ function renderHome() {
       + "</div>"
       + "<span class='recent-found'>" + escText(bits.join(" · ") || "—") + "</span>"
       + "<span class='recent-actions'>"
-      + "<button type='button' class='recent-btn' data-view='" + escText(id) + "'" + (busy && id !== currentJob ? " disabled" : "") + ">查看</button>"
+      + "<button type='button' class='recent-btn' data-view='" + escText(id) + "'>查看</button>"
       + open
       + "<a class='recent-btn' href='" + escText(apiUrl(r.download)) + "' download>下载</a>"
       + "</span></div>";
@@ -485,7 +487,7 @@ function renderHome() {
   });
 }
 
-$("home-open-dir")?.addEventListener("click", async () => {
+$("work-open-dir")?.addEventListener("click", async () => {
   try {
     await json("/api/output/open", { method: "POST", body: "{}" });
   } catch (_) { /* 打不开目录就不提示 */ }
@@ -1029,6 +1031,7 @@ go.addEventListener("click", async () => {
   submitting = true;
   viewingJob = null;
   runPaused = false;
+  renderRecent();
   setPanel("extract");
   setRunButtons(true, false, true);
   result.classList.remove("show");

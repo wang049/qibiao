@@ -43,8 +43,8 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260917h", resp.text)
-        self.assertIn("app.js?v=20260917h", resp.text)
+        self.assertIn("styles.css?v=20260917i", resp.text)
+        self.assertIn("app.js?v=20260917i", resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
         # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题
@@ -512,25 +512,34 @@ class GatewayTests(unittest.TestCase):
         self.assertIsInstance(data.get("pending_rulings"), int)
 
     def test_workbench_and_result_summary_markup(self) -> None:
-        """工作台四块（流程条 / 统计卡 / 知识库卡 / 最近核对表）与出表页体检卡、实时计数、分组条形。"""
+        """工作台只留流程条 + 知识库卡；出表相关（一行统计、最近核对表、体检卡、实时计数、分组条形）都在出表页，嵌入时才看得到。"""
         page = self.client.get("/").text
         for marker in (
-            'id="home-flow"', 'id="home-stats"', 'id="home-kb"', 'id="home-kb-stats"',
-            'id="home-recent"', 'id="home-recent-list"', 'id="home-open-dir"',
+            'id="home-flow"', 'id="home-kb"', 'id="home-kb-stats"',
+            'id="work-meta"', 'id="work-recent"', 'id="work-recent-list"', 'id="work-open-dir"',
             'id="file-info"', 'id="live"',
         ):
             self.assertIn(marker, page)
+        for gone in ('id="home-stats"', 'id="home-recent"', 'id="home-open-dir"'):
+            self.assertNotIn(gone, page)
+        # 最近核对表在 work-card 内、result 之后
+        work = page.index('id="work-card"')
+        self.assertLess(page.index('id="result"'), page.index('id="work-recent"'))
+        self.assertLess(work, page.index('id="work-recent"'))
+        self.assertLess(page.index('id="work-recent"'), page.index('id="kb-card"'))
         self.assertIn("人工复核定稿", page)
         js = self.client.get("/static/app.js").text
         for marker in (
-            "/api/inspect", "renderHome", "groupBarsMarkup", "compareMarkup",
+            "/api/inspect", "renderHome", "renderRecent", "workMetaText", "groupBarsMarkup", "compareMarkup",
             "liveLine", "chunk_done", "pending_note", "kindTag", "待专家口径",
             "与上次同名文件对比", "/api/output/open",
         ):
             self.assertIn(marker, js)
+        self.assertNotIn("homeStatCards", js)
         css = self.client.get("/static/styles.css").text
-        for marker in (".flow-step", ".home-stat", ".recent-row", ".file-info", ".gbar-track", ".compare", ".job-tag", ".live"):
+        for marker in (".flow-step", ".work-meta", ".work-recent", ".recent-row", ".file-info", ".gbar-track", ".compare", ".job-tag", ".live"):
             self.assertIn(marker, css)
+        self.assertNotIn(".home-stat", css)
 
     def test_inspect_requires_login_and_reports_type_pages_estimate(self) -> None:
         from electrical_krow.mock_server import DEMO_USER

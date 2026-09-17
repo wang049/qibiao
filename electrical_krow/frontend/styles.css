@@ -1239,47 +1239,6 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   border-right: 1px solid var(--rule);
   transform: translateY(-50%) rotate(45deg);
 }
-/* 工作台：本机统计卡 */
-.home-stats {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
-}
-.home-stat {
-  padding: 12px 14px 10px;
-  background: var(--surface);
-  border: 1px solid var(--rule);
-  border-radius: 12px;
-  min-width: 0;
-}
-.home-stat b {
-  display: block;
-  font-size: 20px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--navy);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.home-stat span {
-  display: block;
-  margin-top: 2px;
-  font-size: 12px;
-  font-weight: 550;
-  color: var(--ink-2);
-}
-.home-stat small {
-  display: block;
-  margin-top: 4px;
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 /* 工作台：知识库摘要卡 */
 .fn-kb-stats {
   display: flex;
@@ -1298,15 +1257,21 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   margin-right: 3px;
 }
 .fn-kb-stats .is-muted { color: var(--ink-3); }
-/* 工作台：最近核对表 */
-.home-recent { margin-top: 16px; }
-.home-recent-head {
+/* 出表页：一行统计 + 最近核对表 */
+.work-meta {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-3);
+}
+.work-recent { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule-2); }
+.recent-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 8px;
 }
-.home-recent-head h3 {
+.recent-head h3 {
   margin: 0;
   font-size: 13px;
   font-weight: 650;
@@ -1314,7 +1279,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   color: var(--ink-2);
 }
 .recent-list {
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--rule);
   border-radius: 12px;
   overflow: hidden;
@@ -1371,7 +1336,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   text-align: center;
 }
 @media (max-width: 860px) {
-  .flow, .home-stats { grid-template-columns: repeat(2, 1fr); }
+  .flow { grid-template-columns: repeat(2, 1fr); }
   .flow-step:not(:last-child)::after { display: none; }
   .recent-row { grid-template-columns: 1fr; gap: 6px; }
 }

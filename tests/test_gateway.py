@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -8,7 +9,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from electrical_krow.config import load_settings
+from electrical_krow.config import CLOUD_API_URL, SITE_API_URL, load_settings
 from electrical_krow.errors import LLMError
 from electrical_krow.gateway import create_app
 from electrical_krow.llm import ChatResult
@@ -42,8 +43,25 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260909c", resp.text)
-        self.assertIn("app.js?v=20260909d", resp.text)
+        self.assertIn("styles.css?v=20260917b", resp.text)
+        self.assertIn("app.js?v=20260917c", resp.text)
+        self.assertIn("js-open-settings", resp.text)
+        self.assertIn("settings-dialog", resp.text)
+        # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题
+        for tab in ("appearance", "layout", "extract", "env", "about"):
+            self.assertIn(f'data-tab="{tab}"', resp.text)
+            self.assertIn(f'data-panel="{tab}"', resp.text)
+        for pref in ("theme", "accent", "zoom", "font", "density", "rail", "thinking", "autoOpen"):
+            self.assertIn(f'data-pref="{pref}"', resp.text)
+        self.assertIn('id="pref-model"', resp.text)
+        self.assertIn('id="about-list"', resp.text)
+        self.assertIn('data-about="knowledge"', resp.text)
+        self.assertIn('data-value="system"', resp.text)
+        self.assertIn("跟随系统", resp.text)
+        self.assertIn('localStorage.getItem("electrical.prefs")', resp.text)
+        self.assertIn("prefers-color-scheme: dark", resp.text)
+        self.assertIn('id="settings-reset"', resp.text)
+        self.assertIn('id="env-choices"', resp.text)
         self.assertIn("id=\"st-qc\"", resp.text)
         self.assertIn("先看文件能不能读", resp.text)
         self.assertIn("当前登录账号发起", resp.text)
@@ -97,6 +115,7 @@ class GatewayTests(unittest.TestCase):
         self.assertIn(".rail", css.text)
         self.assertIn(".rail-new", css.text)
         self.assertIn(".job-row", css.text)
+        self.assertIn(".settings-dialog", css.text)
         self.assertRegex(
             css.text, r"\[hidden\]\s*\{[^}]*display:\s*none\s*!important"
         )
@@ -107,6 +126,32 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("waitUntilIdle", js.text)
         self.assertIn("resumeActiveJob", js.text)
         self.assertIn("isBusyConflict", js.text)
+        self.assertIn("/api/settings", js.text)
+        self.assertIn("js-open-settings", js.text)
+        # 常规设置只存本机 localStorage，跟随系统用 matchMedia 监听，父壳可用 ?theme= 指定
+        self.assertIn('"electrical.prefs"', js.text)
+        self.assertIn("prefers-color-scheme: dark", js.text)
+        self.assertIn("function applyPrefs(", js.text)
+        self.assertIn("function themeFromQuery(", js.text)
+        self.assertIn("settings-reset", js.text)
+        self.assertNotIn("/api/prefs", js.text)
+        # 出表偏好：推理开关随 /api/jobs 表单走；完成后自动打开只对本页发起的任务
+        self.assertIn('body.append("thinking"', js.text)
+        self.assertIn("/open", js.text)
+        self.assertIn("startedHere", js.text)
+        self.assertIn("function applyDefaultModel(", js.text)
+        self.assertIn("function loadAbout(", js.text)
+        self.assertIn('name + "（推荐）"', js.text)
+        for attr in ("data-theme", "data-accent", "data-zoom", "data-font", "data-density", "data-rail"):
+            self.assertIn(f'html[{attr}=', css.text, attr)
+        self.assertIn('html[data-theme="dark"]', css.text)
+        self.assertIn("color-scheme: dark", css.text)
+        self.assertIn('html[data-rail="right"] body.is-logged .desk { flex-direction: row-reverse; }', css.text)
+        self.assertIn(".settings-tab", css.text)
+        self.assertIn(".swatches", css.text)
+        # 深浅色都靠变量：面板底色不再写死白色
+        self.assertNotIn("background: #fff;", css.text)
+        self.assertIn("个分段识别失败，结果可能不完整", js.text)
         self.assertNotIn("交给 Agent", js.text)
 
     def test_embed_contract_for_electron_host(self) -> None:
@@ -136,6 +181,11 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(data.get("delivery"), "client")
         self.assertFalse(data.get("busy"))
         self.assertIsNone(data.get("active_job"))
+        self.assertIn("environment", data)
+        data = self.client.get("/api/settings").json()
+        self.assertEqual(len(data.get("environments") or []), 2)
+        ids = {item["id"] for item in data["environments"]}
+        self.assertEqual(ids, {"cloud", "site"})
 
     def test_site_health_copy(self) -> None:
         settings = load_settings(
@@ -190,6 +240,38 @@ class GatewayTests(unittest.TestCase):
             )
         self.assertEqual(chat.status_code, 200)
         self.assertIn("rows", chat.json()["choices"][0]["message"]["content"])
+
+    def test_chat_passes_thinking_controls_upstream(self) -> None:
+        """出表只要 JSON：thinking / reasoning_effort / max_tokens 要透传到识别服务。"""
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        result = ChatResult(content="{}", model="deepseek-v4-pro", raw={"choices": []})
+        seen: dict[str, object] = {}
+
+        def fake_complete(_url, _auth, _messages, **kwargs):
+            seen.update(kwargs)
+            return result
+
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        with patch("electrical_krow.gateway.complete", side_effect=fake_complete):
+            chat = self.client.post(
+                "/v1/chat/completions",
+                headers={"Authorization": "Bearer local"},
+                json={
+                    "model": "deepseek-v4-pro",
+                    "messages": [{"role": "user", "content": "hi"}],
+                    "thinking": {"type": "disabled"},
+                    "reasoning_effort": "low",
+                    "max_tokens": 4096,
+                    "options": {"num_predict": 1536},
+                },
+            )
+        self.assertEqual(chat.status_code, 200)
+        self.assertEqual(
+            seen["extra"],
+            {"thinking": {"type": "disabled"}, "reasoning_effort": "low", "max_tokens": 4096},
+        )
+        self.assertNotIn("options", seen)
 
     def test_chat_refreshes_stale_key(self) -> None:
         session = AuthSession(
@@ -364,6 +446,7 @@ class GatewayTests(unittest.TestCase):
         body = listed.json()
         self.assertIn("deepseek-v4-pro", body["models"])
         self.assertIn("qwen-plus", body["models"])
+        self.assertEqual(body["recommended"], "deepseek-v4-pro")
         changed = self.client.post("/api/model", json={"model": "qwen-plus"})
         self.assertEqual(changed.status_code, 200)
         self.assertEqual(changed.json()["model"], "qwen-plus")
@@ -384,6 +467,71 @@ class GatewayTests(unittest.TestCase):
             )
         self.assertEqual(login.status_code, 200)
         return target
+
+    def test_health_carries_versions_for_about_page(self) -> None:
+        data = self.client.get("/api/health").json()
+        v = data.get("versions") or {}
+        for key in ("client", "sdk", "runtime", "knowledge", "python", "platform"):
+            self.assertIn(key, v)
+        self.assertTrue(v["python"])
+        self.assertTrue(v["client"])
+        # 包内版本号与 pyproject 一致
+        import re
+
+        from electrical_krow import __version__
+
+        pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
+        self.assertEqual(re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1), __version__)
+        self.assertEqual(data.get("output_dir"), self._tmp.name)
+
+    def test_jobs_thinking_flag_sets_env_and_rejects_bad_value(self) -> None:
+        """设置页「模型推理」→ /api/jobs 表单 thinking：off 落成 SPEC_SHEET_LLM_THINKING=disabled，on / 空清掉。"""
+        self._login()
+        os.environ.pop("SPEC_SHEET_LLM_THINKING", None)
+        bad = self.client.post(
+            "/api/jobs",
+            files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+            data={"thinking": "maybe"},
+        )
+        self.assertEqual(bad.status_code, 400)
+        seen: list[tuple[str, str | None]] = []
+
+        def fake_start(filename, incoming, out, *, model="", username="", thinking=""):
+            seen.append((thinking, os.environ.get("SPEC_SHEET_LLM_THINKING")))
+            return "job1"
+
+        with patch.object(self.client.app.state.jobs, "start", side_effect=fake_start):
+            with patch("electrical_krow.gateway.prepare_page_ocr", return_value=False):
+                with patch("electrical_krow.gateway.prepare_page_vision", return_value=""):
+                    for mode in ("off", "on", ""):
+                        resp = self.client.post(
+                            "/api/jobs",
+                            files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+                            data={"thinking": mode},
+                        )
+                        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(seen, [("off", "disabled"), ("on", None), ("", None)])
+        os.environ.pop("SPEC_SHEET_LLM_THINKING", None)
+
+    def test_open_file_locally_only_inside_output_dir(self) -> None:
+        self._login()
+        sheet = Path(self._tmp.name) / "X_DPR_核对表.xlsx"
+        sheet.write_bytes(b"PK")
+        with patch("electrical_krow.gateway.open_locally") as opened:
+            ok = self.client.post(f"/api/files/{sheet.name}/open")
+            self.assertEqual(ok.status_code, 200, ok.text)
+            self.assertEqual(ok.json()["name"], sheet.name)
+            opened.assert_called_once()
+            self.assertEqual(opened.call_args.args[0], sheet.resolve())
+            missing = self.client.post("/api/files/nope.xlsx/open")
+            self.assertEqual(missing.status_code, 404)
+            escape = self.client.post("/api/files/..%2Fetc%2Fpasswd/open")
+            self.assertIn(escape.status_code, (404, 400, 422))
+        self.assertEqual(opened.call_count, 1)
+
+    def test_open_file_requires_login(self) -> None:
+        resp = self.client.post("/api/files/a.xlsx/open")
+        self.assertEqual(resp.status_code, 401)
 
     def test_logout_clears_session(self) -> None:
         self._login()
@@ -563,6 +711,60 @@ class GatewayTests(unittest.TestCase):
         self.assertNotIn(".yaml", blob)
         self.assertNotIn("docs/clause", blob)
         self.assertNotIn("physics.yaml", blob)
+
+    def _env_client(self, server_url: str) -> tuple[TestClient, Path]:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        extra = {"ELECTRICAL_KROW_DATA": str(root)}
+        patcher = patch.dict(os.environ, extra, clear=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        settings = load_settings(server_url=server_url)
+        client = TestClient(create_app(settings, output_dir=root))
+        return client, root
+
+    def test_switch_environment_updates_health_and_logs_out(self) -> None:
+        client, raw = self._env_client("http://127.0.0.1:18766")
+        self._login(client)
+        with patch("electrical_krow.gateway.revoke_sdk_key"):
+            resp = client.post("/api/settings", json={"id": "site"})
+        self.assertEqual(resp.status_code, 200, resp.text)
+        data = resp.json()
+        self.assertTrue(data.get("changed"))
+        self.assertEqual(data.get("id"), "site")
+        self.assertEqual(data.get("server"), SITE_API_URL)
+        self.assertFalse(data.get("logged_in"))
+        health = client.get("/api/health").json()
+        self.assertEqual(health.get("server"), SITE_API_URL)
+        self.assertEqual(health.get("environment"), "site")
+        self.assertEqual(health.get("environment_label"), "现场识别")
+        self.assertFalse(client.get("/api/session").json().get("logged_in"))
+        overlay = raw / "server_env.json"
+        self.assertTrue(overlay.is_file())
+        with patch("electrical_krow.gateway.revoke_sdk_key"):
+            again = client.post("/api/settings", json={"id": "cloud"})
+        self.assertEqual(again.status_code, 200, again.text)
+        self.assertEqual(again.json().get("server"), CLOUD_API_URL)
+        self.assertEqual(client.get("/api/health").json().get("environment"), "cloud")
+
+    def test_switch_environment_rejects_unknown_and_busy(self) -> None:
+        client, _raw = self._env_client("http://127.0.0.1:18766")
+        bad = client.post("/api/settings", json={"id": "https://evil.example"})
+        self.assertEqual(bad.status_code, 400)
+        empty = client.post("/api/settings", json={"id": ""})
+        self.assertEqual(empty.status_code, 400)
+        with patch.object(client.app.state.jobs, "busy", return_value=True):
+            busy = client.post("/api/settings", json={"id": "site"})
+        self.assertEqual(busy.status_code, 409)
+
+    def test_same_environment_does_not_logout(self) -> None:
+        client, _raw = self._env_client(CLOUD_API_URL)
+        self._login(client)
+        resp = client.post("/api/settings", json={"id": "cloud"})
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertFalse(resp.json().get("changed"))
+        self.assertTrue(client.get("/api/session").json().get("logged_in"))
 
 
 if __name__ == "__main__":

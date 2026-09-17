@@ -3,14 +3,15 @@ from __future__ import annotations
 
 import configparser
 import ipaddress
+import json
 import os
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from urllib.parse import urlparse
 
 from electrical_krow.errors import ConfigError
-from electrical_krow.paths import PROJECT_ROOT
+from electrical_krow.paths import PROJECT_ROOT, data_root
 
 
 def hostname_of(url: str) -> str:
@@ -86,10 +87,83 @@ def normalize_delivery(value: str) -> str:
 
 
 CLOUD_API_URL = "https://api.krow.cn"
+SITE_API_URL = "https://rdapi.aurobaytech-t.com"
+
+
+@dataclass(frozen=True)
+class ServerEnvironment:
+    id: str
+    label: str
+    server_url: str
+
+
+SERVER_ENVIRONMENTS: tuple[ServerEnvironment, ...] = (
+    ServerEnvironment("cloud", "公网联调", CLOUD_API_URL),
+    ServerEnvironment("site", "现场识别", SITE_API_URL),
+)
+SERVER_ENV_BY_ID = {item.id: item for item in SERVER_ENVIRONMENTS}
+
+
+def match_server_environment(url: str) -> ServerEnvironment | None:
+    try:
+        origin = origin_of(url)
+    except ConfigError:
+        return None
+    for item in SERVER_ENVIRONMENTS:
+        if origin_of(item.server_url) == origin:
+            return item
+    return None
+
+
+def server_env_path() -> Path:
+    return data_root() / "server_env.json"
+
+
+def read_server_env_id() -> str | None:
+    path = server_env_path()
+    if not path.is_file():
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return None
+    env_id = str((payload or {}).get("id") or "").strip()
+    if env_id in SERVER_ENV_BY_ID:
+        return env_id
+    return None
+
+
+def write_server_env_id(env_id: str) -> ServerEnvironment:
+    env = SERVER_ENV_BY_ID.get((env_id or "").strip())
+    if env is None:
+        raise ConfigError("请选择公网联调或现场识别。")
+    path = server_env_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".json.tmp")
+    tmp.write_text(
+        json.dumps(
+            {"id": env.id, "server_url": env.server_url},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    tmp.replace(path)
+    return env
+
+
+def apply_server_environment(settings: Settings, env_id: str) -> Settings:
+    env = write_server_env_id(env_id)
+    os.environ["KROW_SERVER_URL"] = env.server_url
+    return replace(settings, server_url=env.server_url)
 
 
 def apply_macos_client_server() -> None:
-    """本机 Mac 调试连公网识别。客户内网地址只写在 Windows/场所包装的 config.ini。"""
+    """本机 Mac 启动时丢掉 Cursor/现场漏进进程的 KROW_SERVER_URL。
+
+    设置里点过的环境写在 data_root/server_env.json，load_settings 会盖过这里的强制。
+    """
     if sys.platform != "darwin":
         return
     raw = os.environ.get("KROW_DELIVERY") or "client"
@@ -203,28 +277,33 @@ def _pick(
 
 def load_settings(**overrides: object) -> Settings:
     ini = _ini_values()
+    picked = dict(overrides)
+    if picked.get("server_url") is None:
+        overlay_id = read_server_env_id()
+        if overlay_id:
+            picked["server_url"] = SERVER_ENV_BY_ID[overlay_id].server_url
     data = {
         "server_url": _pick(
-            overrides, "server_url", "KROW_SERVER_URL", ini, "https://api.krow.cn"
+            picked, "server_url", "KROW_SERVER_URL", ini, "https://api.krow.cn"
         ),
         "chat_model": _pick(
-            overrides, "chat_model", "KROW_CHAT_MODEL", ini, "deepseek-v4-pro"
+            picked, "chat_model", "KROW_CHAT_MODEL", ini, "deepseek-v4-pro"
         ),
         "vision_model": _pick(
-            overrides, "vision_model", "KROW_VISION_MODEL", ini, ""
+            picked, "vision_model", "KROW_VISION_MODEL", ini, ""
         ),
-        "username": _pick(overrides, "username", "KROW_USERNAME", ini, ""),
-        "password": _pick(overrides, "password", "KROW_PASSWORD", ini, ""),
-        "api_key": _pick(overrides, "api_key", "KROW_API_KEY", ini, ""),
+        "username": _pick(picked, "username", "KROW_USERNAME", ini, ""),
+        "password": _pick(picked, "password", "KROW_PASSWORD", ini, ""),
+        "api_key": _pick(picked, "api_key", "KROW_API_KEY", ini, ""),
         "gateway_host": _pick(
-            overrides, "gateway_host", "KROW_GATEWAY_HOST", ini, "127.0.0.1"
+            picked, "gateway_host", "KROW_GATEWAY_HOST", ini, "127.0.0.1"
         ),
         "gateway_port": int(
-            _pick(overrides, "gateway_port", "KROW_GATEWAY_PORT", ini, "18765")
+            _pick(picked, "gateway_port", "KROW_GATEWAY_PORT", ini, "18765")
         ),
-        "mock_port": int(_pick(overrides, "mock_port", "KROW_MOCK_PORT", ini, "18766")),
+        "mock_port": int(_pick(picked, "mock_port", "KROW_MOCK_PORT", ini, "18766")),
         "electrical_backend_url": _pick(
-            overrides,
+            picked,
             "electrical_backend_url",
             "ELECTRICAL_BACKEND_URL",
             ini,
@@ -232,7 +311,7 @@ def load_settings(**overrides: object) -> Settings:
         ),
         "timeout_sec": float(
             _pick(
-                overrides,
+                picked,
                 "timeout_sec",
                 "KROW_LLM_TIMEOUT",
                 ini,
@@ -241,7 +320,7 @@ def load_settings(**overrides: object) -> Settings:
             )
         ),
         "delivery": normalize_delivery(
-            _pick(overrides, "delivery", "KROW_DELIVERY", ini, "client")
+            _pick(picked, "delivery", "KROW_DELIVERY", ini, "client")
         ),
     }
     return Settings(**data)  # type: ignore[arg-type]

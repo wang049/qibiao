@@ -2210,6 +2210,11 @@
       "rel": "not"
     },
     {
+      "from": "clause:65",
+      "to": "clause:66",
+      "rel": "not"
+    },
+    {
       "from": "clause:66",
       "to": "clause:41",
       "rel": "related"

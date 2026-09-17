@@ -7,12 +7,18 @@ from pathlib import Path
 from unittest.mock import patch
 
 from electrical_krow.config import (
+    CLOUD_API_URL,
+    SITE_API_URL,
+    apply_server_environment,
     load_settings,
+    match_server_environment,
     normalize_delivery,
     origin_of,
+    read_server_env_id,
     require_gateway_bind,
     require_private_endpoint,
     suggest_site_api_url,
+    write_server_env_id,
 )
 from electrical_krow.errors import ConfigError
 
@@ -82,7 +88,11 @@ class ConfigTests(unittest.TestCase):
                 "delivery = site\n",
                 encoding="utf-8",
             )
-            with patch.dict(os.environ, {"ELECTRICAL_KROW_CONFIG": str(path)}):
+            extra = {
+                "ELECTRICAL_KROW_CONFIG": str(path),
+                "ELECTRICAL_KROW_DATA": tmp,
+            }
+            with patch.dict(os.environ, extra, clear=False):
                 os.environ.pop("KROW_SERVER_URL", None)
                 os.environ.pop("KROW_CHAT_MODEL", None)
                 os.environ.pop("KROW_LLM_TIMEOUT", None)
@@ -103,6 +113,7 @@ class ConfigTests(unittest.TestCase):
             )
             extra = {
                 "ELECTRICAL_KROW_CONFIG": str(path),
+                "ELECTRICAL_KROW_DATA": tmp,
                 "KROW_SERVER_URL": "",
                 "KROW_CHAT_MODEL": "",
             }
@@ -144,6 +155,40 @@ class ConfigTests(unittest.TestCase):
             with patch("electrical_krow.config.sys.platform", "darwin"):
                 apply_macos_client_server()
                 self.assertEqual(os.environ.get("KROW_SERVER_URL"), "https://api.krow.cn")
+
+    def test_user_server_env_beats_macos_cloud_force(self) -> None:
+        from electrical_krow.config import apply_macos_client_server
+
+        with tempfile.TemporaryDirectory() as tmp:
+            extra = {
+                "ELECTRICAL_KROW_DATA": tmp,
+                "KROW_SERVER_URL": CLOUD_API_URL,
+                "KROW_DELIVERY": "client",
+            }
+            with patch.dict(os.environ, extra, clear=False):
+                os.environ.pop("ELECTRICAL_KROW_CONFIG", None)
+                write_server_env_id("site")
+                with patch("electrical_krow.config.sys.platform", "darwin"):
+                    apply_macos_client_server()
+                    self.assertEqual(os.environ.get("KROW_SERVER_URL"), CLOUD_API_URL)
+                    s = load_settings()
+                self.assertEqual(s.server_url, SITE_API_URL)
+                self.assertEqual(read_server_env_id(), "site")
+                self.assertEqual(match_server_environment(s.server_url).id, "site")
+
+    def test_explicit_server_url_beats_overlay(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.dict(os.environ, {"ELECTRICAL_KROW_DATA": tmp}, clear=False):
+                write_server_env_id("site")
+                s = load_settings(server_url="http://127.0.0.1:18766")
+            self.assertEqual(s.server_url, "http://127.0.0.1:18766")
+
+    def test_apply_server_environment_rejects_unknown(self) -> None:
+        s = load_settings(server_url=CLOUD_API_URL)
+        with self.assertRaises(ConfigError):
+            apply_server_environment(s, "https://evil.example")
+        with self.assertRaises(ConfigError):
+            apply_server_environment(s, "")
 
 
 if __name__ == "__main__":

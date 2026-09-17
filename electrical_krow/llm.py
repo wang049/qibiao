@@ -37,6 +37,7 @@ def complete(
     model: str,
     temperature: float = 0.0,
     timeout: float = 90.0,
+    extra: dict[str, Any] | None = None,
 ) -> ChatResult:
     origin = origin_of(base_url)
     url = f"{origin}{CHAT_PATH}"
@@ -45,6 +46,10 @@ def complete(
         "temperature": temperature,
         "messages": messages,
     }
+    # 只透传推理/长度控制字段；不让调用方随意改上游请求
+    for key in ("thinking", "reasoning_effort", "max_tokens"):
+        if extra and extra.get(key) is not None:
+            payload[key] = extra[key]
     headers = {
         "Authorization": session.authorization(),
         "Content-Type": "application/json",

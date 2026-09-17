@@ -44,6 +44,7 @@ _HISTORY_FIELDS = (
     "download",
     "llm_calls",
     "rule_filled",
+    "chunk_failures",
     "detail",
 )
 _HISTORY_LIMIT = 40
@@ -289,6 +290,7 @@ class JobStore:
         *,
         model: str = "",
         username: str = "",
+        thinking: str = "",
     ) -> str:
         if not self._run_lock.acquire(blocking=False):
             raise HTTPException(409, self.conflict_detail())
@@ -314,6 +316,7 @@ class JobStore:
                 "source": filename,
                 "username": (username or "").strip(),
                 "model": (model or "").strip(),
+                "thinking": (thinking or "").strip(),
                 "stopped_early": False,
                 "knowledge_version": knowledge_version(),
                 "created_at": time.time(),
@@ -377,6 +380,7 @@ class JobStore:
                 rule_filled=getattr(result, "rule_filled", 0),
                 chunk_count=getattr(result, "chunk_count", 0),
                 topup_count=getattr(result, "topup_count", 0),
+                chunk_failures=getattr(result, "chunk_failures", 0),
                 knowledge_version=knowledge_version(),
             )
         except (FileNotFoundError, ValueError) as exc:

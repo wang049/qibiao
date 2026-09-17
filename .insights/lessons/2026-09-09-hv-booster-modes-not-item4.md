@@ -16,10 +16,10 @@ DHTS `6.5.4 HV Booster` 写的是 HVDC 较低时升压以改善 TM，同一节�
 
 - 当份 `6.5.4`：`boost the HV input … improve the TM performance` → #3。
 - 清单 #67：升压输出电压范围及工作模式（Boost/Bypass/Buck）。
-- 清单 #4 排除：驱动升压 / HV Booster / boost control（→#3）。充电拓扑/电压/电流/时长见 #115。交叉 `2026-09-08-item4-renamed-traction-boost`、`2026-09-09-item3-drive-boost-needs-conclusion`、`2026-09-04-115-connector-is-not-charge-definition`。
+- 清单 #4 排除：三种模式 / BUCK 85kW（→#67）；boost control 产品说明（→#3）。充电拓扑/电压/电流/时长见 #115。交叉 `2026-09-08-item4-renamed-traction-boost`、`2026-09-09-item3-drive-boost-needs-conclusion`、`2026-09-04-115-connector-is-not-charge-definition`、`2026-09-11-item4-traction-boost-from-hv-input`。
 
 ## 闸门
 
 - `_hv_booster_output_voltage_from_modes`：三种模式写入 #67（可带当份 450V、85kW），不写 #4。
-- `_value_fits_field`：#4 拒 HV Booster / 三种模式 / 单独 85kW；仍认 Charging Buck/Boost。
-- 回归：6.5.4 段 #3 有 TM 结论，#4/#115 空，#67 含 450 与三种模式。
+- `_value_fits_field`：#4 拒值里的三种模式 / 单独 85kW；仍认 Charging Buck/Boost 与 6.5.4 HVDC/TM 结论。
+- 回归：6.5.4 段 #3/#4 有 TM 结论，值中无 85kW；#115 空，#67 含 450 与三种模式。

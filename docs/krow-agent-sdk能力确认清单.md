@@ -1,7 +1,7 @@
 # krow-agent-sdk 能力确认清单
 
 **用途**：确认 SDK 是否具备以下能力。请在「是否支持」列填写，需要补充的写在「说明」列。
-**版本**：`krow-agent-sdk 0.9.2.2` + 本机 `krow-agent-sdk-runtime 0.9.1.11`（Python 3.12）。runtime 不在公网 PyPI，需用官方安装方式配对；若已有 0.9.2.2 runtime，请在说明列注明。
+**版本**：`krow-agent-sdk 0.9.2.11` + 本机 `krow-agent-sdk-runtime 0.9.2.11`（Python 3.12）。runtime 不在公网 PyPI，需用官方安装方式配对。
 **背景**：指定场所 Windows 工位客户端。已用 SDK 做登录、读 PDF/Word/Excel、向场所识别服务分段 chat。作业路径预先编排，**不** `agent.run()` 开放规划。知识库只用于「认这条规格是清单哪一项、互斥、已确认公式」；抽出值只来自当份材料或当份已出现的量按公式计算。禁止用库内示例/典型值填格，禁止公网向量，整库不出场所。请按这个约束回答，不要按文档入库 + RAG 问答来理解。
 
 ---
@@ -107,6 +107,30 @@
 | 6.1 | `LLMSourceModule.KNOWLEDGE_GRAPH`（「知识库」）在分段 chat 场景会不会被自动带上？如何避免？ |
 | 6.2 | `get_memory_stats` / `query_memories` 是否跨任务持久？我们需求是不保存人员偏好或会话记忆。 |
 | 6.3 | 公式「仅当输入量来自当份材料才允许计算」是否在 SDK 有一等能力，还是宿主自己算？ |
+
+---
+
+## 七、对接公司知识库（SimLab KB 一类：ingest / 三库 / `/api/ask`）
+
+我们已能导出 `records.jsonl` + `query_aliases.yaml` + `bundle.json`（`python scripts/export_kb_bundle.py`，格式见 `docs/knowledge/操作.md` 6a）。以下按对方现有实现确认：
+
+| # | 能力 | 是否支持 | 说明 |
+|---|---|---|---|
+| 7.1 | `ingest` 能直接吃外部 Record（`kind / title / symbol / source / content / payload`），不必套 `corpus.py` 的目录结构 | | |
+| 7.2 | 自定义 `kind`（`clause` / `physics` / `enterprise_std` / `enterprise_term`）可入库并在页面显示 | | |
+| 7.3 | `payload` 里的治理字段（`status` / `retrieve` / `fill_from_kb` / `classification` / `cloud_generate`）能原样落到 Qdrant payload 与 Postgres | | |
+| 7.4 | 检索时可按 `payload.status` 过滤：只返回 `published` / `confirmed`，`draft` 不进 hits | | |
+| 7.5 | `generate.py` 可按命中记录的 `cloud_generate=false` 拒绝把该片段送云端，或整次关闭生成 | | |
+| 7.6 | `query_aliases.yaml` 的确切格式；`hint` / `retrieve` 两级能否区分权重（不要弱别名抢分） | | |
+| 7.7 | `graph-load --bundle` 的 bundle schema：节点 `clause:N` / `physics:id`、边 `related` / `not` / `same_slot` / `interprets` 能否原样保留 | | |
+| 7.8 | 检索层是整词匹配还是子串 / n-gram？我们题集里 `short-abbrev-noise` 一题会抓出子串匹配 | | |
+| 7.9 | 可用我们的 `docs/knowledge/eval/clause_routing.yaml` 跑 `eval`，或提供其 eval 题集格式让我们转换 | | |
+
+**补充问题**
+
+- 7.10　`/api/ask` 的 `generate` 默认 true。给我们的条款库时能否默认 false，只在明确请求时生成？
+- 7.11　Qdrant / Postgres 是否会在 payload 之外再存全文？保密一级来源我们只给条款号和方法标准，需要确认没有别的落盘路径。
+- 7.12　两个工程都占 8766，我们网关是 18765；对方 `serve` 若放到工位，端口如何约定？
 
 ---
 

@@ -16,7 +16,7 @@ from electrical_krow.lessons import fill_from_lessons_allowed, recall_related
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="召回 .krow/lessons 同主题复盘（修 bug 前先跑）"
+        description="召回 .insights/lessons 同主题复盘（修 bug 前先跑）"
     )
     parser.add_argument("query", nargs="+", help="清单序号或关键词，如 115 或 升压充电")
     parser.add_argument("--limit", type=int, default=8)

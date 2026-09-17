@@ -11,9 +11,14 @@ PY_VER="3.12.10"
 PY_ZIP="python-${PY_VER}-embed-amd64.zip"
 PY_URL="https://www.python.org/ftp/python/${PY_VER}/${PY_ZIP}"
 GET_PIP_URL="https://bootstrap.pypa.io/get-pip.py"
-NAME="电子电器SOR填表-windows-x64"
+NAME="${PACK_NAME:-电子电器SOR填表-windows-x64}"
 ELECTRICAL="${ELECTRICAL_ROOT:-$ROOT/../electrical}"
 MODULES="${MODULES_SRC:-$HOME/.venv/lib/python3.12/site-packages/modules}"
+SDK_VER="$(sed -n 's/^krow-agent-sdk==//p' "$WIN/requirements.txt" | head -n 1)"
+if [ -z "$SDK_VER" ]; then
+  echo "读不到 krow-agent-sdk 版本：$WIN/requirements.txt" >&2
+  exit 1
+fi
 
 if [ ! -d "$ELECTRICAL/electrical" ]; then
   echo "找不到 electrical：$ELECTRICAL" >&2
@@ -91,6 +96,40 @@ if ! ls "$STAGE/wheels"/proxy_tools-*.whl >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "下载 Windows runtime ${SDK_VER}（与 SDK 同号，私有 index）…"
+ROOT="$ROOT" STAGE="$STAGE" SDK_VER="$SDK_VER" python3 - <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+ver = os.environ["SDK_VER"].strip()
+want = f"krow_agent_sdk_runtime-{ver}-cp312-cp312-win_amd64.whl"
+stage = Path(os.environ["STAGE"]) / "wheels"
+root = Path(os.environ["ROOT"])
+key = (os.environ.get("PACK_RUNTIME_KEY") or os.environ.get("KROW_API_KEY") or "").strip()
+if not key:
+    cache = root / "output" / "krow-sdk-key.json"
+    try:
+        data = json.loads(cache.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = {}
+    key = str(data.get("key") or "")
+if not key.startswith("sk-"):
+    raise SystemExit("no runtime API key; set KROW_API_KEY or PACK_RUNTIME_KEY")
+
+from krow_sdk_install.client import RuntimeInstaller
+
+with RuntimeInstaller(api_key=key, base_url="https://api.krow.cn") as installer:
+    entries = installer.fetch_simple_index()
+    entry = next((e for e in entries if e.filename == want), None)
+    if entry is None:
+        names = ", ".join(sorted(e.filename for e in entries))
+        raise SystemExit(f"runtime index missing {want}: {names}")
+    path = installer.download_wheel(entry, output_dir=stage)
+print("pack runtime", path.name, path.stat().st_size, file=sys.stderr)
+PY
+
 echo "复制程序 …"
 rsync -a \
   --exclude '__pycache__' \
@@ -104,18 +143,26 @@ rsync -a \
   --exclude 'demo.py' \
   --exclude 'eval.py' \
   "$ELECTRICAL/electrical/" "$STAGE/app/electrical/electrical/"
-rsync -a \
-  --exclude '__pycache__' \
-  --exclude '*.pyc' \
-  --exclude '*.so' \
-  "$MODULES/document_reader/" "$STAGE/app/modules/document_reader/"
-cp "$MODULES/__init__.py" "$STAGE/app/modules/__init__.py"
+if ls "$STAGE/wheels"/krow_agent_sdk_runtime-*.whl >/dev/null 2>&1; then
+  echo "runtime wheel 已入包，不再把 Mac 的 modules 拷进 app（避免挡住 Windows runtime）"
+else
+  rsync -a \
+    --exclude '__pycache__' \
+    --exclude '*.pyc' \
+    --exclude '*.so' \
+    "$MODULES/document_reader/" "$STAGE/app/modules/document_reader/"
+  cp "$MODULES/__init__.py" "$STAGE/app/modules/__init__.py"
+fi
 mkdir -p "$STAGE/app/docs"
 cp "$ROOT/docs/clause_lexicon.json" "$STAGE/app/docs/clause_lexicon.json"
 mkdir -p "$STAGE/app/docs/knowledge/published"
 cp "$ROOT/docs/knowledge/published/manifest.json" "$STAGE/app/docs/knowledge/published/manifest.json"
 cp "$ROOT/docs/knowledge/published/graph.json" "$STAGE/app/docs/knowledge/published/graph.json"
 cp "$ROOT/docs/knowledge/published/keyword_index.json" "$STAGE/app/docs/knowledge/published/keyword_index.json"
+# 待专家口径标注（出表时写进复核备注）；文件可为空/不存在
+if [ -f "$ROOT/docs/knowledge/pending_rulings.json" ]; then
+  cp "$ROOT/docs/knowledge/pending_rulings.json" "$STAGE/app/docs/knowledge/pending_rulings.json"
+fi
 
 cp "$WIN/config.ini" "$STAGE/config.ini"
 if [ -n "${PACK_SERVER_URL:-}" ]; then
@@ -261,8 +308,11 @@ needed = {
     "fastapi": site / "fastapi",
     "pythonnet": site / "pythonnet",
     "clr_loader": site / "clr_loader",
+    "modules": site / "modules",
 }
 missing = [name for name, path in needed.items() if not path.exists()]
+if not list(site.glob("krow_agent_sdk_runtime-*.dist-info")):
+    missing.append("krow_agent_sdk_runtime")
 if missing:
     raise SystemExit("preinstall missing: " + ", ".join(missing))
 (site / "sitecustomize.py").write_bytes((win / "sitecustomize.py").read_bytes())
@@ -315,6 +365,7 @@ EXE="$DIST/${NAME}.exe"
 rm -f "$ZIP" "$EXE"
 python3 - <<PY
 import io
+import os
 import struct
 import zipfile
 from pathlib import Path
@@ -381,6 +432,15 @@ with zipfile.ZipFile(io.BytesIO(blob), "r") as zf:
         raise SystemExit("exe overlay zip missing preinstalled httpcore")
     if any(n.startswith("python/Lib/site-packages/examples/") for n in names):
         raise SystemExit("examples/ should not ship")
+    if not any(n.startswith("python/Lib/site-packages/modules/") for n in names):
+        raise SystemExit("exe overlay zip missing runtime modules")
+    if not any(n.startswith("python/Lib/site-packages/krow_agent_sdk_runtime-") and n.endswith(".dist-info/METADATA") for n in names):
+        raise SystemExit("exe overlay zip missing krow-agent-sdk-runtime")
+    want = (os.environ.get("PACK_SERVER_URL") or "").strip().rstrip("/")
+    if want:
+        ini = zf.read("config.ini").decode("utf-8")
+        if f"server_url = {want}" not in ini:
+            raise SystemExit("staged config.ini missing PACK_SERVER_URL")
 raw = exe_path.read_bytes()
 idx = len(stub)
 if raw[idx : idx + 8] != magic or raw[idx + 8 : idx + 16] != struct.pack("<Q", len(blob)):

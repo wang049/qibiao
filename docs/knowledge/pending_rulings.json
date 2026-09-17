@@ -1,0 +1,50 @@
+{
+  "_readme": [
+    "待专家口径：出表时给这些格子的「复核备注」追加「待专家口径：…」，并在抽出值上加批注。不改抽出值，不改检索结论。",
+    "items 用核对表「需求序号」；when = filled / empty / any；family 省略 = 所有文档类型（dpr / inverter / generic）；match 为正则，对抽出值+摘录检索。",
+    "口径定下后：删掉该条，把结论落到 electrical 规则 / 黄金集，并在对应 .insights 复盘里记一笔。这里只放待定项，不放已定知识。"
+  ],
+  "rulings": [
+    {
+      "id": "ratio-format",
+      "items": [75],
+      "when": "filled",
+      "note": "速比是填整组（发动机各档 / 主减 / 电机）还是只填 P1/P3 电机速比",
+      "lesson": "2026-09-16-prompt-lists-field-by-strong-alias-ratio"
+    },
+    {
+      "id": "p3-rated-speed-from-power-point",
+      "items": [46],
+      "when": "empty",
+      "family": ["dpr"],
+      "note": "当份若只写「额定功率 @ 转速」（如 4LDHT260 的 120kW @ 13000rpm）而无单独额定转速行，能否取该转速为额定转速",
+      "lesson": "2026-09-16-prompt-lists-field-by-strong-alias-ratio"
+    },
+    {
+      "id": "p3-asc-found-not-miss",
+      "items": [51, 53],
+      "when": "filled",
+      "family": ["dpr"],
+      "match": "310|1300",
+      "note": "09-15 专家稿此格为空；09-16 按当份 6.5.8.1 原文（310Arms 持续 20s、进入 ASC 约 1300Arms@1ms）改为已检索到，待复核",
+      "lesson": "2026-09-16-excerpt-index-twin-prefix-p1-p3"
+    },
+    {
+      "id": "coolant-drop-cae-target",
+      "items": [67, 115],
+      "when": "filled",
+      "family": ["inverter"],
+      "match": "mbar|PRESSURE DROP|CAE",
+      "note": "逆变器 SR 的压降出自 CAE 分析目标表（*May vary depending on vehicle measurement），是否算正式指标",
+      "lesson": "2026-09-16-contents-column-not-toc-and-topup-dedupe-header"
+    },
+    {
+      "id": "env-temp-from-dc-cap-table",
+      "items": [92, 93, 107],
+      "when": "filled",
+      "family": ["inverter"],
+      "note": "取自 DC 电容规格表（Table 3.9，器件级）；当份没有整机级环境温度，是否可代整机要求",
+      "lesson": "2026-09-07-inverter-sr-cap-ripple-not-bus"
+    }
+  ]
+}

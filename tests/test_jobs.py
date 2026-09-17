@@ -86,6 +86,7 @@ class JobTests(unittest.TestCase):
                 qa_verdict="pass",
                 qa_summary="通过。可读正文约 120 字。",
                 stopped_early=False,
+                chunk_failures=2,
             )
 
         with patch("electrical_krow.jobs._run_pipeline", side_effect=fake_run):
@@ -110,6 +111,7 @@ class JobTests(unittest.TestCase):
         self.assertEqual(data["partial"], 0)
         self.assertEqual(data["miss"], 0)
         self.assertEqual(data.get("qa_verdict"), "pass")
+        self.assertEqual(data.get("chunk_failures"), 2)
         self.assertNotIn("交叉检查不填抽出值", str(data.get("qa_summary") or ""))
         self.assertNotIn("已见主题", str(data.get("qa_summary") or ""))
         self.assertTrue(str(data["download"]).startswith("/files/"))
@@ -142,6 +144,14 @@ class JobTests(unittest.TestCase):
                 if row.get("id") == job_id
             ),
             "pass",
+        )
+        self.assertEqual(
+            next(
+                row.get("chunk_failures")
+                for row in listed.json()["jobs"]
+                if row.get("id") == job_id
+            ),
+            2,
         )
 
     def test_job_uses_selected_model(self) -> None:

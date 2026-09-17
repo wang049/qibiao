@@ -163,6 +163,18 @@ def aliases_for_seq(seq: int, name: str = "") -> tuple[str, ...]:
     return found[0].aliases if found else ()
 
 
+def weak_aliases_for_seq(seq: int) -> tuple[str, ...]:
+    """弱别名：整词但两三条目共享（#73/#101 重量、#74/#102 防腐、#78/#89 扭矩精度）。
+    只给选段找页和 prompt 认条用，不进 prompt 别名、不计分填值。"""
+    frame = frame_for_seq(seq)
+    return tuple(frame.weak_aliases) if frame is not None else ()
+
+
+def unit_cues_for_seq(seq: int) -> tuple[str, ...]:
+    frame = frame_for_seq(seq)
+    return tuple(frame.unit_cues) if frame is not None else ()
+
+
 def retrieve_enabled_for_name(name: str) -> bool:
     text = name or ""
     return any(key in text for key in RETRIEVE_KEYS)

@@ -64,3 +64,10 @@ class SessionStore:
             gone = self._by_sid.pop(sid, None)
             if gone is not None and self._default is gone:
                 self._default = next(iter(self._by_sid.values()), None)
+
+    def clear(self) -> list[StoredSession]:
+        with self._lock:
+            items = list(self._by_sid.values())
+            self._by_sid.clear()
+            self._default = None
+        return items

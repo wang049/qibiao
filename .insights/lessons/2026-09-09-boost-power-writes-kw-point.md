@@ -15,10 +15,10 @@
 ## 二级依据
 
 - 用户核对表 #68：备注已写 P=UI，抽出值应给出具体功率。清单 gloss：升压模式输出功率能力（峰值/持续）。
-- DHTS Boost 表：目标输出 450V；峰值 400A@10s → 180kW；持续 Boost:195A → 87.75kW。交叉 `2026-09-08-boost-power-as-vmax-imax-time`（禁止电压区间 kW 范围仍有效）。
+- DHTS Boost 表：目标输出 450V；峰值 400A@10s → 180kW；持续 Boost:195A → 87.75kW。交叉 `2026-09-08-boost-power-as-vmax-imax-time`（禁止电压区间 kW 范围仍有效）、`2026-09-11-boost-power-peak-and-steady-labels`。
 
 ## 闸门
 
-- `_fmt_p_ui_at`：`{kW}kW（{V}V×{A}A@{t}）`；DHTS 回归含 180kW、87.75kW 和 450V×400A@10s，不含 64、160、200A。
-- 充电表写出与 P=UI 一致的 100kW / 180kW，并保留 400V×250A@50min、720V×250A@30min。
+- `_fmt_p_ui_at`：写出点值 kW 并括注代入量；DHTS 回归含 180kW、87.75kW，不含 64、160、200A。标签与「最大电压/最大电流/持续电流」见接续篇。
+- 充电表写出与 P=UI 一致的 100kW / 180kW，并保留时长点。
 - 持续电流只用 Boost 列。

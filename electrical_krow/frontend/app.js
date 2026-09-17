@@ -100,6 +100,19 @@ function applyShellCopy() {
   }
 }
 
+function envCaption(h) {
+  if (h && h.environment_label) return h.environment_label;
+  const server = String((h && h.server) || "");
+  if (server) return server.replace(/^https?:\/\//, "");
+  return "未设置";
+}
+
+function applyEnvLabels(h) {
+  document.querySelectorAll(".js-env-label").forEach((el) => {
+    el.textContent = envCaption(h);
+  });
+}
+
 function setRunButtons(running, paused, stopping) {
   go.style.display = running ? "none" : "";
   pauseBtn.classList.toggle("show", !!running);
@@ -162,6 +175,12 @@ async function pollJob(id) {
   throw last || new Error("查询进度失败");
 }
 
+// 推荐模型（服务端配置默认）；下拉里在名字后加「（推荐）」，value 仍是原名
+let recommendedModel = "";
+function modelLabel(name) {
+  return name && name === recommendedModel ? name + "（推荐）" : name;
+}
+
 function fillModels(names, current) {
   const sel = $("model");
   if (!sel) return;
@@ -184,7 +203,7 @@ function fillModels(names, current) {
     list.forEach((name) => {
       const opt = document.createElement("option");
       opt.value = name;
-      opt.textContent = name;
+      opt.textContent = modelLabel(name);
       sel.appendChild(opt);
     });
   }
@@ -195,7 +214,10 @@ async function loadModels() {
   if (!loggedIn) return;
   try {
     const data = await json("/api/models");
+    recommendedModel = String(data.recommended || "");
     fillModels(data.models || [], data.model || "");
+    await applyDefaultModel();
+    renderPrefControls();
   } catch {
     fillModels([], $("model") && $("model").value);
   }
@@ -372,6 +394,9 @@ function resultMarkup(data) {
     tip = "已结束抽取。核对表按当前已抽出内容生成，未抽完的条目仍为空。";
   } else if (!extract && data.kind_note) {
     tip = data.kind_note;
+  } else if (Number(data.chunk_failures || 0) > 0) {
+    tip = "有 " + Number(data.chunk_failures)
+      + " 个分段识别失败，结果可能不完整；请重点复核未检索到和局部对应条目。";
   } else if (extract && Number(data.llm_calls || 0) < 1 && Number(miss) > 0) {
     tip = "识别没有成功调用。请退出后重新登录再出表。";
   }
@@ -380,7 +405,10 @@ function resultMarkup(data) {
   const qaNote = (
     (verdict === "warn" || verdict === "fail") && qa && qa !== tip
   ) ? ("质检：" + qa) : "";
-  const heading = data.stopped_early ? "已按已抽出内容出表" : "核对表已生成";
+  const incomplete = Number(data.chunk_failures || 0) > 0;
+  const heading = data.stopped_early
+    ? "已按已抽出内容出表"
+    : (incomplete ? "核对表已生成（识别不完整）" : "核对表已生成");
   const dl = data.download
     ? "<a class='dl' href='" + escText(apiUrl(data.download)) + "' download>下载核对表</a>"
     : "";
@@ -404,7 +432,9 @@ function showFinishedJob(data) {
   const elapsed = fmtElapsed(data.elapsed_seconds);
   status.className = "status";
   status.dataset.stage = "";
-  status.textContent = (data.stopped_early ? "已按已抽出内容出表" : "出表完成")
+  status.textContent = (data.stopped_early
+    ? "已按已抽出内容出表"
+    : (Number(data.chunk_failures || 0) > 0 ? "出表完成 · 识别不完整" : "出表完成"))
     + "  ·  已用 " + elapsed;
   result.className = "result show";
   result.innerHTML = resultMarkup(data);
@@ -450,6 +480,7 @@ async function refresh() {
     if (h.logged_in) ready = "服务就绪";
     if (h.busy) ready = "服务就绪 · 当前有任务在出表";
     $("health-text").textContent = h.ok ? ready : (h.detail || "识别服务未就绪");
+    applyEnvLabels(h);
   } catch (err) {
     llmOk = false;
     health.className = "health err";
@@ -476,6 +507,7 @@ $("pass-toggle").onclick = () => {
 $("login").onclick = async () => {
   const msg = $("login-msg");
   msg.hidden = true;
+  msg.classList.remove("is-info");
   try {
     const body = {
       username: $("user").value,
@@ -590,6 +622,7 @@ drop.addEventListener("drop", (e) => {
 
 $("model").addEventListener("change", async () => {
   const name = $("model").value;
+  setPref("model", name);
   if (!name) return;
   try {
     await json("/api/model", { method: "POST", body: JSON.stringify({ model: name }) });
@@ -633,7 +666,18 @@ async function waitUntilIdle(onWait) {
   return false;
 }
 
-async function followJob(jobId, t0) {
+async function openWorkbookLocally(download) {
+  const m = /\/files\/([^/?#]+)/.exec(String(download || ""));
+  if (!m) return;
+  try {
+    await json("/api/files/" + m[1] + "/open", { method: "POST", body: "{}" });
+  } catch (_) {
+    /* 打不开就留着下载按钮 */
+  }
+}
+
+async function followJob(jobId, t0, opts) {
+  const startedHere = !!(opts && opts.startedHere);
   currentJob = jobId;
   viewingJob = jobId;
   loadJobs();
@@ -651,6 +695,8 @@ async function followJob(jobId, t0) {
     setRunButtons(true, runPaused, st === "stopping" || st === "queued");
     if (st === "done") {
       showFinishedJob(data);
+      // 只对本页发起的出表自动打开；刷新后接回的旧任务不打开
+      if (startedHere && prefs.autoOpen === "on" && !embedMode()) openWorkbookLocally(data.download);
       await waitUntilIdle();
       break;
     }
@@ -764,6 +810,7 @@ go.addEventListener("click", async () => {
       }
       const body = new FormData();
       body.append("file", chosen);
+      body.append("thinking", prefs.thinking === "on" ? "on" : "off");
       const started = await fetch(apiUrl("/api/jobs"), {
         method: "POST",
         body,
@@ -786,7 +833,7 @@ go.addEventListener("click", async () => {
     }
     setRunButtons(true, false, false);
     status.dataset.stage = "已接收文件，开始读取…";
-    await followJob(job.id, t0);
+    await followJob(job.id, t0, { startedHere: true });
   } catch (e) {
     status.className = "status err";
     status.dataset.stage = "";
@@ -852,4 +899,309 @@ stopBtn.addEventListener("click", async () => {
 });
 
 document.body.classList.toggle("is-embed", embedMode());
+
+// ===== 常规设置（外观 / 布局）：只存本机 localStorage，不进后端 =====
+// 首屏套用在 index.html 的内联脚本里；这里负责对话框交互、持久化与「跟随系统」监听。
+const PREFS_KEY = "electrical.prefs";
+const PREF_DEFAULTS = {
+  theme: "system",
+  accent: "blue",
+  zoom: "100",
+  font: "system",
+  density: "cozy",
+  rail: "left",
+  // 出表：默认模型（空 = 用服务端默认）、模型推理、完成后自动打开
+  model: "",
+  thinking: "off",
+  autoOpen: "off",
+};
+const PREF_ALLOWED = {
+  theme: ["system", "light", "dark"],
+  accent: ["blue", "teal", "green", "purple", "orange", "rose", "slate"],
+  zoom: ["90", "100", "110", "125"],
+  font: ["system", "yahei", "songti", "mono"],
+  density: ["cozy", "compact"],
+  rail: ["left", "right"],
+  thinking: ["off", "on"],
+  autoOpen: ["off", "on"],
+};
+// 挂到 <html> 的只有外观 / 布局；出表偏好走请求参数
+const PREF_ATTRS = ["theme", "accent", "zoom", "font", "density", "rail"];
+
+function validModelName(v) {
+  return typeof v === "string" && v.length > 0 && v.length <= 80 && !/\s/.test(v);
+}
+const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+function themeFromQuery() {
+  const t = readQuery().get("theme");
+  return PREF_ALLOWED.theme.includes(t) ? t : "";
+}
+
+function loadPrefs() {
+  let raw = {};
+  try {
+    raw = JSON.parse(localStorage.getItem(PREFS_KEY) || "{}") || {};
+  } catch (_) {
+    raw = {};
+  }
+  const out = {};
+  Object.keys(PREF_DEFAULTS).forEach((k) => {
+    if (k === "model") out[k] = validModelName(raw[k]) ? raw[k] : "";
+    else out[k] = PREF_ALLOWED[k].includes(raw[k]) ? raw[k] : PREF_DEFAULTS[k];
+  });
+  // 父壳可用 ?theme= 指定主题（不落盘）
+  const forced = themeFromQuery();
+  if (forced) out.theme = forced;
+  return out;
+}
+
+function savePrefs(prefs) {
+  const toStore = Object.assign({}, prefs);
+  if (themeFromQuery()) delete toStore.theme;
+  try {
+    localStorage.setItem(PREFS_KEY, JSON.stringify(toStore));
+  } catch (_) {
+    /* 隐私模式等写不进去就只在本次会话生效 */
+  }
+}
+
+function applyPrefs(prefs) {
+  const h = document.documentElement;
+  PREF_ATTRS.forEach((k) => {
+    let v = prefs[k];
+    if (k === "theme" && v === "system") v = darkQuery && darkQuery.matches ? "dark" : "light";
+    h.setAttribute("data-" + k, v);
+  });
+}
+
+let prefs = loadPrefs();
+applyPrefs(prefs);
+if (darkQuery) {
+  const onScheme = () => {
+    if (prefs.theme === "system") applyPrefs(prefs);
+  };
+  if (typeof darkQuery.addEventListener === "function") darkQuery.addEventListener("change", onScheme);
+  else if (typeof darkQuery.addListener === "function") darkQuery.addListener(onScheme);
+}
+
+function setPref(key, value) {
+  if (key === "model") {
+    if (value !== "" && !validModelName(value)) return;
+  } else if (!PREF_ALLOWED[key] || !PREF_ALLOWED[key].includes(value)) {
+    return;
+  }
+  prefs = Object.assign({}, prefs, { [key]: value });
+  savePrefs(prefs);
+  applyPrefs(prefs);
+  renderPrefControls();
+}
+
+function renderPrefControls() {
+  const modelSel = $("pref-model");
+  if (modelSel) {
+    // 只列服务端返回的模型；未登录时只显示提示
+    const names = Array.from($("model")?.options || []).map((o) => o.value).filter(Boolean);
+    modelSel.innerHTML = "";
+    const head = document.createElement("option");
+    head.value = "";
+    head.textContent = names.length ? "用服务端默认" : "登录后可选";
+    modelSel.appendChild(head);
+    names.forEach((n) => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = modelLabel(n);
+      modelSel.appendChild(opt);
+    });
+    if (prefs.model && !names.includes(prefs.model)) {
+      const opt = document.createElement("option");
+      opt.value = prefs.model;
+      opt.textContent = prefs.model + "（当前环境未列出）";
+      modelSel.appendChild(opt);
+    }
+    modelSel.value = prefs.model || "";
+    modelSel.disabled = !names.length && !prefs.model;
+  }
+  document.querySelectorAll("[data-pref]").forEach((group) => {
+    const key = group.getAttribute("data-pref");
+    group.querySelectorAll("button[data-value]").forEach((btn) => {
+      const on = btn.getAttribute("data-value") === prefs[key];
+      btn.classList.toggle("is-on", on);
+      btn.setAttribute("aria-checked", on ? "true" : "false");
+      btn.setAttribute("role", "radio");
+    });
+  });
+}
+
+document.querySelectorAll("[data-pref]").forEach((group) => {
+  const key = group.getAttribute("data-pref");
+  group.addEventListener("click", (ev) => {
+    const btn = ev.target.closest("button[data-value]");
+    if (btn) setPref(key, btn.getAttribute("data-value"));
+  });
+});
+
+$("pref-model")?.addEventListener("change", async () => {
+  const name = $("pref-model").value;
+  setPref("model", name);
+  if (name && loggedIn) await applyDefaultModel();
+});
+
+// 登录后把默认模型套到会话上；表单里选了别的也记成新的默认
+async function applyDefaultModel() {
+  const sel = $("model");
+  if (!sel || !prefs.model) return;
+  const names = Array.from(sel.options).map((o) => o.value);
+  if (!names.includes(prefs.model) || sel.value === prefs.model) return;
+  try {
+    await json("/api/model", { method: "POST", body: JSON.stringify({ model: prefs.model }) });
+    sel.value = prefs.model;
+  } catch (_) {
+    /* 服务端拒了就保持当前会话模型 */
+  }
+}
+
+$("settings-reset")?.addEventListener("click", () => {
+  // 只恢复外观 / 布局；出表偏好保留
+  const keep = { model: prefs.model, thinking: prefs.thinking, autoOpen: prefs.autoOpen };
+  prefs = Object.assign({}, PREF_DEFAULTS, keep);
+  const forced = themeFromQuery();
+  if (forced) prefs.theme = forced;
+  savePrefs(prefs);
+  applyPrefs(prefs);
+  renderPrefControls();
+});
+
+function showSettingsTab(name) {
+  document.querySelectorAll(".settings-tab").forEach((t) => {
+    t.classList.toggle("is-on", t.getAttribute("data-tab") === name);
+  });
+  document.querySelectorAll(".settings-panel").forEach((p) => {
+    p.hidden = p.getAttribute("data-panel") !== name;
+  });
+  const msg = $("settings-msg");
+  if (msg) msg.hidden = true;
+  if (name === "env") loadEnvironments();
+  if (name === "about") loadAbout();
+}
+
+async function loadAbout() {
+  const list = $("about-list");
+  if (!list) return;
+  const put = (key, val) => {
+    const el = list.querySelector('[data-about="' + key + '"]');
+    if (el) el.textContent = val || "—";
+  };
+  try {
+    const h = await json("/api/health");
+    const v = h.versions || {};
+    put("client", v.client);
+    put("sdk", v.sdk);
+    put("runtime", v.runtime);
+    put("knowledge", v.knowledge);
+    put("server", (h.environment_label ? h.environment_label + "  " : "") + (h.server || ""));
+    put("model", prefs.model || h.model);
+    put("output_dir", h.output_dir);
+    put("platform", [v.platform, v.python ? "Python " + v.python : ""].filter(Boolean).join("  ·  "));
+  } catch (err) {
+    put("server", String(err.message || err));
+  }
+}
+
+$("about-copy")?.addEventListener("click", async () => {
+  const rows = Array.from($("about-list")?.querySelectorAll("dt") || []);
+  const text = rows.map((dt) => dt.textContent + "：" + (dt.nextElementSibling?.textContent || "")).join("\n");
+  const msg = $("settings-msg");
+  try {
+    await navigator.clipboard.writeText(text);
+    if (msg) { msg.hidden = false; msg.classList.add("is-info"); msg.textContent = "已复制。"; }
+  } catch (_) {
+    if (msg) { msg.hidden = false; msg.textContent = text; }
+  }
+});
+
+document.querySelectorAll(".settings-tab").forEach((tab) => {
+  tab.addEventListener("click", () => showSettingsTab(tab.getAttribute("data-tab")));
+});
+
+async function openSettings(tab) {
+  const dlg = $("settings-dialog");
+  if (!dlg) return;
+  const msg = $("settings-msg");
+  if (msg) {
+    msg.hidden = true;
+    msg.textContent = "";
+  }
+  renderPrefControls();
+  showSettingsTab(tab || "appearance");
+  if (typeof dlg.showModal === "function") dlg.showModal();
+  else dlg.setAttribute("open", "");
+}
+
+async function loadEnvironments() {
+  const box = $("env-choices");
+  const msg = $("settings-msg");
+  if (!box) return;
+  box.innerHTML = "<p>正在读取环境…</p>";
+  try {
+    const data = await json("/api/settings");
+    box.innerHTML = "";
+    (data.environments || []).forEach((env) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "env-choice" + (env.id === data.id ? " is-on" : "");
+      btn.innerHTML = "<strong>" + escText(env.label) + "</strong><span>"
+        + escText(env.server) + "</span>";
+      btn.addEventListener("click", () => pickEnvironment(env.id));
+      box.appendChild(btn);
+    });
+  } catch (err) {
+    box.innerHTML = "";
+    msg.hidden = false;
+    msg.textContent = String(err.message || err);
+  }
+}
+
+async function pickEnvironment(id) {
+  const msg = $("settings-msg");
+  msg.hidden = true;
+  try {
+    const data = await json("/api/settings", {
+      method: "POST",
+      body: JSON.stringify({ id }),
+    });
+    const dlg = $("settings-dialog");
+    if (dlg) dlg.close();
+    if (data.changed) {
+      setFile(null);
+      if (fileInput) fileInput.value = "";
+      workPanel = "home";
+      viewingJob = null;
+      jobRows = [];
+      renderJobs();
+      await showWork(false, "");
+      const note = $("login-msg");
+      note.hidden = false;
+      note.classList.add("is-info");
+      note.textContent = "已切换到" + (data.label || "新环境") + "，请重新登录。";
+    }
+    await refresh();
+  } catch (err) {
+    msg.hidden = false;
+    msg.textContent = String(err.message || err);
+  }
+}
+
+document.querySelectorAll(".js-open-settings").forEach((btn) => {
+  // 挨着「识别环境」的设置按钮直接落到环境页，其余进外观页
+  const tab = btn.getAttribute("data-tab") || (btn.closest(".env-row") ? "env" : "");
+  btn.addEventListener("click", () => openSettings(tab || undefined));
+});
+const settingsDialog = $("settings-dialog");
+if (settingsDialog) {
+  settingsDialog.addEventListener("click", (ev) => {
+    if (ev.target === settingsDialog) settingsDialog.close();
+  });
+}
+
 refresh();

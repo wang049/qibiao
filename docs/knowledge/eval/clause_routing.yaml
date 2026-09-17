@@ -1,0 +1,213 @@
+# 认条召回评测题集。给本仓 keyword_hits 和公司知识库（导出包）的检索层共用。
+# 每题：query 是规格书里会出现的句子片段；must_hit 必须召回的清单序号；must_not_hit 不得召回的序号。
+# only: true 表示除 must_hit 外不得再召回别的条目。retrieve_only: true 表示只查已开通选段的条目。
+# caution 只记录、不断言：检索层允许召回，但出表规则必须按复盘做排除，供下游对照。
+# 题源写在 lesson（.insights/lessons/ 文件名），题集本身不含任何抽出值。
+schema: electrical-kb-eval/0.1
+rule: 题集只评认条召回，不评取值；抽出值仍只来自当份规格书。
+cases:
+  - id: hipot-basic
+    query: 耐电压 hipot 1 min 漏电流 5mA 无击穿
+    must_hit: [14]
+    must_not_hit: [13, 18, 19]
+    lesson: 2026-09-09-drop-duplicate-insulation-hipot
+    note: 耐电压走 #14，已删除的 #18/#19 不得再出现
+
+  - id: hipot-retrieve-only
+    query: hipot dielectric 耐压
+    retrieve_only: true
+    must_hit: [14]
+    only: true
+    note: 只开通了 #14 选段，retrieve_only 结果不得夹带其他条目
+
+  - id: continuous-hvdc-caution
+    query: Continuous HVDC withstand voltage 950V
+    must_hit: []
+    must_not_hit: [18, 19]
+    caution: [14]
+    lesson: 2026-09-07-continuous-hvdc-is-not-dielectric
+    note: withstand voltage 是 #14 别名，检索层可召回；出表规则必须把持续母线耐受判为工作耐压并拒填
+
+  - id: connector-not-charge
+    query: 高压慢充连接器 6.2.3.6
+    must_hit: []
+    must_not_hit: [4, 115]
+    lesson: 2026-09-04-115-connector-is-not-charge-definition
+    note: 连接器只证明有接口，不是升压充电定义
+
+  - id: charging-buck-boost-115
+    query: Charging Buck/Boost Function Requirements charging voltage charging current
+    must_hit: [115]
+    must_not_hit: [3]
+    lesson: 2026-09-04-115-connector-is-not-charge-definition
+
+  - id: hv-booster-modes-67
+    query: HV Booster Boost模式 Bypass模式 Buck模式 三种模式 BUCK Max 85kW
+    must_hit: [67]
+    must_not_hit: [4, 115]
+    lesson: 2026-09-09-hv-booster-modes-not-item4
+
+  - id: traction-boost-4
+    query: 行车升压 boost the HV input to improve the TM performance
+    must_hit: [4]
+    must_not_hit: [115]
+    lesson: 2026-09-11-item4-traction-boost-from-hv-input
+
+  - id: drive-boost-3
+    query: 驱动升压 traction boost recommended topology
+    must_hit: [3]
+    must_not_hit: [4, 115]
+    lesson: 2026-09-09-item3-drive-boost-needs-conclusion
+
+  - id: poles-rpm-not-speed
+    query: Req based on 8 poles and 16000 Rpm full performance fundamental frequency
+    must_hit: []
+    must_not_hit: [35, 52, 76]
+    lesson: 2026-09-07-poles-rpm-is-not-max-speed
+    note: 极对数×转速是交流基频假设；Req/Rpm 里的 re 不得命中 #76 EMC 的 RE 缩写
+
+  - id: p1-max-speed-35
+    query: P1 max speed 16000 rpm
+    must_hit: [35]
+    must_not_hit: [52]
+
+  - id: p3-max-speed-52
+    query: P3最高工作转速
+    must_hit: [52]
+    must_not_hit: [35]
+
+  - id: weak-max-speed-needs-p1-p3
+    query: 最高工作转速 20000 rpm
+    must_hit: []
+    must_not_hit: [35, 52]
+    note: 「最高工作转速」是 P1/P3 共享弱别名，没有判别词不得召回
+
+  - id: bus-ripple-8
+    query: 直流母线纹波电压 DC link ripple
+    must_hit: [8]
+    must_not_hit: [12]
+    lesson: 2026-09-07-ripple-lv-unnumbered-headings
+
+  - id: hv-safety-ripple-12
+    query: ripple with battery connected 电池连接纹波
+    must_hit: [12]
+    must_not_hit: [8]
+    lesson: 2026-09-07-ripple-lv-unnumbered-headings
+
+  - id: cap-emc-ripple-caution
+    query: Voltage Ripple on HV 15Vpp Region I DC capacitor
+    must_hit: []
+    must_not_hit: [10, 76, 106]
+    caution: [8]
+    lesson: 2026-09-07-inverter-sr-cap-ripple-not-bus
+    note: 电容/EMC 表纹波可被 #8 别名召回，出表规则须拒；DC/V1 缩写不得命中 #10/#106
+
+  - id: ipxxb-109
+    query: IPXXB 触指防护 高压连接器
+    must_hit: [109]
+    lesson: 2026-09-07-ipxxb-not-negative-hvil
+
+  - id: insulation-13
+    query: Insulation resistance 100MΩ 绝缘电阻
+    must_hit: [13]
+    must_not_hit: [14, 18, 76]
+    note: resistance 里的 re/ce 不得命中 #76
+
+  - id: asc-weak-needs-p1-p3
+    query: active short circuit ASC 三相短路电流
+    must_hit: []
+    must_not_hit: [40, 42, 55, 57]
+    lesson: 2026-09-09-asc-this-condition-not-continuous
+    note: ASC 系列别名为 P1/P3 共享弱别名，没有判别词不得召回
+
+  - id: p1-asc-current-42
+    query: P1 ASC电流
+    must_hit: [42]
+    must_not_hit: [55, 57]
+
+  - id: p3-efficiency-56
+    query: P3 inverter efficiency 综合效率
+    must_hit: [56]
+    must_not_hit: [17]
+    lesson: 2026-09-09-p3-eta-combined-not-p1-average
+    note: efficiency 里的 cy 不得命中 #17 Y电容
+
+  - id: heat-dissipation-72
+    query: 最大散热能力 max heat dissipation capability
+    must_hit: [72]
+    must_not_hit: [71, 119]
+    lesson: 2026-09-07-heat-loss-is-not-coolant-drop-clause
+
+  - id: coolant-drop-71
+    query: 冷却回路压降 coolant pressure drop
+    must_hit: [71]
+    must_not_hit: [72, 76]
+    lesson: 2026-09-07-heat-loss-is-not-coolant-drop-clause
+
+  - id: storage-humidity-99
+    query: 存储相对湿度 storage humidity
+    must_hit: [99]
+    must_not_hit: [81]
+    note: storage 里的 sto 不得命中 #81 功能安全 STO
+
+  - id: quiescent-22
+    query: 静态电流 quiescent current 包含OD
+    must_hit: [22]
+    must_not_hit: [1, 93]
+
+  - id: od-relocation-2
+    query: OD上移 油泵上移
+    must_hit: [2]
+    must_not_hit: [1]
+
+  - id: cooling-with-od-not-upshift
+    query: 冷却流阻 with OD
+    must_hit: [71]
+    must_not_hit: [2]
+    lesson: 2026-09-09-cooling-with-od-is-not-upshift
+
+  - id: boost-power-68
+    query: 升压输出功率 boost output power 峰值功率
+    must_hit: [68]
+    must_not_hit: [67, 81]
+    lesson: 2026-09-11-boost-power-peak-and-steady-labels
+
+  - id: boost-voltage-67
+    query: 升压输出电压 boost output voltage range
+    must_hit: [67]
+    must_not_hit: [68, 81]
+
+  - id: dropped-never-return
+    query: 绝缘电阻 耐电压 放电时间
+    must_hit: [13, 14]
+    must_not_hit: [18, 19, 26, 27]
+    lesson: 2026-09-09-drop-duplicate-insulation-hipot
+
+  - id: short-abbrev-noise
+    query: Requirements based on performance range
+    must_hit: []
+    must_not_hit: [13, 76, 81, 93, 95]
+    only: true
+    note: 普通英文句子不得因 re/ce/ir/im/sto/ntc 子串命中任何条目
+
+  - id: emc-76
+    query: EMC 辐射发射 RE CE
+    must_hit: [76]
+
+  - id: ntc-93
+    query: NTC 温度传感器 精度
+    must_hit: [93]
+
+  - id: back-emf-11
+    query: 反电势 back EMF peak
+    must_hit: [11]
+    lesson: 2026-09-08-peak-bemf-copies-p1
+
+  - id: torque-response-77
+    query: 扭矩响应时间 10%-90%
+    must_hit: [77]
+
+  - id: comm-114
+    query: 通讯方式 CAN FD LIN 100BASE-T1
+    must_hit: [114]
+    lesson: 2026-09-07-inverter-sr-lin-not-can-fd-only

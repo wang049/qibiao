@@ -993,7 +993,7 @@ items:
   - 61
   - 115
   notes:
-  - "抽出值写含用途的结论（如 HVDC 较低时升压以改善 TM），不要只写「是」。勿与 #4 行车升压（充电 Boost/Buck 范围）混填"
+  - "抽出值写含用途的结论（如 HVDC 较低时升压以改善 TM），不要只写「是」。充电 Boost/Buck 不进本条（→#4/#115）"
   unverified: []
   xlsx:
     example: 否
@@ -1002,7 +1002,7 @@ items:
 - id: 4
   name: 设计范围是否包含行车升压功能
   group: 设计范围
-  gloss: "范围判断是否含该功能；充电拓扑/电压/电流/时长见 #115。勿与 #3 驱动升压（HV Booster / boost control）混填"
+  gloss: "范围判断是否含行车时 HVDC 升压，以及是否含充电 Boost/Buck；充电拓扑/电压/电流/时长见 #115。boost control 产品说明不进本条（→#3）"
   zh_strong:
   - 行车升压
   - 充电Boost
@@ -1026,13 +1026,13 @@ items:
   - 拓扑 topology
   std: []
   exclude:
-  - 驱动升压 / HV Booster / boost control（→#3）
+  - boost control 产品说明（→#3）
   - 6.5.4 HV Booster 三种模式 / BUCK 85kW（→#67）
   see:
   - 3
   - 115
   notes:
-  - "抽出以 Charging Buck/Boost、充电升压/降压功能需求做范围判断；6.5.4 HV Booster 的三种模式和 BUCK 85kW 不进本条（→#3/#67）"
+  - "当份 6.5.4 写明行车时 HVDC 较低升压改善 TM，本条写「是；…」；Charging Buck/Boost 仍写充电范围并优先。三种模式和 BUCK 85kW 不进本条（→#67）"
   - '#4 与 #115 同义（范围判断 vs 功能要求）；#115 的 D 列多要求充电电压/电流/时长'
   unverified:
   - OBC boost [原字典]（OBC 为交流车载充电机，直流快充升压通常不经 OBC，语义偏窄）
@@ -3693,6 +3693,7 @@ items:
   std: []
   exclude:
   - 单独的输入侧参数（→#63/#64）
+  - 效率目标数值（99.5%@直通等→#66 升压效率；带「输入功率 kW」也不算输出性能）
   see:
   - 62
   - 63
@@ -3824,7 +3825,7 @@ items:
   - 28
   - 45
   notes:
-  - 抽出值写 P=UI 的 kW 点值并括注 Vmax×Imax@t（峰值/持续分行）；禁止把电压区间展开成 kW 范围，持续电流只用 Boost 列
+  - 抽出值写 P=UI 的 kW 点值；峰值功率括注最大电压×最大电流@时间，持续稳定功率括注最大电压×持续电流。禁止把电压区间展开成 kW 范围，持续电流只用 Boost 列
   unverified:
   - boost kW [原字典]（过泛）
   xlsx:

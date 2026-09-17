@@ -21,3 +21,6 @@ __all__ = [
     "login_with_api_key",
     "login_with_password",
 ]
+
+# 与 pyproject.toml 的 version 同步；Windows 包不带 pyproject，「关于」页从这里读
+__version__ = "0.1.0"

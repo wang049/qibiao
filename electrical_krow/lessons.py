@@ -1,4 +1,7 @@
-"""摩擦复盘：给人看、给召回。禁止当作抽出值来源。"""
+"""业务摩擦复盘（.insights）：给人看、给召回。禁止当作抽出值来源。
+
+相对不变量在 wiki（docs/knowledge）。.krow 只放 agent 自进化，不放认条复盘。
+"""
 from __future__ import annotations
 
 import re
@@ -8,7 +11,7 @@ from pathlib import Path
 
 from electrical_krow.paths import PROJECT_ROOT
 
-LESSONS_DIR = PROJECT_ROOT / ".krow" / "lessons"
+LESSONS_DIR = PROJECT_ROOT / ".insights" / "lessons"
 _FOLD = re.compile(r"[\s,，;；~～\-—–]")
 _SEQ = re.compile(r"#\s*(\d{1,3})\b")
 _STATUS = re.compile(r"^-\s*状态[：:]\s*(\S+)", re.M)

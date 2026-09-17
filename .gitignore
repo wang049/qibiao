@@ -14,8 +14,14 @@ packaging/windows/.cache/
 .krow/**/*.db
 .krow/**/*.db-wal
 .krow/**/*.db-shm
+.insights/data/
+.insights/**/*.db
+.insights/**/*.db-wal
+.insights/**/*.db-shm
 :memory:.ses
 *.ses
+# 导出给公司知识库的 Record / bundle，可由 published 重建
+docs/knowledge/export/
 # 保密一级企标原文不入库，只收结构化 YAML
 *030602*.pdf
 Q*JLP*030602*.pdf

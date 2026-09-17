@@ -79,6 +79,48 @@ class LlmTests(unittest.TestCase):
         self.assertIn("HVDC", text)
         self.assertIn("380", text)
 
+    def test_complete_forwards_only_whitelisted_extra(self) -> None:
+        import json
+        from unittest.mock import patch
+
+        import httpx
+
+        from electrical_krow.login import AuthSession
+        from electrical_krow.llm import complete
+
+        seen: dict[str, object] = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen.update(json.loads(request.content))
+            return httpx.Response(
+                200,
+                json={"choices": [{"message": {"role": "assistant", "content": "{}"}}]},
+            )
+
+        real_client = httpx.Client
+
+        def client_factory(**kwargs):
+            kwargs["transport"] = httpx.MockTransport(handler)
+            return real_client(**kwargs)
+
+        with patch("electrical_krow.llm.httpx.Client", side_effect=client_factory):
+            complete(
+                "https://api.krow.cn",
+                AuthSession(access_token="tok", username="u", source="password"),
+                [{"role": "user", "content": "hi"}],
+                model="deepseek-v4-pro",
+                extra={
+                    "thinking": {"type": "disabled"},
+                    "reasoning_effort": None,
+                    "max_tokens": 4096,
+                    "options": {"num_predict": 1},
+                },
+            )
+        self.assertEqual(seen["thinking"], {"type": "disabled"})
+        self.assertEqual(seen["max_tokens"], 4096)
+        self.assertNotIn("reasoning_effort", seen)
+        self.assertNotIn("options", seen)
+
     def test_ocr_endpoint(self) -> None:
         empty = self.client.post(
             "/v1/ocr",

@@ -17,13 +17,24 @@ from typing import Any
 
 import uvicorn
 
-from fastapi import FastAPI, File, Header, HTTPException, Request, Response, UploadFile
+from fastapi import FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from electrical_krow.about import OpenError, open_locally, versions as about_versions
 from electrical_krow.bridge import wire_extract_endpoint
-from electrical_krow.config import Settings, allows_page_images, apply_macos_client_server, load_settings, require_gateway_bind
+from electrical_krow.config import (
+    SERVER_ENV_BY_ID,
+    SERVER_ENVIRONMENTS,
+    Settings,
+    allows_page_images,
+    apply_macos_client_server,
+    apply_server_environment,
+    load_settings,
+    match_server_environment,
+    require_gateway_bind,
+)
 from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.jobs import JobStore
 from electrical_krow.knowledge import browse_catalog
@@ -91,10 +102,22 @@ class ChatIn(BaseModel):
     model: str = ""
     messages: list[ChatMessageIn] = Field(default_factory=list)
     temperature: float = 0.0
+    # 推理模型控制：出表只要 JSON，不要长推理。原样透传给识别服务，上游不认就忽略。
+    thinking: dict[str, Any] | None = None
+    reasoning_effort: str | None = None
+    max_tokens: int | None = None
 
 
 class ModelIn(BaseModel):
     model: str = ""
+
+
+class SettingsIn(BaseModel):
+    id: str = ""
+
+
+# /api/jobs 的 thinking 表单值：空 = 上游默认（开）
+THINKING_MODES = frozenset({"", "on", "off"})
 
 
 class OcrIn(BaseModel):
@@ -129,10 +152,28 @@ def create_app(
         chosen = (item.chat_model if item else "") or ""
         return chosen.strip() or cfg.chat_model
 
+    def _settings_payload() -> dict[str, object]:
+        env = match_server_environment(cfg.server_url)
+        try:
+            origin = cfg.server_origin()
+        except ConfigError:
+            origin = cfg.server_url
+        return {
+            "ok": True,
+            "id": env.id if env else "",
+            "label": env.label if env else "",
+            "server": origin,
+            "environments": [
+                {"id": item.id, "label": item.label, "server": item.server_url}
+                for item in SERVER_ENVIRONMENTS
+            ],
+        }
+
     @app.get("/api/health")
     def health() -> dict[str, object]:
         item = app.state.store.default()
         logged = item is not None
+        env = match_server_environment(cfg.server_url)
         try:
             origin = cfg.server_origin()
             server_error = ""
@@ -149,7 +190,45 @@ def create_app(
             "delivery": cfg.delivery,
             "busy": app.state.jobs.busy(),
             "active_job": app.state.jobs.active(),
+            "environment": env.id if env else "",
+            "environment_label": env.label if env else "",
+            # 「关于」页：版本与核对表目录
+            "versions": about_versions(),
+            "output_dir": str(app.state.jobs.output_dir),
         }
+
+    @app.get("/api/settings")
+    def get_settings() -> dict[str, object]:
+        return _settings_payload()
+
+    @app.post("/api/settings")
+    def set_settings(
+        body: SettingsIn, request: Request, response: Response
+    ) -> dict[str, object]:
+        nonlocal cfg
+        env_id = (body.id or "").strip()
+        if env_id not in SERVER_ENV_BY_ID:
+            raise HTTPException(400, "请选择公网联调或现场识别。")
+        current = match_server_environment(cfg.server_url)
+        if current is not None and current.id == env_id:
+            return {
+                **_settings_payload(),
+                "changed": False,
+                "logged_in": app.state.store.default() is not None,
+            }
+        if app.state.jobs.busy():
+            raise HTTPException(409, "当前有任务在出表，结束后再切换环境。")
+        old_url = cfg.server_url
+        for item in app.state.store.clear():
+            try:
+                revoke_sdk_key(old_url, item.auth)
+            except Exception:
+                pass
+        response.delete_cookie(COOKIE, path="/")
+        cfg = apply_server_environment(cfg, env_id)
+        app.state.settings = cfg
+        wire_extract_endpoint(cfg, origin=extract_url)
+        return {**_settings_payload(), "changed": True, "logged_in": False}
 
     @app.post("/api/login")
     def login(body: LoginIn, request: Request, response: Response) -> dict[str, object]:
@@ -229,7 +308,8 @@ def create_app(
             if name and name not in seen:
                 seen.add(name)
                 ordered.append(name)
-        return {"models": ordered, "model": current}
+        # 推荐模型 = 配置默认（deepseek-v4-pro：09-15 专家认可稿所用），前端在名字后标「推荐」
+        return {"models": ordered, "model": current, "recommended": cfg.chat_model}
 
     @app.post("/api/model")
     def set_model(
@@ -280,6 +360,11 @@ def create_app(
                 model=model,
                 temperature=body.temperature,
                 timeout=cfg.timeout_sec,
+                extra={
+                    "thinking": body.thinking,
+                    "reasoning_effort": body.reasoning_effort,
+                    "max_tokens": body.max_tokens,
+                },
             )
 
         try:
@@ -337,9 +422,13 @@ def create_app(
     async def start_job(
         request: Request,
         file: UploadFile = File(...),
+        thinking: str = Form(default=""),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
         item = _require_session(request, authorization)
+        mode = (thinking or "").strip().lower()
+        if mode not in THINKING_MODES:
+            raise HTTPException(400, "thinking 只能是 on / off。")
         data = await file.read()
         incoming, out = request.app.state.jobs.prepare_upload(file, data)
         model = _active_model(item)
@@ -348,6 +437,12 @@ def create_app(
             os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
         else:
             prepare_page_vision(cfg, item)
+        # 模型推理开关：同一时刻只跑一份，进程级环境变量即本次任务的开关。
+        # off → thinking.type=disabled（deepseek-v4-pro 开推理时单段常撞 180s 超时）；on / 空 → 上游默认。
+        if mode == "off":
+            os.environ["SPEC_SHEET_LLM_THINKING"] = "disabled"
+        else:
+            os.environ.pop("SPEC_SHEET_LLM_THINKING", None)
         try:
             job_id = request.app.state.jobs.start(
                 file.filename,
@@ -355,6 +450,7 @@ def create_app(
                 out,
                 model=model,
                 username=item.auth.username,
+                thinking=mode,
             )
         except HTTPException:
             incoming.unlink(missing_ok=True)
@@ -456,6 +552,24 @@ def create_app(
             filename=path.name,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+
+    @app.post("/api/files/{name}/open")
+    def open_file(
+        name: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """用本机默认程序（Excel / WPS）打开核对表。只认核对表目录里的文件。"""
+        _require_session(request, authorization)
+        root = request.app.state.jobs.output_dir.resolve()
+        path = (root / name).resolve()
+        if path.parent != root or not path.is_file():
+            raise HTTPException(404, "找不到核对表")
+        try:
+            open_locally(path)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        return {"ok": True, "name": path.name}
 
     if FRONTEND.is_dir():
         app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")

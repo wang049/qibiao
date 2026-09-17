@@ -85,18 +85,30 @@ def citation_for_seq(seq: int, name: str = "") -> str:
     return label
 
 
+_SHORT_LATIN = re.compile(r"^[a-z0-9]{1,4}$")
+
+
+def _short_latin_hit(key: str, lowered: str) -> bool:
+    """RE / CE / IR / IM / STO 这类短缩写只认整词，不认子串。"""
+    return re.search(rf"(?<![a-z0-9]){re.escape(key)}(?![a-z0-9])", lowered) is not None
+
+
 def keyword_hits(text: str, *, retrieve_only: bool = False) -> list[dict]:
     """整词别名命中。retrieve_only=True 时只返回已开通选段的条目。"""
     folded = _fold(text)
     if len(folded) < 2:
         return []
+    lowered = (text or "").lower()
     index = load_keyword_index()
     hits: list[dict] = []
     seen: set[int] = set()
     for key, rows in index.items():
-        if key not in folded and folded not in key:
-            continue
         if len(key) < 2:
+            continue
+        if _SHORT_LATIN.match(key):
+            if not _short_latin_hit(key, lowered):
+                continue
+        elif key not in folded and folded not in key:
             continue
         for row in rows:
             seq = int(row.get("seq") or 0)

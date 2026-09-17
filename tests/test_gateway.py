@@ -44,15 +44,17 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
         self.assertIn("styles.css?v=20260917b", resp.text)
-        self.assertIn("app.js?v=20260917c", resp.text)
+        self.assertIn("app.js?v=20260917e", resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
         # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题
         for tab in ("appearance", "layout", "extract", "env", "about"):
             self.assertIn(f'data-tab="{tab}"', resp.text)
             self.assertIn(f'data-panel="{tab}"', resp.text)
-        for pref in ("theme", "accent", "zoom", "font", "density", "rail", "thinking", "autoOpen"):
+        for pref in ("theme", "accent", "zoom", "font", "density", "rail", "autoOpen"):
             self.assertIn(f'data-pref="{pref}"', resp.text)
+        # 模型推理不进设置：跟上游默认（开）
+        self.assertNotIn('data-pref="thinking"', resp.text)
         self.assertIn('id="pref-model"', resp.text)
         self.assertIn('id="about-list"', resp.text)
         self.assertIn('data-about="knowledge"', resp.text)
@@ -135,13 +137,15 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("function themeFromQuery(", js.text)
         self.assertIn("settings-reset", js.text)
         self.assertNotIn("/api/prefs", js.text)
-        # 出表偏好：推理开关随 /api/jobs 表单走；完成后自动打开只对本页发起的任务
-        self.assertIn('body.append("thinking"', js.text)
+        # 出表偏好：工位页不传 thinking（跟上游默认）；完成后自动打开只对本页发起的任务
+        self.assertNotIn('body.append("thinking"', js.text)
         self.assertIn("/open", js.text)
         self.assertIn("startedHere", js.text)
         self.assertIn("function applyDefaultModel(", js.text)
         self.assertIn("function loadAbout(", js.text)
         self.assertIn('name + "（推荐）"', js.text)
+        self.assertNotIn("data-pick", js.text)
+        self.assertNotIn("data-pick", self.client.get("/").text)
         for attr in ("data-theme", "data-accent", "data-zoom", "data-font", "data-density", "data-rail"):
             self.assertIn(f'html[{attr}=', css.text, attr)
         self.assertIn('html[data-theme="dark"]', css.text)
@@ -485,7 +489,7 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(data.get("output_dir"), self._tmp.name)
 
     def test_jobs_thinking_flag_sets_env_and_rejects_bad_value(self) -> None:
-        """设置页「模型推理」→ /api/jobs 表单 thinking：off 落成 SPEC_SHEET_LLM_THINKING=disabled，on / 空清掉。"""
+        """/api/jobs 表单 thinking（留给父壳 / 运维）：off 落成 SPEC_SHEET_LLM_THINKING=disabled，on / 空清掉。"""
         self._login()
         os.environ.pop("SPEC_SHEET_LLM_THINKING", None)
         bad = self.client.post(

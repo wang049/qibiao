@@ -544,11 +544,9 @@ $("rail-new").onclick = () => {
   }
   setPanel("extract");
 };
+// 工作台卡片只切页，不自动弹文件选择；选文件由页内拖放区/按钮触发
 document.querySelectorAll(".fn-card[data-go]").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    setPanel(btn.getAttribute("data-go") || "home");
-    if (btn.getAttribute("data-pick") === "1") openPicker();
-  });
+  btn.addEventListener("click", () => setPanel(btn.getAttribute("data-go") || "home"));
 });
 
 function revealResult() {
@@ -810,7 +808,6 @@ go.addEventListener("click", async () => {
       }
       const body = new FormData();
       body.append("file", chosen);
-      body.append("thinking", prefs.thinking === "on" ? "on" : "off");
       const started = await fetch(apiUrl("/api/jobs"), {
         method: "POST",
         body,
@@ -910,9 +907,8 @@ const PREF_DEFAULTS = {
   font: "system",
   density: "cozy",
   rail: "left",
-  // 出表：默认模型（空 = 用服务端默认）、模型推理、完成后自动打开
+  // 出表：默认模型（空 = 用服务端默认）、完成后自动打开。模型推理不进设置，跟上游默认（开）
   model: "",
-  thinking: "off",
   autoOpen: "off",
 };
 const PREF_ALLOWED = {
@@ -922,7 +918,6 @@ const PREF_ALLOWED = {
   font: ["system", "yahei", "songti", "mono"],
   density: ["cozy", "compact"],
   rail: ["left", "right"],
-  thinking: ["off", "on"],
   autoOpen: ["off", "on"],
 };
 // 挂到 <html> 的只有外观 / 布局；出表偏好走请求参数
@@ -1063,7 +1058,7 @@ async function applyDefaultModel() {
 
 $("settings-reset")?.addEventListener("click", () => {
   // 只恢复外观 / 布局；出表偏好保留
-  const keep = { model: prefs.model, thinking: prefs.thinking, autoOpen: prefs.autoOpen };
+  const keep = { model: prefs.model, autoOpen: prefs.autoOpen };
   prefs = Object.assign({}, PREF_DEFAULTS, keep);
   const forced = themeFromQuery();
   if (forced) prefs.theme = forced;

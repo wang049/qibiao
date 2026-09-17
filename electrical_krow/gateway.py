@@ -116,7 +116,7 @@ class SettingsIn(BaseModel):
     id: str = ""
 
 
-# /api/jobs 的 thinking 表单值：空 = 上游默认（开）
+# /api/jobs 的 thinking 表单值：空 = 上游默认（开）。工位页不传，此参数留给父壳 / 运维显式关。
 THINKING_MODES = frozenset({"", "on", "off"})
 
 

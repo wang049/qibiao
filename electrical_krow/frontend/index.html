@@ -141,7 +141,7 @@
               <p>登录后导入当份规格书，按既定步骤生成核对表。不由模型自行规划路径。同一时刻只处理一份任务。</p>
             </div>
             <div class="home-grid">
-              <button type="button" class="fn-card" data-go="extract" data-pick="1">
+              <button type="button" class="fn-card" data-go="extract">
                 <span class="fn-kicker">SOR 出表</span>
                 <strong>SOR 参数提取</strong>
                 <p>导入 PDF / Word / Excel 规格书，规则先填，模型只补空缺项，按模板出核对表。抽出值只来自当份材料，禁止用库填数；核对表须人工确认后定稿。</p>
@@ -353,7 +353,6 @@
             <button type="button" data-value="right">右侧</button>
           </div>
         </div>
-        <p class="pref-note">嵌入父客户端（<code>?embed=1</code>）时侧栏由父壳承载，此处布局设置不生效；父壳可用 <code>?theme=dark|light</code> 指定主题。</p>
       </section>
 
       <section class="settings-panel" data-panel="extract" hidden>
@@ -364,20 +363,13 @@
           </select>
         </div>
         <div class="pref">
-          <div class="pref-label"><b>模型推理</b><span>关闭后只要结构化答案，出表快十倍以上；开启时长文档易超时重试</span></div>
-          <div class="seg" data-pref="thinking" role="radiogroup">
-            <button type="button" data-value="off">关闭（推荐）</button>
-            <button type="button" data-value="on">开启</button>
-          </div>
-        </div>
-        <div class="pref">
           <div class="pref-label"><b>完成后自动打开核对表</b><span>本页发起的出表完成后，用本机 Excel / WPS 打开</span></div>
           <div class="seg" data-pref="autoOpen" role="radiogroup">
             <button type="button" data-value="off">关</button>
             <button type="button" data-value="on">开</button>
           </div>
         </div>
-        <p class="pref-note">这三项在下一次出表时生效，不影响正在进行的任务。抽出值仍只来自当份规格书。</p>
+        <p class="pref-note">这两项在下一次出表时生效，不影响正在进行的任务。抽出值仍只来自当份规格书。</p>
       </section>
 
       <section class="settings-panel" data-panel="env" hidden>
@@ -408,7 +400,7 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/app.js?v=20260917c" defer></script>
+  <script src="/static/app.js?v=20260917e" defer></script>
   <script src="/static/kb.js?v=20260910a" defer></script>
 </body>
 </html>

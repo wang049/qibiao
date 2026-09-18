@@ -1097,7 +1097,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
 }
 .job-tag {
   display: inline-block;
-  margin-left: 6px;
+  margin-right: 6px;
   padding: 0 5px;
   font-style: normal;
   font-size: 10px;
@@ -1109,14 +1109,15 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   border: 1px solid var(--accent-rule);
   border-radius: 4px;
 }
-.job-row {
+button.job-row {
   width: 100%;
   height: auto;
   min-height: 52px;
   padding: 8px 10px;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: auto auto;
+  align-items: start;
   column-gap: 8px;
   row-gap: 2px;
   text-align: left;
@@ -1145,14 +1146,21 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
 .job-status.done { background: var(--ok-wash); color: var(--ok); }
 .job-status.fail { background: var(--err-wash); color: var(--err); }
 .job-name {
+  min-width: 0;
+  align-self: start;
   font-size: 12px;
   font-weight: 650;
   color: var(--navy);
+  line-height: 1.35;
+  display: block;
+  max-height: calc(1.35em * 2);
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
 }
 .job-meta {
+  min-width: 0;
   font-size: 11px;
   color: var(--ink-3);
   overflow: hidden;
@@ -1162,7 +1170,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
 .home-hello {
   text-align: center;
   max-width: 40em;
-  margin: 8px auto 28px;
+  margin: 8px auto 20px;
 }
 .home-hello h2 {
   margin: 0 0 10px;
@@ -1324,42 +1332,11 @@ button.fn-card:hover {
   border-radius: 999px;
   padding: 3px 8px;
 }
-.fn-actions {
-  width: 100%;
-  margin-top: 14px;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.fn-btn {
-  height: 30px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  border-radius: 8px;
-  border: 1px solid var(--rule);
-  background: var(--surface);
-  font-size: 12px;
-  font-weight: 650;
-  color: var(--ink);
-}
 .fn-go {
   margin-top: 12px;
   font-size: 12px;
   font-weight: 650;
   color: var(--accent-ink);
-}
-.fn-actions .fn-go { margin-top: 0; }
-.fn-go.is-wait {
-  color: var(--ink-3);
-  font-weight: 550;
-}
-.home-foot {
-  margin: 18px 0 0;
-  text-align: center;
-  font-size: 12px;
-  color: var(--ink-3);
-  line-height: 1.6;
 }
 .live-badge {
   display: inline-flex;

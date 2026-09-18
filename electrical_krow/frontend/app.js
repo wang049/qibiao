@@ -384,11 +384,14 @@ function renderJobs() {
     const block = busy && id !== currentJob;
     return "<button type='button' class='job-row" + (on ? " is-on" : "") + "'"
       + " data-id='" + escText(id) + "'"
+      + " title='" + escText(name) + "'"
       + (block ? " disabled" : "") + ">"
       + "<span class='job-status " + st.cls + "'>" + st.text + "</span>"
-      + "<span class='job-name'>" + escText(name)
-      + (tag ? "<i class='job-tag'>" + escText(tag) + "</i>" : "") + "</span>"
-      + "<span class='job-meta'>" + escText(bits.join(" · ") || (row.message || "")) + "</span>"
+      + "<span class='job-name'>" + escText(name) + "</span>"
+      + "<span class='job-meta'>"
+      + (tag ? "<i class='job-tag'>" + escText(tag) + "</i> " : "")
+      + escText(bits.join(" · ") || (row.message || ""))
+      + "</span>"
       + "</button>";
   }).join("");
   host.querySelectorAll(".job-row").forEach((btn) => {
@@ -705,19 +708,52 @@ $("logout").onclick = async () => {
   await refresh();
 };
 
-$("rail-home").onclick = () => setPanel("home");
-$("rail-extract").onclick = () => setPanel("extract");
-$("rail-kb").onclick = () => setPanel("kb");
-$("rail-new").onclick = () => {
-  if (!currentJob && !submitting && !attaching) {
-    setFile(null);
-    if (fileInput) fileInput.value = "";
+function extractBusy() {
+  return !!(currentJob || submitting || attaching);
+}
+
+// 点「SOR 参数提取 / 进入出表 / 新建出表」是准备再出一份，不是回看。
+// 上次完成或点侧栏打开的核对结果会留在本页，必须清掉；正在跑的任务不能清。
+function clearExtractOutcome() {
+  viewingJob = null;
+  result.classList.remove("show", "fail");
+  result.innerHTML = "";
+  $("work-card")?.classList.remove("has-result");
+  progress.classList.remove("show");
+  barfill.style.width = "0%";
+  Object.keys(steps).forEach((key) => {
+    if (steps[key]) steps[key].className = "step";
+  });
+  status.className = "status";
+  status.dataset.stage = "";
+  status.textContent = "";
+  liveLine({});
+}
+
+function goExtract(opts) {
+  const clearFile = !!(opts && opts.clearFile);
+  if (!extractBusy()) {
+    if (clearFile) {
+      setFile(null);
+      if (fileInput) fileInput.value = "";
+    }
+    clearExtractOutcome();
+    renderJobs();
   }
   setPanel("extract");
-};
+}
+
+$("rail-home").onclick = () => setPanel("home");
+$("rail-extract").onclick = () => goExtract();
+$("rail-kb").onclick = () => setPanel("kb");
+$("rail-new").onclick = () => goExtract({ clearFile: true });
 // 工作台卡片只切页，不自动弹文件选择；选文件由页内拖放区/按钮触发
 document.querySelectorAll(".fn-card[data-go]").forEach((btn) => {
-  btn.addEventListener("click", () => setPanel(btn.getAttribute("data-go") || "home"));
+  btn.addEventListener("click", () => {
+    const go = btn.getAttribute("data-go") || "home";
+    if (go === "extract") goExtract();
+    else setPanel(go);
+  });
 });
 
 function revealResult() {

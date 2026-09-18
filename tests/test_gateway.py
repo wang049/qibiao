@@ -43,8 +43,8 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260918a", resp.text)
-        self.assertIn("app.js?v=20260918a", resp.text)
+        self.assertIn("styles.css?v=20260918e", resp.text)
+        self.assertIn("app.js?v=20260918e", resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
         # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题
@@ -535,6 +535,10 @@ class GatewayTests(unittest.TestCase):
             self.assertNotIn(gone, page)
         home = page[page.index('id="home-card"'):page.index('id="work-card"')]
         self.assertEqual(home.count('class="fn-card'), 1)
+        self.assertIn("进入出表", home)
+        self.assertNotIn("上传规格书", home)
+        self.assertNotIn('id="home-foot"', page)
+        self.assertEqual(home.count("禁止用库填数"), 2)
         # 最近核对表在 work-card 内、result 之后
         work = page.index('id="work-card"')
         self.assertLess(page.index('id="result"'), page.index('id="work-recent"'))
@@ -548,11 +552,19 @@ class GatewayTests(unittest.TestCase):
         ):
             self.assertIn(marker, js)
         self.assertNotIn("homeStatCards", js)
+        self.assertIn("title='", js)
+        self.assertIn("function goExtract", js)
+        self.assertIn("function clearExtractOutcome", js)
+        self.assertIn("rail-extract\").onclick = () => goExtract()", js)
+        self.assertIn("openHistory", js)
         css = self.client.get("/static/styles.css").text
         for marker in (".work-meta", ".work-recent", ".recent-row", ".file-info", ".gbar-track", ".compare", ".job-tag", ".live"):
             self.assertIn(marker, css)
         self.assertNotIn(".home-stat", css)
         self.assertNotIn(".flow-step", css)
+        self.assertNotIn(".home-foot", css)
+        self.assertIn("minmax(0, 1fr)", css)
+        self.assertIn("max-height: calc(1.35em * 2)", css)
 
     def test_inspect_requires_login_and_reports_type_pages_estimate(self) -> None:
         from electrical_krow.mock_server import DEMO_USER

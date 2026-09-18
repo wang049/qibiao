@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器 · SOR填表</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260918a" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260918e" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -146,24 +146,19 @@
           <div id="home-card" hidden>
             <div class="home-hello">
               <h2>你好，我是<span>电子电器智能体</span></h2>
-              <p>登录后导入当份规格书，按既定步骤生成核对表。不由模型自行规划路径。同一时刻只处理一份任务。</p>
             </div>
             <div class="home-grid">
               <button type="button" class="fn-card" data-go="extract">
                 <span class="fn-kicker">SOR 出表</span>
                 <strong>SOR 参数提取</strong>
-                <p>导入 PDF / Word / Excel 规格书，规则先填，模型只补空缺项，按模板出核对表。抽出值只来自当份材料，禁止用库填数；核对表须人工确认后定稿。</p>
+                <p>规则先填，模型只补空缺。抽出值只来自当份规格书，禁止用库填数。</p>
                 <span class="fn-chips">
                   <span>禁止用库填数</span>
                   <span>人工确认后定稿</span>
                 </span>
-                <span class="fn-actions">
-                  <span class="fn-btn">上传规格书</span>
-                  <span class="fn-go">进入出表</span>
-                </span>
+                <span class="fn-go">进入出表</span>
               </button>
             </div>
-            <p class="home-foot" id="home-foot">文件只在本机读取，不上传公网。核对表须人工确认后定稿。</p>
           </div>
 
           <div id="work-card" class="card" hidden>
@@ -464,7 +459,7 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/app.js?v=20260918a" defer></script>
+  <script src="/static/app.js?v=20260918e" defer></script>
   <script src="/static/kb.js?v=20260917k" defer></script>
 </body>
 </html>

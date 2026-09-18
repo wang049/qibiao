@@ -5,11 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器 · SOR填表</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260917k" />
+  <link rel="stylesheet" href="/static/styles.css?v=20260918a" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
-      var DEF = { theme: "system", accent: "blue", zoom: "100", font: "system", density: "cozy", rail: "left" };
+      var DEF = {
+        theme: "system", accent: "blue", zoom: "100", font: "system",
+        contrast: "normal", motion: "system", density: "cozy", rail: "left"
+      };
       var p = {};
       try { p = JSON.parse(localStorage.getItem("electrical.prefs") || "{}") || {}; } catch (e) { p = {}; }
       var q = new URLSearchParams(location.search || "");
@@ -20,6 +23,13 @@
         var v = typeof p[k] === "string" && p[k] ? p[k] : DEF[k];
         if (k === "theme" && v === "system") {
           v = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+        }
+        if (k === "motion") {
+          if (v === "system") {
+            v = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "reduce" : "full";
+          } else {
+            v = v === "on" ? "reduce" : "full";
+          }
         }
         h.setAttribute("data-" + k, v);
       });
@@ -326,10 +336,12 @@
         <div class="pref">
           <div class="pref-label"><b>界面缩放</b><span>整体放大或缩小文字与控件</span></div>
           <div class="seg" data-pref="zoom" role="radiogroup">
+            <button type="button" data-value="80">80%</button>
             <button type="button" data-value="90">90%</button>
             <button type="button" data-value="100">100%</button>
             <button type="button" data-value="110">110%</button>
             <button type="button" data-value="125">125%</button>
+            <button type="button" data-value="150">150%</button>
           </div>
         </div>
         <div class="pref">
@@ -339,6 +351,21 @@
             <button type="button" data-value="yahei">微软雅黑</button>
             <button type="button" data-value="songti">宋体</button>
             <button type="button" data-value="mono">等宽</button>
+          </div>
+        </div>
+        <div class="pref">
+          <div class="pref-label"><b>对比度</b><span>高对比提高正文与边框差，侧栏小字和图谱标签更清楚</span></div>
+          <div class="seg" data-pref="contrast" role="radiogroup">
+            <button type="button" data-value="normal">普通</button>
+            <button type="button" data-value="high">高</button>
+          </div>
+        </div>
+        <div class="pref">
+          <div class="pref-label"><b>减弱动画</b><span>关掉进度条过渡和结果区滚动。跟随系统时随操作系统「减少动态效果」</span></div>
+          <div class="seg" data-pref="motion" role="radiogroup">
+            <button type="button" data-value="system">跟随系统</button>
+            <button type="button" data-value="on">开</button>
+            <button type="button" data-value="off">关</button>
           </div>
         </div>
       </section>
@@ -437,7 +464,7 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/app.js?v=20260917k" defer></script>
+  <script src="/static/app.js?v=20260918a" defer></script>
   <script src="/static/kb.js?v=20260917k" defer></script>
 </body>
 </html>

@@ -723,7 +723,7 @@ document.querySelectorAll(".fn-card[data-go]").forEach((btn) => {
 function revealResult() {
   $("work-card")?.classList.add("has-result");
   requestAnimationFrame(() => {
-    result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    result.scrollIntoView({ behavior: motionReduced() ? "auto" : "smooth", block: "nearest" });
   });
 }
 
@@ -1159,6 +1159,8 @@ const PREF_DEFAULTS = {
   accent: "blue",
   zoom: "100",
   font: "system",
+  contrast: "normal",
+  motion: "system",
   density: "cozy",
   rail: "left",
   // 出表：默认模型（空 = 用服务端默认）、完成后自动打开。模型推理不进设置，跟上游默认（开）
@@ -1173,8 +1175,10 @@ const PREF_DEFAULTS = {
 const PREF_ALLOWED = {
   theme: ["system", "light", "dark"],
   accent: ["blue", "teal", "green", "purple", "orange", "rose", "slate"],
-  zoom: ["90", "100", "110", "125"],
+  zoom: ["80", "90", "100", "110", "125", "150"],
   font: ["system", "yahei", "songti", "mono"],
+  contrast: ["normal", "high"],
+  motion: ["system", "on", "off"],
   density: ["cozy", "compact"],
   rail: ["left", "right"],
   autoOpen: ["off", "on"],
@@ -1184,12 +1188,22 @@ const PREF_ALLOWED = {
   confirmClose: ["off", "on"],
 };
 // 挂到 <html> 的只有外观 / 布局；出表偏好走请求参数
-const PREF_ATTRS = ["theme", "accent", "zoom", "font", "density", "rail"];
+const PREF_ATTRS = ["theme", "accent", "zoom", "font", "contrast", "motion", "density", "rail"];
 
 function validModelName(v) {
   return typeof v === "string" && v.length > 0 && v.length <= 80 && !/\s/.test(v);
 }
 const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+const motionQuery = window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+
+function motionAttr(v) {
+  if (v === "system") return motionQuery && motionQuery.matches ? "reduce" : "full";
+  return v === "on" ? "reduce" : "full";
+}
+
+function motionReduced() {
+  return motionAttr(prefs.motion) === "reduce";
+}
 
 function themeFromQuery() {
   const t = readQuery().get("theme");
@@ -1229,6 +1243,7 @@ function applyPrefs(prefs) {
   PREF_ATTRS.forEach((k) => {
     let v = prefs[k];
     if (k === "theme" && v === "system") v = darkQuery && darkQuery.matches ? "dark" : "light";
+    if (k === "motion") v = motionAttr(v);
     h.setAttribute("data-" + k, v);
   });
 }
@@ -1242,6 +1257,13 @@ if (darkQuery) {
   };
   if (typeof darkQuery.addEventListener === "function") darkQuery.addEventListener("change", onScheme);
   else if (typeof darkQuery.addListener === "function") darkQuery.addListener(onScheme);
+}
+if (motionQuery) {
+  const onMotion = () => {
+    if (prefs.motion === "system") applyPrefs(prefs);
+  };
+  if (typeof motionQuery.addEventListener === "function") motionQuery.addEventListener("change", onMotion);
+  else if (typeof motionQuery.addListener === "function") motionQuery.addListener(onMotion);
 }
 
 function setPref(key, value) {

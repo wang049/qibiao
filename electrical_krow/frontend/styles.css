@@ -1760,8 +1760,8 @@ button.env-choice span { font-size: 12px; color: var(--ink-3); word-break: break
   .lead { margin-bottom: 12px; }
 }
 
-/* ===== 常规设置：主题 / 主题色 / 缩放 / 字体 / 密度 / 侧栏位置 =====
-   属性挂在 <html> 上（data-theme / data-accent / data-zoom / data-font / data-density / data-rail），
+/* ===== 常规设置：主题 / 主题色 / 缩放 / 字体 / 对比度 / 动画 / 密度 / 侧栏位置 =====
+   属性挂在 <html> 上（data-theme / data-accent / data-zoom / data-font / data-contrast / data-motion / data-density / data-rail），
    首屏由 index.html 内联脚本按 localStorage 套上，之后由 app.js prefs 维护。 */
 html[data-theme="dark"] {
   --ink: #e5e9f0;
@@ -1825,9 +1825,44 @@ html[data-theme="dark"] #login,
 html[data-theme="dark"] #go { color: #0b1220; }
 
 /* 界面缩放（相当于 VS Code 的窗口缩放） */
+html[data-zoom="80"] body { zoom: 0.8; }
 html[data-zoom="90"] body { zoom: 0.9; }
 html[data-zoom="110"] body { zoom: 1.1; }
 html[data-zoom="125"] body { zoom: 1.25; }
+html[data-zoom="150"] body { zoom: 1.5; }
+
+/* 对比度：只加深文字与边框，不另做一套主题 */
+html[data-contrast="high"] {
+  --ink: #0a0f18;
+  --ink-2: #1a2330;
+  --ink-3: #334155;
+  --navy: #0c2240;
+  --rule: #64748b;
+  --rule-2: #94a3b8;
+}
+html[data-theme="dark"][data-contrast="high"] {
+  --ink: #f8fafc;
+  --ink-2: #e2e8f0;
+  --ink-3: #cbd5e1;
+  --navy: #f1f5f9;
+  --rule: #94a3b8;
+  --rule-2: #64748b;
+  --kbg-halo: #0f141c;
+}
+html[data-contrast="high"] .job-meta,
+html[data-contrast="high"] .drop-hint,
+html[data-contrast="high"] .work-meta,
+html[data-contrast="high"] .kb-gl { font-weight: 550; }
+
+/* 减弱动画：进度条、拖放区、结果滚动 */
+html[data-motion="reduce"] *,
+html[data-motion="reduce"] *::before,
+html[data-motion="reduce"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
 
 /* 字体 */
 html[data-font="yahei"] { --sans: "Microsoft YaHei", "微软雅黑", "PingFang SC", "Hiragino Sans GB", sans-serif; }
@@ -1917,6 +1952,7 @@ button.settings-tab:focus-visible { outline: 2px solid var(--accent-rule); outli
   white-space: nowrap;
 }
 .seg button:last-child { border-right: 0; }
+.seg[data-pref="zoom"] button { padding: 0 8px; }
 .seg button:hover { background: var(--surface-2); color: var(--ink); }
 .seg button.is-on { background: var(--accent-wash); color: var(--accent-ink); }
 .swatches { display: inline-flex; flex: none; gap: 8px; }

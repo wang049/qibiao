@@ -43,8 +43,8 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260917k", resp.text)
-        self.assertIn("app.js?v=20260917k", resp.text)
+        self.assertIn("styles.css?v=20260918a", resp.text)
+        self.assertIn("app.js?v=20260918a", resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
         # 常规设置：外观 / 布局 / 识别环境三页；首屏内联脚本按 localStorage 套主题
@@ -52,7 +52,7 @@ class GatewayTests(unittest.TestCase):
             self.assertIn(f'data-tab="{tab}"', resp.text)
             self.assertIn(f'data-panel="{tab}"', resp.text)
         for pref in (
-            "theme", "accent", "zoom", "font", "density", "rail", "autoOpen",
+            "theme", "accent", "zoom", "font", "contrast", "motion", "density", "rail", "autoOpen",
             "rememberUser", "notify", "sound", "confirmClose",
         ):
             self.assertIn(f'data-pref="{pref}"', resp.text)
@@ -64,6 +64,11 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('data-about="knowledge"', resp.text)
         self.assertIn('data-value="system"', resp.text)
         self.assertIn("跟随系统", resp.text)
+        self.assertIn("对比度", resp.text)
+        self.assertIn("减弱动画", resp.text)
+        self.assertIn('data-value="80"', resp.text)
+        self.assertIn('data-value="150"', resp.text)
+        self.assertIn("prefers-reduced-motion: reduce", resp.text)
         self.assertIn('localStorage.getItem("electrical.prefs")', resp.text)
         self.assertIn("prefers-color-scheme: dark", resp.text)
         self.assertIn('id="settings-reset"', resp.text)
@@ -157,10 +162,17 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('name + "（推荐）"', js.text)
         self.assertNotIn("data-pick", js.text)
         self.assertNotIn("data-pick", self.client.get("/").text)
-        for attr in ("data-theme", "data-accent", "data-zoom", "data-font", "data-density", "data-rail"):
+        self.assertIn("prefers-reduced-motion: reduce", js.text)
+        self.assertIn("function motionReduced(", js.text)
+        self.assertIn("function motionAttr(", js.text)
+        for attr in ("data-theme", "data-accent", "data-zoom", "data-font", "data-contrast", "data-motion", "data-density", "data-rail"):
             self.assertIn(f'html[{attr}=', css.text, attr)
         self.assertIn('html[data-theme="dark"]', css.text)
         self.assertIn("color-scheme: dark", css.text)
+        self.assertIn('html[data-zoom="80"]', css.text)
+        self.assertIn('html[data-zoom="150"]', css.text)
+        self.assertIn('html[data-contrast="high"]', css.text)
+        self.assertIn('html[data-motion="reduce"]', css.text)
         self.assertIn('html[data-rail="right"] body.is-logged .desk { flex-direction: row-reverse; }', css.text)
         self.assertIn(".settings-tab", css.text)
         self.assertIn(".swatches", css.text)

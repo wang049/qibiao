@@ -23,7 +23,10 @@
 #endif
 #define PORT 18765
 #define MAXP 1024
-#define TITLE L"电子电器 SOR填表"
+#define TITLE L"电子电器智能体"
+#define SHORTCUT_LABEL L"电子电器智能体"
+#define SHORTCUT_NAME L"电子电器智能体.lnk"
+#define SHORTCUT_NAME_OLD L"电子电器SOR填表.lnk"
 #define ZIP_MAGIC "EKROWZP1"
 #define ZIP_MAGIC_LEN 8
 
@@ -283,7 +286,7 @@ static void status_show(const wchar_t *text)
         g_status = CreateWindowExW(
             WS_EX_TOPMOST | WS_EX_APPWINDOW,
             L"ElectricalKrowStatus",
-            TITLE,
+            SHORTCUT_LABEL,
             WS_OVERLAPPED | WS_CAPTION | WS_VISIBLE,
             CW_USEDEFAULT,
             CW_USEDEFAULT,
@@ -396,7 +399,7 @@ static int start_from_dir(const wchar_t *dir)
         cmd[MAXP * 2 - 1] = 0;
         return run_hidden_wait(cmd, dir, 0, 1, NULL);
     }
-    status_show(L"正在打开出表窗口，请稍候…");
+    status_show(L"正在打开电子电器智能体，请稍候…");
     _snwprintf(cmd, MAXP * 2, L"\"%s\" \"%s\"", pyw, runpy);
     cmd[MAXP * 2 - 1] = 0;
     {
@@ -404,7 +407,7 @@ static int start_from_dir(const wchar_t *dir)
         int ready;
         if (!proc) {
             status_close();
-            MessageBoxW(NULL, L"无法启动出表窗口。", TITLE, MB_OK | MB_ICONERROR);
+            MessageBoxW(NULL, L"无法打开电子电器智能体。", TITLE, MB_OK | MB_ICONERROR);
             return 1;
         }
         /* 现场杀毒会扫几千个 py 文件，第一次启动经常超过 45 秒。 */
@@ -417,8 +420,8 @@ static int start_from_dir(const wchar_t *dir)
             return 0;
         MessageBoxW(
             NULL,
-            L"安装已完成，但出表窗口没有启动起来。\n\n"
-            L"请双击桌面快捷方式「电子电器SOR填表」。\n"
+            L"安装已完成，但没有打开电子电器智能体。\n\n"
+            L"请双击桌面快捷方式「电子电器智能体」。\n"
             L"若仍没有窗口，双击安装目录里的 console.bat 查看报错，\n"
             L"并把窗口里的文字发给我们。\n"
             L"日志在 %LOCALAPPDATA%\\electrical-krow\\gateway.log",
@@ -688,15 +691,31 @@ static void make_shortcut(const wchar_t *lnk, const wchar_t *target, const wchar
 {
     IShellLinkW *sl = NULL;
     IPersistFile *pf = NULL;
+    wchar_t icon[MAXP];
     if (FAILED(CoCreateInstance(&CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, &IID_IShellLinkW, (void **)&sl)))
         return;
     IShellLinkW_SetPath(sl, target);
     IShellLinkW_SetWorkingDirectory(sl, workdir);
+    join2(icon, MAXP, workdir, L"app-icon.ico");
+    if (file_exists(icon))
+        IShellLinkW_SetIconLocation(sl, icon, 0);
+    else
+        IShellLinkW_SetIconLocation(sl, target, 0);
+    IShellLinkW_SetDescription(sl, SHORTCUT_LABEL);
     if (SUCCEEDED(IShellLinkW_QueryInterface(sl, &IID_IPersistFile, (void **)&pf))) {
         IPersistFile_Save(pf, lnk, TRUE);
         IPersistFile_Release(pf);
     }
     IShellLinkW_Release(sl);
+    SHChangeNotify(SHCNE_CREATE, SHCNF_PATHW, lnk, NULL);
+}
+
+static void remove_shortcut(const wchar_t *dir, const wchar_t *name)
+{
+    wchar_t lnk[MAXP];
+    join2(lnk, MAXP, dir, name);
+    if (file_exists(lnk) && DeleteFileW(lnk))
+        SHChangeNotify(SHCNE_DELETE, SHCNF_PATHW, lnk, NULL);
 }
 
 static void create_shortcuts(const wchar_t *dest)
@@ -704,11 +723,13 @@ static void create_shortcuts(const wchar_t *dest)
     wchar_t target[MAXP], desk[MAXP], prog[MAXP], lnk[MAXP];
     join2(target, MAXP, dest, L"SORFill.exe");
     if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_DESKTOPDIRECTORY, NULL, 0, desk))) {
-        join2(lnk, MAXP, desk, L"电子电器SOR填表.lnk");
+        remove_shortcut(desk, SHORTCUT_NAME_OLD);
+        join2(lnk, MAXP, desk, SHORTCUT_NAME);
         make_shortcut(lnk, target, dest);
     }
     if (SUCCEEDED(SHGetFolderPathW(NULL, CSIDL_PROGRAMS, NULL, 0, prog))) {
-        join2(lnk, MAXP, prog, L"电子电器SOR填表.lnk");
+        remove_shortcut(prog, SHORTCUT_NAME_OLD);
+        join2(lnk, MAXP, prog, SHORTCUT_NAME);
         make_shortcut(lnk, target, dest);
     }
 }
@@ -945,7 +966,7 @@ static int start_or_install(void)
     wchar_t self[MAXP], dir[MAXP], runpy[MAXP];
     if (!GetModuleFileNameW(NULL, self, MAXP))
         return 1;
-    status_show(L"正在启动，请稍候…");
+    status_show(L"正在启动电子电器智能体，请稍候…");
     dirname_of(dir, MAXP, self);
     join2(runpy, MAXP, dir, L"run.py");
     if (file_exists(runpy))

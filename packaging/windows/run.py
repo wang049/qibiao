@@ -69,7 +69,7 @@ def _win_error(message: str) -> None:
     try:
         import ctypes
 
-        ctypes.windll.user32.MessageBoxW(0, message[:2500], "电子电器 SOR填表", 0x10)
+        ctypes.windll.user32.MessageBoxW(0, message[:2500], "电子电器智能体", 0x10)
     except Exception:
         pass
 

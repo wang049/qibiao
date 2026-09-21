@@ -1,6 +1,9 @@
 /* 第 1 项出表功能页。完整客户端由同事 Electron 工程承载。
    嵌入：/?embed=1 ；跨源时加 api=http://127.0.0.1:端口 或 window.ELECTRICAL_API_BASE。 */
 const $ = (id) => document.getElementById(id);
+function tx(key, vars) {
+  return typeof window.t === "function" ? window.t(key, vars) : key;
+}
 
 let loggedIn = false;
 
@@ -80,6 +83,7 @@ let workPanel = embedMode() ? "extract" : "home";
 let jobTimer = null;
 let jobRows = [];
 let viewingJob = null;
+let lastShownJob = null;
 
 function isSite() {
   return delivery === "site";
@@ -87,24 +91,28 @@ function isSite() {
 
 function applyShellCopy() {
   const sub = $("brand-sub");
-  if (sub) sub.textContent = isSite() ? "场所网页" : "本机工位";
+  if (sub) sub.textContent = isSite() ? tx("brand.sub.site") : tx("brand.sub.client");
   const railSub = $("rail-sub");
-  if (railSub) railSub.textContent = isSite() ? "场所网页" : "本机工位";
+  if (railSub) railSub.textContent = isSite() ? tx("brand.sub.site") : tx("brand.sub.client");
   const badge = $("local-badge");
-  if (badge) badge.textContent = isSite() ? "场所内处理" : "本机读取";
+  if (badge) badge.textContent = isSite() ? tx("badge.site") : tx("badge.local");
   const hint = $("drop-hint");
-  if (hint) {
-    hint.textContent = isSite()
-      ? "文件上传到本场所服务器，不超过 80MB"
-      : "文件只在本机读取，不超过 80MB";
-  }
+  if (hint) hint.textContent = isSite() ? tx("drop.hint.site") : tx("drop.hint.client");
+}
+
+function environmentLabel(id, fallback) {
+  if (id === "cloud") return tx("env.cloud");
+  if (id === "site") return tx("env.site");
+  return fallback || tx("unset");
 }
 
 function envCaption(h) {
-  if (h && h.environment_label) return h.environment_label;
+  if (h && (h.environment || h.environment_label)) {
+    return environmentLabel(h.environment, h.environment_label);
+  }
   const server = String((h && h.server) || "");
   if (server) return server.replace(/^https?:\/\//, "");
-  return "未设置";
+  return tx("unset");
 }
 
 function applyEnvLabels(h) {
@@ -117,7 +125,7 @@ function setRunButtons(running, paused, stopping) {
   go.style.display = running ? "none" : "";
   pauseBtn.classList.toggle("show", !!running);
   stopBtn.classList.toggle("show", !!running);
-  pauseBtn.textContent = paused ? "继续" : "暂停";
+  pauseBtn.textContent = paused ? tx("resume") : tx("pause");
   pauseBtn.disabled = !running || !!stopping;
   stopBtn.disabled = !running || !!stopping;
   pick.disabled = !!running;
@@ -137,16 +145,24 @@ function fmtElapsed(sec) {
   sec = Math.floor(sec);
   const m = Math.floor(sec / 60);
   const s = sec % 60;
-  return m ? (m + " 分 " + s + " 秒") : (s + " 秒");
+  return m ? tx("fmt.elapsed.ms", { m: m, s: s }) : tx("fmt.elapsed.s", { s: s });
 }
-function explainErr(e) {
-  const msg = (e && e.message) ? e.message : String(e);
-  if (msg === "Failed to fetch" || msg === "Load failed" || msg.indexOf("NetworkError") >= 0) {
-    return isSite()
-      ? "与场所页面断开。请刷新后重新出表。"
-      : "与本机页面断开。请刷新后重新出表。";
+function jobMessageText(raw) {
+  const text = String(raw || "");
+  if (typeof window.localizeJobMessage === "function") {
+    const mapped = window.localizeJobMessage(text);
+    if (mapped) return mapped;
   }
-  return msg;
+  return text;
+}
+
+function paintJobStatus(raw, elapsedInner) {
+  const source = raw == null ? "" : String(raw);
+  status.dataset.stage = source;
+  const msg = jobMessageText(source) || tx("status.extracting");
+  status.textContent = elapsedInner
+    ? msg + "  ·  " + tx("status.used", { t: elapsedInner })
+    : msg;
 }
 function setStage(stage) {
   const order = ["read", "ocr", "qc", "extract", "write"];
@@ -172,13 +188,13 @@ async function pollJob(id) {
       await new Promise((r) => setTimeout(r, 800));
     }
   }
-  throw last || new Error("查询进度失败");
+  throw last || new Error(tx("err.poll"));
 }
 
 // 推荐模型（服务端配置默认）；下拉里在名字后加「（推荐）」，value 仍是原名
 let recommendedModel = "";
 function modelLabel(name) {
-  return name && name === recommendedModel ? name + "（推荐）" : name;
+  return name && name === recommendedModel ? name + tx("model.recommended") : name;
 }
 
 function fillModels(names, current) {
@@ -197,7 +213,7 @@ function fillModels(names, current) {
   if (!list.length) {
     const opt = document.createElement("option");
     opt.value = current || "";
-    opt.textContent = current || "登录后加载模型";
+    opt.textContent = current || tx("model.loading");
     sel.appendChild(opt);
   } else {
     list.forEach((name) => {
@@ -225,6 +241,7 @@ async function loadModels() {
 
 async function showWork(on, username) {
   loggedIn = on;
+  applyDesktopTitle();
   if (!on) {
     workPanel = "home";
     viewingJob = null;
@@ -239,7 +256,7 @@ async function showWork(on, username) {
   const av = $("who-avatar");
   if (av) {
     const ch = name.trim().charAt(0);
-    av.textContent = ch ? ch.toUpperCase() : "工";
+    av.textContent = ch ? ch.toUpperCase() : tx("avatar.fallback");
   }
   $("rail").hidden = !on || embedMode();
   if (embedMode()) workPanel = on ? "extract" : "home";
@@ -276,29 +293,27 @@ function applyWorkPanel() {
   $("rail-extract")?.classList.toggle("is-on", extract);
   $("rail-kb")?.classList.toggle("is-on", kb);
   if (!on) {
-    $("kicker").textContent = isSite() ? "场所登录" : "工位登录";
-    $("title").innerHTML = "登录后<span>出表</span>";
-    $("lead").textContent = "请使用开通的邮箱和密码，不要填手机号。";
+    $("kicker").textContent = isSite() ? tx("login.kicker.site") : tx("login.kicker.client");
+    $("title").innerHTML = tx("hero.login.title");
+    $("lead").textContent = tx("hero.login.lead");
     return;
   }
   if (home) {
-    $("kicker").textContent = "工位工作台";
-    $("title").innerHTML = "你好，我是<span>电子电器智能体</span>";
-    $("lead").textContent = "登录后选择功能、提交当份材料，按既定步骤生成输出物。不由模型自行规划路径。同一时刻只处理一份任务。";
+    $("kicker").textContent = tx("hero.home.kicker");
+    $("title").innerHTML = tx("hero.home.title");
+    $("lead").textContent = tx("hero.home.lead");
     return;
   }
   if (kb) {
-    $("kicker").textContent = "场所知识库";
-    $("title").innerHTML = "电机控制器<span>知识库</span>";
-    $("lead").textContent = "条款、物理关系与禁配已建图谱。抽出值只来自当份规格书，库不提供取值。";
+    $("kicker").textContent = tx("hero.kb.kicker");
+    $("title").innerHTML = tx("hero.kb.title");
+    $("lead").textContent = tx("hero.kb.lead");
     if (typeof window.kbEnsure === "function") window.kbEnsure();
     return;
   }
-  $("kicker").textContent = "出表核对";
-  $("title").innerHTML = "导入规格书，<span>出核对表</span>";
-  $("lead").textContent = isSite()
-    ? "将 PDF、Word 或 Excel 拖入下方。文件上传到本场所服务器，不出公网。"
-    : "将 PDF、Word 或 Excel 拖入下方。文件只在本机读取。";
+  $("kicker").textContent = tx("hero.extract.kicker");
+  $("title").innerHTML = tx("hero.extract.title");
+  $("lead").textContent = isSite() ? tx("hero.extract.lead.site") : tx("hero.extract.lead.client");
 }
 
 function escText(s) {
@@ -308,12 +323,12 @@ function escText(s) {
 }
 
 function jobStatusLabel(st) {
-  if (st === "done") return { text: "已完成", cls: "done" };
-  if (st === "error") return { text: "失败", cls: "fail" };
-  if (st === "paused" || st === "pausing") return { text: "已暂停", cls: "run" };
-  if (st === "stopping") return { text: "正在结束", cls: "run" };
-  if (st === "queued") return { text: "排队中", cls: "run" };
-  return { text: "进行中", cls: "run" };
+  if (st === "done") return { text: tx("job.done"), cls: "done" };
+  if (st === "error") return { text: tx("job.fail"), cls: "fail" };
+  if (st === "paused" || st === "pausing") return { text: tx("job.paused"), cls: "run" };
+  if (st === "stopping") return { text: tx("job.stopping"), cls: "run" };
+  if (st === "queued") return { text: tx("job.queued"), cls: "run" };
+  return { text: tx("job.running"), cls: "run" };
 }
 
 function fmtWhen(ts) {
@@ -321,7 +336,7 @@ function fmtWhen(ts) {
   if (!isFinite(n) || n <= 0) return "";
   const d = new Date(n < 1e12 ? n * 1000 : n);
   if (!isFinite(d.getTime())) return "";
-  return d.toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return d.toLocaleString(typeof window.uiLang === "function" && window.uiLang() === "en" ? "en-US" : "zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 function startJobTimer() {
@@ -339,12 +354,32 @@ function stopJobTimer() {
 
 // 文档类型短标签：侧栏任务行 / 最近核对表用
 function kindTag(row) {
-  if (!row || row.extract === false) return row && row.kind_label ? "不抽取" : "";
+  if (!row || row.extract === false) return row && row.kind_label ? tx("kind.skip") : "";
   const label = String(row.kind_label || "");
-  if (row.likely_scan) return "扫描件";
+  if (row.likely_scan) return tx("kind.scan");
   if (/DPR/i.test(label)) return "DPR";
   if (/逆变器/.test(label) || /\bSR\b/.test(label)) return "SR";
-  return label.slice(0, 6);
+  const mapped = (typeof window.kindLabelText === "function") ? window.kindLabelText(label) : label;
+  return mapped.slice(0, 18);
+}
+
+function fileInfoKindLabel(info) {
+  const raw = String((info && info.kind_label) || "");
+  if (typeof window.kindLabelText === "function") return window.kindLabelText(raw);
+  return raw;
+}
+
+function fileInfoScope(info) {
+  const raw = String((info && info.estimate_scope) || "");
+  if (typeof window.estimateScopeText === "function") return window.estimateScopeText(raw);
+  if (raw === "历史" || !raw) return tx("inspect.hist");
+  return raw;
+}
+
+function fileInfoKindNote(info) {
+  const raw = String((info && info.kind_note) || "");
+  if (typeof window.kindNoteText === "function") return window.kindNoteText(raw);
+  return raw;
 }
 
 function fileNameOf(download) {
@@ -363,7 +398,7 @@ function renderJobs() {
   if (!host) return;
   if (!jobRows.length) {
     host.innerHTML = "<div class='job-empty'>" + EMPTY_JOBS_SVG
-      + "<p>还没有出表记录</p><small>点「新建出表」导入第一份规格书，完成后会在这里列出。</small></div>";
+      + "<p>" + tx("empty.jobs") + "</p><small>" + tx("empty.jobsHint") + "</small></div>";
     renderHome();
     return;
   }
@@ -372,12 +407,12 @@ function renderJobs() {
   host.innerHTML = jobRows.map((row) => {
     const id = String(row.id || "");
     const st = jobStatusLabel(row.status || "");
-    const name = String(row.source || "规格书");
+    const name = String(row.source || tx("spec"));
     const when = fmtWhen(row.created_at);
     const bits = [];
     if (when) bits.push(when);
-    if (row.status === "done" && row.found != null) bits.push("已检索到 " + row.found);
-    if (row.status === "done" && Number(row.pending_note || 0) > 0) bits.push("待口径 " + Number(row.pending_note));
+    if (row.status === "done" && row.found != null) bits.push(tx("meta.found", { n: row.found }));
+    if (row.status === "done" && Number(row.pending_note || 0) > 0) bits.push(tx("meta.pending", { n: Number(row.pending_note) }));
     if (row.status === "error" && row.detail) bits.push(String(row.detail).slice(0, 24));
     const tag = kindTag(row);
     const on = id && id === active;
@@ -387,11 +422,12 @@ function renderJobs() {
       + " title='" + escText(name) + "'"
       + (block ? " disabled" : "") + ">"
       + "<span class='job-status " + st.cls + "'>" + st.text + "</span>"
+      + "<span class='job-copy'>"
       + "<span class='job-name'>" + escText(name) + "</span>"
       + "<span class='job-meta'>"
       + (tag ? "<i class='job-tag'>" + escText(tag) + "</i> " : "")
       + escText(bits.join(" · ") || (row.message || ""))
-      + "</span>"
+      + "</span></span>"
       + "</button>";
   }).join("");
   host.querySelectorAll(".job-row").forEach((btn) => {
@@ -407,8 +443,8 @@ let lastHealth = null;
 function fmtMinutes(sec) {
   const n = Number(sec);
   if (!isFinite(n) || n <= 0) return "—";
-  if (n < 90) return Math.round(n) + " 秒";
-  return (n / 60).toFixed(n < 600 ? 1 : 0).replace(/\.0$/, "") + " 分钟";
+  if (n < 90) return tx("fmt.min.s", { n: Math.round(n) });
+  return tx("fmt.min.m", { n: (n / 60).toFixed(n < 600 ? 1 : 0).replace(/\.0$/, "") });
 }
 
 // 出表页顶部一行：知识库版本 · 待专家口径 · 本账号已出 N 份 · 平均耗时
@@ -421,10 +457,10 @@ function workMetaText() {
   const kb = (lastHealth && lastHealth.knowledge) || {};
   const pending = Number((lastHealth && lastHealth.pending_rulings) || 0);
   const bits = [];
-  bits.push(kb.version ? "知识库 " + kb.version : "知识库尚未发布");
-  if (pending > 0) bits.push("待专家口径 " + pending + " 条");
-  if (done.length) bits.push("本账号已出 " + done.length + " 份");
-  if (timed.length) bits.push("平均 " + fmtMinutes(avg));
+  bits.push(kb.version ? tx("meta.kbVer", { v: kb.version }) : tx("meta.kbNone"));
+  if (pending > 0) bits.push(tx("meta.pendingN", { n: pending }));
+  if (done.length) bits.push(tx("meta.doneN", { n: done.length }));
+  if (timed.length) bits.push(tx("meta.avg", { t: fmtMinutes(avg) }));
   return bits.join(" · ");
 }
 
@@ -454,22 +490,22 @@ function renderRecent() {
     const tag = kindTag(r);
     const pend = Number(r.pending_note || 0);
     const bits = [];
-    if (r.extract === false) bits.push("未按清单抽取");
-    else if (found != null) bits.push("已检索到 " + found + (total ? "/" + total : ""));
-    if (pend > 0) bits.push("待口径 " + pend);
-    if (r.stopped_early) bits.push("提前结束");
-    const open = embedMode() ? "" : "<button type='button' class='recent-btn' data-open='" + escText(r.download) + "'>打开</button>";
+    if (r.extract === false) bits.push(tx("recent.skipList"));
+    else if (found != null) bits.push(tx("meta.found", { n: found + (total ? "/" + total : "") }));
+    if (pend > 0) bits.push(tx("meta.pending", { n: pend }));
+    if (r.stopped_early) bits.push(tx("recent.early"));
+    const open = embedMode() ? "" : "<button type='button' class='recent-btn' data-open='" + escText(r.download) + "'>" + tx("recent.open") + "</button>";
     return "<div class='recent-row' data-id='" + escText(id) + "'>"
       + "<div class='recent-main'>"
-      + "<span class='recent-name'>" + escText(r.source || "规格书")
+      + "<span class='recent-name'>" + escText(r.source || tx("spec"))
       + (tag ? "<i class='job-tag'>" + escText(tag) + "</i>" : "") + "</span>"
       + "<span class='recent-meta'>" + escText([fmtWhen(r.created_at), fmtElapsed(r.elapsed_seconds)].filter(Boolean).join(" · ")) + "</span>"
       + "</div>"
       + "<span class='recent-found'>" + escText(bits.join(" · ") || "—") + "</span>"
       + "<span class='recent-actions'>"
-      + "<button type='button' class='recent-btn' data-view='" + escText(id) + "'>查看</button>"
+      + "<button type='button' class='recent-btn' data-view='" + escText(id) + "'>" + tx("recent.view") + "</button>"
       + open
-      + "<a class='recent-btn' href='" + escText(apiUrl(r.download)) + "' download>下载</a>"
+      + "<a class='recent-btn' href='" + escText(apiUrl(r.download)) + "' download>" + tx("recent.download") + "</a>"
       + "</span></div>";
   }).join("");
   list.querySelectorAll("[data-view]").forEach((btn) => {
@@ -494,7 +530,7 @@ async function loadJobs() {
     renderJobs();
   } catch {
     if (!$("job-list").children.length) {
-      $("job-list").innerHTML = "<p class='job-empty'>任务记录暂时无法读取。</p>";
+      $("job-list").innerHTML = "<p class='job-empty'>" + tx("jobs.unread") + "</p>";
     }
   }
 }
@@ -508,44 +544,34 @@ function resultMarkup(data) {
   const miss = extract ? ((data.miss != null) ? data.miss : "—") : "—";
   let tip = "";
   if (data.stopped_early) {
-    tip = "已结束抽取。核对表按当前已抽出内容生成，未抽完的条目仍为空。";
+    tip = tx("result.stoppedTip");
   } else if (!extract && data.kind_note) {
-    tip = data.kind_note;
-  } else if (Number(data.chunk_failures || 0) > 0) {
-    tip = "有 " + Number(data.chunk_failures)
-      + " 个分段识别失败，结果可能不完整；请重点复核未检索到和局部对应条目。";
+    tip = (typeof window.kindNoteText === "function") ? window.kindNoteText(data.kind_note) : data.kind_note;
   } else if (extract && Number(data.llm_calls || 0) < 1 && Number(miss) > 0) {
-    tip = "识别没有成功调用。请退出后重新登录再出表。";
+    tip = tx("result.noLlm");
   }
-  const verdict = String(data.qa_verdict || "").trim();
-  const qa = String(data.qa_summary || "").trim();
-  const qaNote = (
-    (verdict === "warn" || verdict === "fail") && qa && qa !== tip
-  ) ? ("质检：" + qa) : "";
   const incomplete = Number(data.chunk_failures || 0) > 0;
   const heading = data.stopped_early
-    ? "已按已抽出内容出表"
-    : (incomplete ? "核对表已生成（识别不完整）" : "核对表已生成");
+    ? tx("result.stoppedHead")
+    : (incomplete ? tx("result.incompleteHead") : tx("result.doneHead"));
   const dl = data.download
-    ? "<a class='dl' href='" + escText(apiUrl(data.download)) + "' download>下载核对表</a>"
+    ? "<a class='dl' href='" + escText(apiUrl(data.download)) + "' download>" + tx("result.download") + "</a>"
     : "";
   const pending = extract && data.pending_note != null ? Number(data.pending_note) : null;
   const pendingStat = pending != null
-    ? "<div class='stat" + (pending > 0 ? " is-pend" : "") + "'><b>" + pending + "</b><span>待专家口径</span></div>"
+    ? "<div class='stat" + (pending > 0 ? " is-pend" : "") + "'><b>" + pending + "</b><span>" + tx("stat.pending") + "</span></div>"
     : "";
   return "<div class='result-head'><h2>" + heading + "</h2>" + dl + "</div>"
     + "<div class='stats" + (pendingStat ? " has-5" : "") + "'>"
-    + "<div class='stat'><b>" + elapsed + "</b><span>耗时</span></div>"
-    + "<div class='stat is-found'><b>" + found + "</b><span>已检索到</span></div>"
-    + "<div class='stat is-partial'><b>" + partial + "</b><span>局部对应</span></div>"
-    + "<div class='stat is-miss'><b>" + miss + "</b><span>未检索到</span></div>"
+    + "<div class='stat'><b>" + elapsed + "</b><span>" + tx("stat.elapsed") + "</span></div>"
+    + "<div class='stat is-found'><b>" + found + "</b><span>" + tx("stat.found") + "</span></div>"
+    + "<div class='stat is-partial'><b>" + partial + "</b><span>" + tx("stat.partial") + "</span></div>"
+    + "<div class='stat is-miss'><b>" + miss + "</b><span>" + tx("stat.miss") + "</span></div>"
     + pendingStat
     + "</div>"
     + (extract ? groupBarsMarkup(data.groups) : "")
     + (extract ? compareMarkup(data.compare) : "")
-    + (qaNote || tip
-      ? "<p class='result-note'>" + [qaNote, tip].filter(Boolean).join(" ") + "</p>"
-      : "");
+    + (tip ? "<p class='result-note'>" + tip + "</p>" : "");
 }
 
 // 按 12 个业务分组的检索结论小条形：已检索到 / 局部对应 / 未检索到
@@ -556,7 +582,7 @@ function groupBarsMarkup(groups) {
     const f = Number(g.found || 0), p = Number(g.partial || 0), m = Number(g.miss || 0);
     const pct = (n) => (100 * n / total).toFixed(1) + "%";
     const weak = f === 0 && total >= 2;
-    return "<div class='gbar" + (weak ? " is-weak" : "") + "' title='已检索到 " + f + " · 局部对应 " + p + " · 未检索到 " + m + "'>"
+    return "<div class='gbar" + (weak ? " is-weak" : "") + "' title='" + escText(tx("groups.title", { f: f, p: p, m: m })) + "'>"
       + "<span class='gbar-name'>" + escText(g.name) + "</span>"
       + "<span class='gbar-track'>"
       + "<i class='f' style='width:" + pct(f) + "'></i>"
@@ -566,8 +592,10 @@ function groupBarsMarkup(groups) {
       + "<span class='gbar-num'>" + f + "<small>/" + Number(g.total || 0) + "</small></span>"
       + "</div>";
   }).join("");
-  return "<div class='groups'><div class='groups-head'><span>分组检索结论</span>"
-    + "<span class='groups-legend'><i class='f'></i>已检索到<i class='p'></i>局部对应<i class='m'></i>未检索到</span></div>"
+  return "<div class='groups'><div class='groups-head'><span>" + tx("groups.head") + "</span>"
+    + "<span class='groups-legend'><i class='f'></i>" + tx("groups.legend.found")
+    + "<i class='p'></i>" + tx("groups.legend.partial")
+    + "<i class='m'></i>" + tx("groups.legend.miss") + "</span></div>"
     + rows + "</div>";
 }
 
@@ -579,22 +607,24 @@ function compareMarkup(cmp) {
   const sign = delta > 0 ? "+" + delta : String(delta);
   const gained = Array.isArray(cmp.gained) ? cmp.gained : [];
   const lost = Array.isArray(cmp.lost) ? cmp.lost : [];
-  const more = (list, n) => (n > list.length ? " 等 " + n + " 条" : "");
+  const joiner = (typeof window.uiLang === "function" && window.uiLang() === "en") ? ", " : "、";
+  const more = (list, n) => (n > list.length ? tx("compare.more", { n: n }) : "");
   let body = "";
   if (!gained.length && !lost.length) {
-    body = "<p>已检索到的条目与上次完全一致。</p>";
+    body = "<p>" + tx("compare.same") + "</p>";
   } else {
-    if (gained.length) body += "<p><b class='up'>新增 " + Number(cmp.gained_n || gained.length) + "</b>：" + escText(gained.join("、")) + more(gained, Number(cmp.gained_n || 0)) + "</p>";
-    if (lost.length) body += "<p><b class='down'>减少 " + Number(cmp.lost_n || lost.length) + "</b>：" + escText(lost.join("、")) + more(lost, Number(cmp.lost_n || 0)) + "</p>";
+    if (gained.length) body += "<p><b class='up'>" + tx("compare.gained", { n: Number(cmp.gained_n || gained.length) }) + "</b>: " + escText(gained.join(joiner)) + more(gained, Number(cmp.gained_n || 0)) + "</p>";
+    if (lost.length) body += "<p><b class='down'>" + tx("compare.lost", { n: Number(cmp.lost_n || lost.length) }) + "</b>: " + escText(lost.join(joiner)) + more(lost, Number(cmp.lost_n || 0)) + "</p>";
   }
-  return "<div class='compare'><div class='compare-head'>与上次同名文件对比"
+  return "<div class='compare'><div class='compare-head'>" + tx("compare.head")
     + "<span>" + escText(fmtWhen(cmp.prev_at)) + "</span></div>"
-    + "<p class='compare-sum'>已检索到 " + prev + " → " + now
-    + " <b class='" + (delta > 0 ? "up" : (delta < 0 ? "down" : "")) + "'>" + (delta === 0 ? "持平" : sign) + "</b></p>"
+    + "<p class='compare-sum'>" + tx("compare.sum", { prev: prev, now: now })
+    + " <b class='" + (delta > 0 ? "up" : (delta < 0 ? "down" : "")) + "'>" + (delta === 0 ? tx("compare.flat") : sign) + "</b></p>"
     + body + "</div>";
 }
 
 function showFinishedJob(data) {
+  lastShownJob = data;
   progress.classList.add("show");
   liveLine({});
   barfill.style.width = "100%";
@@ -604,9 +634,9 @@ function showFinishedJob(data) {
   status.className = "status";
   status.dataset.stage = "";
   status.textContent = (data.stopped_early
-    ? "已按已抽出内容出表"
-    : (Number(data.chunk_failures || 0) > 0 ? "出表完成 · 识别不完整" : "出表完成"))
-    + "  ·  已用 " + elapsed;
+    ? tx("status.stopped")
+    : (Number(data.chunk_failures || 0) > 0 ? tx("status.incomplete") : tx("status.done")))
+    + "  ·  " + tx("status.used", { t: elapsed });
   result.className = "result show";
   result.innerHTML = resultMarkup(data);
   revealResult();
@@ -624,10 +654,10 @@ async function openHistory(id) {
     if (data.status === "error") {
       progress.classList.add("show");
       result.className = "result fail show";
-      result.innerHTML = "<h2>未能完成出表</h2><p class='result-note'>"
-        + escText(data.detail || data.message || "出表失败") + "</p>";
+      result.innerHTML = "<h2>" + tx("result.failHead") + "</h2><p class='result-note'>"
+        + escText(data.detail || data.message || tx("result.failDefault")) + "</p>";
       status.className = "status err";
-      status.textContent = data.detail || data.message || "出表失败";
+      status.textContent = data.detail || data.message || tx("result.failDefault");
       revealResult();
       return;
     }
@@ -649,10 +679,7 @@ async function refresh() {
     renderHome();
     llmOk = !!h.ok;
     health.className = "health " + (h.ok ? "ok" : "err");
-    let ready = "服务就绪 · 请登录";
-    if (h.logged_in) ready = "服务就绪";
-    if (h.busy) ready = "服务就绪 · 当前有任务在出表";
-    $("health-text").textContent = h.ok ? ready : (h.detail || "识别服务未就绪");
+    applyHealthText();
     applyEnvLabels(h);
   } catch (err) {
     llmOk = false;
@@ -673,8 +700,8 @@ $("pass-toggle").onclick = () => {
   input.type = show ? "text" : "password";
   const btn = $("pass-toggle");
   btn.classList.toggle("on", show);
-  btn.setAttribute("aria-label", show ? "隐藏密码" : "显示密码");
-  btn.title = show ? "隐藏密码" : "显示密码";
+  btn.setAttribute("aria-label", show ? tx("login.hidePass") : tx("login.showPass"));
+  btn.title = show ? tx("login.hidePass") : tx("login.showPass");
 };
 
 $("login").onclick = async () => {
@@ -716,6 +743,7 @@ function extractBusy() {
 // 上次完成或点侧栏打开的核对结果会留在本页，必须清掉；正在跑的任务不能清。
 function clearExtractOutcome() {
   viewingJob = null;
+  lastShownJob = null;
   result.classList.remove("show", "fail");
   result.innerHTML = "";
   $("work-card")?.classList.remove("has-result");
@@ -786,11 +814,11 @@ result.addEventListener("click", async (ev) => {
     if (out && out.canceled) return;
     if (out && out.ok) {
       status.className = "status";
-      const prev = (status.textContent || "出表完成").replace(/\s*·\s*核对表已保存$/, "");
-      status.textContent = prev + "  ·  核对表已保存";
+      const prev = (status.textContent || tx("status.done")).replace(/\s*·\s*(核对表已保存|Workbook saved)$/i, "");
+      status.textContent = prev + "  ·  " + tx("status.saved");
       return;
     }
-    throw new Error((out && out.error) || "保存失败");
+    throw new Error((out && out.error) || tx("err.save"));
   } catch (e) {
     status.className = "status err";
     status.textContent = explainErr(e);
@@ -802,7 +830,7 @@ function setFile(f) {
   fname.textContent = chosen ? chosen.name : "";
   fsize.textContent = chosen ? fmtSize(chosen.size) : "";
   go.disabled = !(chosen && llmOk && loggedIn);
-  pick.textContent = chosen ? "更换文件" : "选择文件";
+  pick.textContent = chosen ? tx("pick.change") : tx("pick");
   result.classList.remove("show");
   result.innerHTML = "";
   $("work-card")?.classList.remove("has-result");
@@ -813,25 +841,28 @@ function setFile(f) {
 let inspectSeq = 0;
 function fileInfoMarkup(info) {
   const chips = [];
-  const label = String(info.kind_label || "");
+  const label = fileInfoKindLabel(info);
   if (label) chips.push("<span class='fi-chip" + (info.extract === false ? " warn" : " ok") + "'>" + escText(label) + "</span>");
-  else chips.push("<span class='fi-chip'>类型待读取</span>");
-  if (Number(info.page_count || 0) > 0) chips.push("<span class='fi-chip'>" + Number(info.page_count) + " " + escText(info.page_unit || "页") + "</span>");
+  else chips.push("<span class='fi-chip'>" + tx("inspect.kindPending") + "</span>");
+  if (Number(info.page_count || 0) > 0) {
+    const unit = info.page_unit === "页" || !info.page_unit ? tx("inspect.unit.page") : String(info.page_unit);
+    chips.push("<span class='fi-chip'>" + Number(info.page_count) + " " + escText(unit) + "</span>");
+  }
   chips.push("<span class='fi-chip'>" + escText(fmtSize(Number(info.size || 0))) + "</span>");
   if (String(info.suffix || "") === ".pdf") {
     chips.push(info.likely_scan
-      ? "<span class='fi-chip warn'>扫描件 · 需本机 OCR</span>"
-      : "<span class='fi-chip'>文字稿 · 不用 OCR</span>");
+      ? "<span class='fi-chip warn'>" + tx("inspect.scanOcr") + "</span>"
+      : "<span class='fi-chip'>" + tx("inspect.textNoOcr") + "</span>");
   }
   let est = "";
   if (info.extract === false) {
-    est = escText(info.kind_note || "不按 120 项电控清单抽取。");
+    est = escText(fileInfoKindNote(info) || tx("inspect.noList"));
   } else if (Number(info.estimate_seconds || 0) > 0) {
-    est = "预计约 " + fmtMinutes(info.estimate_seconds)
-      + "（按 " + Number(info.estimate_n || 0) + " 份" + escText(info.estimate_scope || "历史") + "的中位耗时）";
-    if (info.likely_scan) est += "；扫描件 OCR 会更久";
+    const scope = fileInfoScope(info);
+    est = tx("inspect.est", { t: fmtMinutes(info.estimate_seconds), n: Number(info.estimate_n || 0), scope: scope });
+    if (info.likely_scan) est += tx("inspect.scanLonger");
   } else {
-    est = "还没有可参照的历史耗时；文字稿通常十几分钟，扫描件更久。";
+    est = tx("inspect.noHist");
   }
   return "<div class='fi-chips'>" + chips.join("") + "</div><p class='fi-est'>" + est + "</p>";
 }
@@ -848,7 +879,7 @@ async function inspectChosen(f) {
   host.hidden = false;
   host.className = "file-info is-loading";
   host.innerHTML = fileInfoMarkup({ size: f.size, suffix: "." + String(f.name.split(".").pop() || "").toLowerCase() })
-    .replace("类型待读取", "正在读取文件信息…");
+    .replace(tx("inspect.kindPending"), tx("inspect.kindLoading"));
   if (!loggedIn) return;
   try {
     const body = new FormData();
@@ -858,7 +889,7 @@ async function inspectChosen(f) {
     });
     const info = await res.json().catch(() => ({}));
     if (seq !== inspectSeq || !chosen) return;
-    if (!res.ok) throw new Error(detailText(info) || info.detail || "读取文件信息失败");
+    if (!res.ok) throw new Error(detailText(info) || info.detail || tx("err.inspect"));
     host.className = "file-info" + (info.extract === false ? " is-warn" : "");
     host.innerHTML = fileInfoMarkup(info);
   } catch (e) {
@@ -873,8 +904,8 @@ function liveLine(data) {
   if (!el) return;
   const bits = [];
   const done = Number(data.chunk_done || 0), total = Number(data.chunk_total || 0);
-  if (total > 0) bits.push("分段 " + Math.min(done, total) + "/" + total);
-  if (data.filled != null) bits.push("已抽出 " + Number(data.filled) + " 项");
+  if (total > 0) bits.push(tx("live.chunk", { a: Math.min(done, total), b: total }));
+  if (data.filled != null) bits.push(tx("live.filled", { n: Number(data.filled) }));
   el.hidden = !bits.length;
   el.textContent = bits.join(" · ");
 }
@@ -960,12 +991,11 @@ async function followJob(jobId, t0, opts) {
   while (loggedIn) {
     await sleep(800);
     const { pr, data } = await pollJob(jobId);
-    if (!pr.ok) throw new Error(detailText(data) || data.detail || "查询进度失败");
+    if (!pr.ok) throw new Error(detailText(data) || data.detail || tx("err.poll"));
     const pct = Math.max(0, Math.min(100, data.percent || 0));
     barfill.style.width = pct + "%";
     setStage(data.stage || "extract");
-    status.dataset.stage = data.message || "正在出表…";
-    status.textContent = status.dataset.stage + "  ·  已用 " + fmtElapsed((Date.now() - t0) / 1000);
+    paintJobStatus(data.message || tx("status.extracting"), fmtElapsed((Date.now() - t0) / 1000));
     liveLine(data);
     const st = data.status || "";
     runPaused = st === "paused" || st === "pausing";
@@ -976,7 +1006,7 @@ async function followJob(jobId, t0, opts) {
       // 只对本页发起的出表自动打开 / 提醒；刷新后接回的旧任务不打开
       if (startedHere) {
         const sheet = decodeURIComponent(String(data.download || "").split("/").pop() || "");
-        finishAlert("出表完成", sheet || "核对表已生成");
+        finishAlert(tx("alert.done"), sheet || tx("alert.sheet"));
         if (prefs.autoOpen === "on" && !embedMode()) openWorkbookLocally(data.download);
       }
       await waitUntilIdle();
@@ -984,8 +1014,8 @@ async function followJob(jobId, t0, opts) {
     }
     if (st === "error") {
       liveLine({});
-      const why = detailText(data) || data.detail || "出表失败";
-      if (startedHere) finishAlert("出表失败", why);
+      const why = detailText(data) || data.detail || tx("result.failDefault");
+      if (startedHere) finishAlert(tx("alert.fail"), why);
       throw new Error(why);
     }
   }
@@ -1017,8 +1047,7 @@ async function resumeActiveJob() {
       setRunButtons(true, false, true);
       progress.classList.add("show");
       status.className = "status";
-      status.dataset.stage = "上一份正在收尾出表，完成后即可再提交";
-      status.textContent = status.dataset.stage;
+      paintJobStatus(tx("status.waitLock"));
       await waitUntilIdle();
       return;
     }
@@ -1037,7 +1066,7 @@ async function resumeActiveJob() {
       status.dataset.stage = "";
       status.textContent = explainErr(e);
       result.className = "result fail show";
-      result.innerHTML = "<h2>未能完成出表</h2><p class='result-note'>" + explainErr(e) + "</p>";
+      result.innerHTML = "<h2>" + tx("result.failHead") + "</h2><p class='result-note'>" + explainErr(e) + "</p>";
       revealResult();
     }
   } finally {
@@ -1056,6 +1085,7 @@ go.addEventListener("click", async () => {
   if (!chosen || submitting || currentJob || attaching) return;
   submitting = true;
   viewingJob = null;
+  lastShownJob = null;
   runPaused = false;
   renderRecent();
   setPanel("extract");
@@ -1068,19 +1098,18 @@ go.addEventListener("click", async () => {
   setStage("read");
   const t0 = Date.now();
   status.className = "status";
-  status.dataset.stage = "已接收文件，开始读取…";
-  status.textContent = status.dataset.stage + "  ·  已用 0 秒";
+  paintJobStatus(tx("status.received"), tx("fmt.elapsed.s", { s: 0 }));
   let tick = setInterval(() => {
     if (!status.dataset.stage) return;
-    status.textContent = status.dataset.stage + "  ·  已用 " + fmtElapsed((Date.now() - t0) / 1000);
+    paintJobStatus(status.dataset.stage, fmtElapsed((Date.now() - t0) / 1000));
   }, 1000);
   try {
-    const waitNote = "上一份正在结束，结束后立即开始这份";
+    const waitNote = tx("status.waitPrev");
     const deadline = Date.now() + 20 * 60 * 1000;
     let job = null;
     while (!job) {
       if (Date.now() > deadline) {
-        throw new Error("上一份仍未结束，请稍后再提交。");
+        throw new Error(tx("err.busyWait"));
       }
       let busy = false;
       try {
@@ -1090,8 +1119,7 @@ go.addEventListener("click", async () => {
         busy = false;
       }
       if (busy) {
-        status.dataset.stage = waitNote;
-        status.textContent = waitNote + "  ·  已用 " + fmtElapsed((Date.now() - t0) / 1000);
+        paintJobStatus(waitNote, fmtElapsed((Date.now() - t0) / 1000));
         setRunButtons(true, false, true);
         await sleep(800);
         continue;
@@ -1110,23 +1138,22 @@ go.addEventListener("click", async () => {
         break;
       }
       if (isBusyConflict(started.status, payload)) {
-        status.dataset.stage = waitNote;
-        status.textContent = waitNote + "  ·  已用 " + fmtElapsed((Date.now() - t0) / 1000);
+        paintJobStatus(waitNote, fmtElapsed((Date.now() - t0) / 1000));
         setRunButtons(true, false, true);
         await sleep(800);
         continue;
       }
-      throw new Error(detailText(payload) || payload.detail || "无法开始出表");
+      throw new Error(detailText(payload) || payload.detail || tx("err.start"));
     }
     setRunButtons(true, false, false);
-    status.dataset.stage = "已接收文件，开始读取…";
+    paintJobStatus(tx("status.received"));
     await followJob(job.id, t0, { startedHere: true });
   } catch (e) {
     status.className = "status err";
     status.dataset.stage = "";
     status.textContent = explainErr(e);
     result.className = "result fail show";
-    result.innerHTML = "<h2>未能完成出表</h2><p class='result-note'>" + explainErr(e) + "</p>";
+    result.innerHTML = "<h2>" + tx("result.failHead") + "</h2><p class='result-note'>" + explainErr(e) + "</p>";
     revealResult();
   } finally {
     clearInterval(tick);
@@ -1147,7 +1174,7 @@ async function sendControl(action) {
     headers: authHeaders(),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.detail || "操作失败");
+  if (!res.ok) throw new Error(data.detail || tx("err.op"));
   return data;
 }
 pauseBtn.addEventListener("click", async () => {
@@ -1157,11 +1184,11 @@ pauseBtn.addEventListener("click", async () => {
     if (runPaused) {
       await sendControl("resume");
       runPaused = false;
-      pauseBtn.textContent = "暂停";
+      pauseBtn.textContent = tx("pause");
     } else {
       await sendControl("pause");
       runPaused = true;
-      pauseBtn.textContent = "继续";
+      pauseBtn.textContent = tx("resume");
     }
   } catch (e) {
     status.className = "status err";
@@ -1176,7 +1203,7 @@ stopBtn.addEventListener("click", async () => {
   stopBtn.disabled = true;
   try {
     await sendControl("stop");
-    status.dataset.stage = "将在本批结束后结束，并按已抽出内容出表…";
+    paintJobStatus(tx("status.ending"));
   } catch (e) {
     status.className = "status err";
     status.textContent = explainErr(e);
@@ -1199,6 +1226,7 @@ const PREF_DEFAULTS = {
   motion: "system",
   density: "cozy",
   rail: "left",
+  lang: "zh",
   // 出表：默认模型（空 = 用服务端默认）、完成后自动打开。模型推理不进设置，跟上游默认（开）
   model: "",
   autoOpen: "off",
@@ -1217,6 +1245,7 @@ const PREF_ALLOWED = {
   motion: ["system", "on", "off"],
   density: ["cozy", "compact"],
   rail: ["left", "right"],
+  lang: ["zh", "en"],
   autoOpen: ["off", "on"],
   rememberUser: ["off", "on"],
   notify: ["off", "on"],
@@ -1258,15 +1287,18 @@ function loadPrefs() {
     if (k === "model") out[k] = validModelName(raw[k]) ? raw[k] : "";
     else out[k] = PREF_ALLOWED[k].includes(raw[k]) ? raw[k] : PREF_DEFAULTS[k];
   });
-  // 父壳可用 ?theme= 指定主题（不落盘）
+  // 父壳可用 ?theme= / ?lang= 指定（不落盘）
   const forced = themeFromQuery();
   if (forced) out.theme = forced;
+  const forcedLang = typeof window.langFromQuery === "function" ? window.langFromQuery() : "";
+  if (forcedLang) out.lang = forcedLang;
   return out;
 }
 
 function savePrefs(prefs) {
   const toStore = Object.assign({}, prefs);
   if (themeFromQuery()) delete toStore.theme;
+  if (typeof window.langFromQuery === "function" && window.langFromQuery()) delete toStore.lang;
   try {
     localStorage.setItem(PREFS_KEY, JSON.stringify(toStore));
   } catch (_) {
@@ -1282,7 +1314,92 @@ function applyPrefs(prefs) {
     if (k === "motion") v = motionAttr(v);
     h.setAttribute("data-" + k, v);
   });
+  const lang = (typeof window.langFromQuery === "function" && window.langFromQuery()) || prefs.lang || "zh";
+  h.setAttribute("data-lang", lang);
+  h.lang = lang === "en" ? "en" : "zh-CN";
 }
+
+function applyHealthText() {
+  const el = $("health-text");
+  if (!el || !lastHealth) return;
+  const h = lastHealth;
+  let ready = tx("health.needLogin");
+  if (h.logged_in) ready = tx("health.ready");
+  if (h.busy) ready = tx("health.busy");
+  el.textContent = h.ok ? ready : (h.detail || tx("health.down"));
+  applyEnvLock();
+}
+
+function jobIsRunning() {
+  return !!(currentJob || (lastHealth && lastHealth.busy));
+}
+
+function applyEnvLock() {
+  const locked = jobIsRunning();
+  const box = $("env-choices");
+  const warn = $("env-busy");
+  if (box) {
+    box.classList.toggle("is-locked", locked);
+    box.querySelectorAll("button.env-choice").forEach((btn) => {
+      btn.disabled = locked;
+    });
+  }
+  if (warn) {
+    warn.hidden = !locked;
+    warn.textContent = tx("env.busy");
+  }
+}
+
+function applyDesktopTitle() {
+  const title = tx("brand.agent");
+  document.title = title;
+  try {
+    const api = window.pywebview && window.pywebview.api;
+    if (api && typeof api.set_title === "function") {
+      Promise.resolve(api.set_title(title)).catch(() => {});
+    }
+  } catch (_) { /* 非桌面窗口无需同步原生标题 */ }
+}
+
+function applyUiLang() {
+  if (typeof window.applyStaticI18n === "function") window.applyStaticI18n();
+  applyDesktopTitle();
+  applyShellCopy();
+  applyWorkPanel();
+  applyHealthText();
+  if (lastHealth) applyEnvLabels(lastHealth);
+  const sel = $("model");
+  if (sel) {
+    const names = Array.from(sel.options).map((o) => o.value).filter(Boolean);
+    fillModels(names, sel.value);
+  }
+  renderPrefControls();
+  renderJobs();
+  pick.textContent = chosen ? tx("pick.change") : tx("pick");
+  if (currentJob) pauseBtn.textContent = runPaused ? tx("resume") : tx("pause");
+  else pauseBtn.textContent = tx("pause");
+  const pass = $("pass");
+  const pbtn = $("pass-toggle");
+  if (pass && pbtn) {
+    const show = pass.type !== "password";
+    pbtn.setAttribute("aria-label", show ? tx("login.hidePass") : tx("login.showPass"));
+    pbtn.title = show ? tx("login.hidePass") : tx("login.showPass");
+  }
+  if (chosen && !extractBusy()) inspectChosen(chosen);
+  if (lastShownJob && result.classList.contains("show") && !result.classList.contains("fail")) {
+    showFinishedJob(lastShownJob);
+  }
+  if (typeof window.kbRerender === "function") window.kbRerender();
+  applyEnvLock();
+  if (status.dataset.stage) {
+    const parts = String(status.textContent || "").split("  ·  ");
+    const elapsed = parts.length > 1 ? parts.slice(1).join("  ·  ") : "";
+    const msg = jobMessageText(status.dataset.stage) || tx("status.extracting");
+    status.textContent = elapsed ? msg + "  ·  " + elapsed : msg;
+  }
+}
+
+window.addEventListener("pywebviewready", applyDesktopTitle);
 
 let prefs = loadPrefs();
 applyPrefs(prefs);
@@ -1312,6 +1429,7 @@ function setPref(key, value) {
   savePrefs(prefs);
   applyPrefs(prefs);
   renderPrefControls();
+  if (key === "lang") applyUiLang();
   if (key === "notify" && value === "on") askNotifyPermission();
   if (key === "rememberUser" && value === "off") rememberLoginUser("");
 }
@@ -1343,17 +1461,17 @@ function askNotifyPermission() {
     msg.textContent = text;
   };
   if (!("Notification" in window)) {
-    say("当前窗口不支持系统通知。");
+    say(tx("notify.unsupported"));
     return;
   }
   if (Notification.permission === "granted") return;
   if (Notification.permission === "denied") {
-    say("系统通知已被拒绝，请在系统或浏览器的通知设置里允许本程序。");
+    say(tx("notify.denied"));
     return;
   }
   Notification.requestPermission().then((p) => {
-    if (p !== "granted") say("没有拿到通知权限，完成时不会弹系统通知。");
-    else say("已允许系统通知。", true);
+    if (p !== "granted") say(tx("notify.notGranted"));
+    else say(tx("notify.ok"), true);
   }).catch(() => {});
 }
 
@@ -1405,7 +1523,7 @@ function renderPrefControls() {
     modelSel.innerHTML = "";
     const head = document.createElement("option");
     head.value = "";
-    head.textContent = names.length ? "用服务端默认" : "登录后可选";
+    head.textContent = names.length ? tx("pref.model.serverDefault") : tx("pref.model.afterLogin");
     modelSel.appendChild(head);
     names.forEach((n) => {
       const opt = document.createElement("option");
@@ -1416,7 +1534,7 @@ function renderPrefControls() {
     if (prefs.model && !names.includes(prefs.model)) {
       const opt = document.createElement("option");
       opt.value = prefs.model;
-      opt.textContent = prefs.model + "（当前环境未列出）";
+      opt.textContent = prefs.model + tx("pref.model.missing");
       modelSel.appendChild(opt);
     }
     modelSel.value = prefs.model || "";
@@ -1468,9 +1586,12 @@ $("settings-reset")?.addEventListener("click", () => {
   prefs = Object.assign({}, PREF_DEFAULTS, keep);
   const forced = themeFromQuery();
   if (forced) prefs.theme = forced;
+  const forcedLang = typeof window.langFromQuery === "function" ? window.langFromQuery() : "";
+  if (forcedLang) prefs.lang = forcedLang;
   savePrefs(prefs);
   applyPrefs(prefs);
   renderPrefControls();
+  applyUiLang();
 });
 
 function showSettingsTab(name) {
@@ -1500,7 +1621,7 @@ async function loadAbout() {
     put("sdk", v.sdk);
     put("runtime", v.runtime);
     put("knowledge", v.knowledge);
-    put("server", (h.environment_label ? h.environment_label + "  " : "") + (h.server || ""));
+    put("server", (envCaption(h) ? envCaption(h) + "  " : "") + (h.server || ""));
     put("model", prefs.model || h.model);
     put("output_dir", h.output_dir);
     put("platform", [v.platform, v.python ? "Python " + v.python : ""].filter(Boolean).join("  ·  "));
@@ -1520,11 +1641,12 @@ $("about-open-output")?.addEventListener("click", async () => {
 
 $("about-copy")?.addEventListener("click", async () => {
   const rows = Array.from($("about-list")?.querySelectorAll("dt") || []);
-  const text = rows.map((dt) => dt.textContent + "：" + (dt.nextElementSibling?.textContent || "")).join("\n");
+  const sep = (typeof window.uiLang === "function" && window.uiLang() === "en") ? ": " : "：";
+  const text = rows.map((dt) => dt.textContent + sep + (dt.nextElementSibling?.textContent || "")).join("\n");
   const msg = $("settings-msg");
   try {
     await navigator.clipboard.writeText(text);
-    if (msg) { msg.hidden = false; msg.classList.add("is-info"); msg.textContent = "已复制。"; }
+    if (msg) { msg.hidden = false; msg.classList.add("is-info"); msg.textContent = tx("about.copied"); }
   } catch (_) {
     if (msg) { msg.hidden = false; msg.textContent = text; }
   }
@@ -1552,29 +1674,38 @@ async function loadEnvironments() {
   const box = $("env-choices");
   const msg = $("settings-msg");
   if (!box) return;
-  box.innerHTML = "<p>正在读取环境…</p>";
+  box.innerHTML = "<p>" + tx("env.loading") + "</p>";
   try {
     const data = await json("/api/settings");
+    try {
+      lastHealth = await json("/api/health");
+    } catch (_) { /* 锁态仍按已有 lastHealth / currentJob */ }
     box.innerHTML = "";
     (data.environments || []).forEach((env) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "env-choice" + (env.id === data.id ? " is-on" : "");
-      btn.innerHTML = "<strong>" + escText(env.label) + "</strong><span>"
+      btn.innerHTML = "<strong>" + escText(environmentLabel(env.id, env.label)) + "</strong><span>"
         + escText(env.server) + "</span>";
       btn.addEventListener("click", () => pickEnvironment(env.id));
       box.appendChild(btn);
     });
+    applyEnvLock();
   } catch (err) {
     box.innerHTML = "";
     msg.hidden = false;
     msg.textContent = String(err.message || err);
+    applyEnvLock();
   }
 }
 
 async function pickEnvironment(id) {
   const msg = $("settings-msg");
   msg.hidden = true;
+  if (jobIsRunning()) {
+    applyEnvLock();
+    return;
+  }
   try {
     const data = await json("/api/settings", {
       method: "POST",
@@ -1590,10 +1721,6 @@ async function pickEnvironment(id) {
       jobRows = [];
       renderJobs();
       await showWork(false, "");
-      const note = $("login-msg");
-      note.hidden = false;
-      note.classList.add("is-info");
-      note.textContent = "已切换到" + (data.label || "新环境") + "，请重新登录。";
     }
     await refresh();
   } catch (err) {
@@ -1614,4 +1741,5 @@ if (settingsDialog) {
   });
 }
 
+applyUiLang();
 refresh();

@@ -415,6 +415,9 @@ class KnowledgeCompileTests(unittest.TestCase):
             self.assertNotIn(f"clause:{seq}", ents)
         hipot = ents["clause:14"]
         self.assertEqual(hipot["type"], "CLAUSE")
+        self.assertTrue(hipot["definition"])
+        self.assertEqual(hipot["definition"], hipot["data"]["gloss"])
+        self.assertIn("耐电压", hipot["definition"])
         self.assertEqual(hipot["identity"], {"resolution": "distinct", "decided_by": "rule", "rules_fired": ["list_seq_unique"]})
         self.assertEqual(hipot["category"]["id"], "hv_safety")
         self.assertEqual(hipot["category"]["basis"], "list_group")
@@ -443,12 +446,16 @@ class KnowledgeCompileTests(unittest.TestCase):
         self.assertEqual(len(cats), 12)
 
     def test_relations_and_wiki_pages(self) -> None:
-        ids = {e["id"] for e in self.bundle["entities"]}
+        ents = {e["id"]: e for e in self.bundle["entities"]}
+        ids = set(ents)
         types = {r["type"] for r in self.bundle["relations"]}
         self.assertEqual(types, {"related", "not", "same_slot", "interprets", "verifies", "term_of"})
         for r in self.bundle["relations"]:
             self.assertIn(r["from"], ids)
             self.assertIn(r["to"], ids)
+            self.assertEqual(r["source_id"], r["from"])
+            self.assertEqual(r["target_id"], r["to"])
+            self.assertEqual(r["relation_type"], r["type"])
         self.assertIn("rel:verifies:std:6.3->clause:14", {r["id"] for r in self.bundle["relations"]})
         pages = {p["id"]: p for p in self.bundle["wiki_pages"]}
         self.assertEqual(len([p for p in pages.values() if p["page_type"] == "entity"]), 116)
@@ -457,9 +464,16 @@ class KnowledgeCompileTests(unittest.TestCase):
         self.assertNotIn("category", idx)
         p14 = pages["wikipage:electrical/clause-14"]
         self.assertEqual(p14["entity_id"], "clause:14")
+        self.assertEqual(p14["source_id"], "clause:14")
         self.assertEqual(p14["category"], "hv_safety")
         self.assertIn("category: hv_safety", p14["content"])
         self.assertIn("不提供取值", p14["content"])
+        self.assertEqual(p14["body"], p14["content"])
+        self.assertEqual(p14["markdown"], p14["content"])
+        self.assertEqual(p14["definition"], ents["clause:14"]["definition"])
+        self.assertEqual(p14["summary"], ents["clause:14"]["definition"])
+        self.assertEqual(idx["source_id"], idx["id"])
+        self.assertEqual(idx["body"], idx["content"])
         dumped = json.dumps(self.bundle, ensure_ascii=False)
         for bad in (".insights", ".krow", "甲方", "乙方", "xlsx.example"):
             self.assertNotIn(bad, dumped)

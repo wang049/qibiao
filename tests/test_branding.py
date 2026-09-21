@@ -25,6 +25,10 @@ class BrandingTests(unittest.TestCase):
         self.assertFalse(should_handoff_macos_app())
         self.assertFalse(handoff_macos_app([]))
 
+    def test_window_title_is_agent_name(self) -> None:
+        self.assertEqual(TITLE, "电子电器智能体")
+        self.assertEqual(DOCK_APP_NAME, "电子电器智能体")
+
     def test_icon_files_exist(self) -> None:
         path = icon_file()
         self.assertIsNotNone(path)

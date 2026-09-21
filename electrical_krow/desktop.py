@@ -528,6 +528,24 @@ class DesktopApi:
     def __init__(self) -> None:
         self.window = None
 
+    def set_title(self, title: str) -> bool:
+        """界面切换语言时，同步 pywebview 的原生窗口标题。"""
+        text = str(title or "").strip()
+        allowed = {
+            TITLE,
+            "电子电器智能体",
+            "电子电器 · SOR填表",
+            "EE · SOR Extraction",
+            "EE Agent",
+        }
+        if text not in allowed or self.window is None:
+            return False
+        try:
+            self.window.set_title(text)
+            return True
+        except Exception:
+            return False
+
     def save_sheet(self, name: str) -> dict[str, object]:
         src = sheet_file(name)
         if src is None:

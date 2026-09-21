@@ -26,7 +26,7 @@ cases:
     must_not_hit: [18, 19]
     caution: [14]
     lesson: 2026-09-07-continuous-hvdc-is-not-dielectric
-    note: withstand voltage 是 #14 别名，检索层可召回；出表规则必须把持续母线耐受判为工作耐压并拒填
+    note: withstand voltage 是 #14 别名，检索层可召回。有 18488 时出表填工频；无 18488 时 DHTS 填 Continuous HVDC（6.6.3）。「不得产生」仍拒填。
 
   - id: connector-not-charge
     query: 高压慢充连接器 6.2.3.6

@@ -148,6 +148,23 @@ class DesktopTests(unittest.TestCase):
         self.assertIsNone(picked_save_path("/", default_name="demo_核对表.xlsx"))
         self.assertIsNone(picked_save_path(None, default_name="demo_核对表.xlsx"))
 
+    def test_desktop_title_follows_ui_language(self) -> None:
+        api = DesktopApi()
+        seen: list[str] = []
+        api.window = SimpleNamespace(set_title=seen.append)
+        self.assertTrue(api.set_title("EE Agent"))
+        self.assertTrue(api.set_title("电子电器智能体"))
+        self.assertTrue(api.set_title("电子电器 · SOR填表"))
+        self.assertFalse(api.set_title("untrusted title"))
+        self.assertEqual(
+            seen,
+            [
+                "EE Agent",
+                "电子电器智能体",
+                "电子电器 · SOR填表",
+            ],
+        )
+
     def test_save_sheet_copies_and_can_cancel(self) -> None:
         api = DesktopApi()
         with tempfile.TemporaryDirectory() as raw:

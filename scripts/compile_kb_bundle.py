@@ -105,6 +105,16 @@ def _identity() -> dict:
     return {"resolution": "distinct", "decided_by": "rule", "rules_fired": ["list_seq_unique"]}
 
 
+def _definition_text(*parts: str) -> str:
+    """词条定义只用来自当份卡片的原词，不另写。"""
+    seen: list[str] = []
+    for raw in parts:
+        text = " ".join(str(raw or "").split())
+        if text and text not in seen:
+            seen.append(text)
+    return "；".join(seen)
+
+
 def _clause_entity(row: dict, version: str, retrieve_seqs: set[int]) -> dict:
     seq = int(row["seq"])
     name = str(row.get("name") or "").strip()
@@ -116,18 +126,25 @@ def _clause_entity(row: dict, version: str, retrieve_seqs: set[int]) -> dict:
     if retrieve:
         for alias in _clean(row.get("retrieve_aliases")):
             names.append({"text": alias, "ns": "alias_retrieve", "src": "clause_lexicon", "evidence": "lexicon"})
+    category = _category(row.get("group") or "")
+    gloss = (row.get("gloss") or "").strip()
+    definition = _definition_text(gloss)
     return {
         "id": f"clause:{seq}",
         "type": "CLAUSE",
         "name": name,
+        "label": name,
+        "definition": definition,
         "names": names,
         "uuids": [],
         "identity": _identity(),
-        "category": _category(row.get("group") or ""),
+        "category": category,
         "data": {
             "seq": seq,
             "group": (row.get("group") or "").strip(),
-            "gloss": (row.get("gloss") or "").strip(),
+            "gloss": gloss,
+            "definition": definition,
+            "category": category,
             "unit_cues": _clean(row.get("unit_cues")),
             "exclude": _clean(row.get("exclude")),
             "std": _clean(row.get("std")),
@@ -148,16 +165,22 @@ def _clause_entity(row: dict, version: str, retrieve_seqs: set[int]) -> dict:
 def _physics_entity(card: dict, version: str) -> dict:
     cid = str(card.get("id") or "").strip()
     title = str(card.get("title") or cid).strip()
+    law = (card.get("law") or "").strip()
+    gloss = (card.get("gloss") or "").strip()
+    definition = _definition_text(gloss, law)
     return {
         "id": f"physics:{cid}",
         "type": "PHYSICS_LAW",
         "name": title,
+        "label": title,
+        "definition": definition,
         "names": [{"text": title, "ns": "physics", "src": "docs/knowledge/physics.yaml", "evidence": "card"}],
         "uuids": [],
         "identity": _identity(),
         "data": {
-            "law": (card.get("law") or "").strip(),
-            "gloss": (card.get("gloss") or "").strip(),
+            "law": law,
+            "gloss": gloss,
+            "definition": definition,
             "derive": bool(card.get("derive")),
             "fill": False,
             "see_seq": [int(x) for x in (card.get("see_seq") or [])],
@@ -199,11 +222,15 @@ def _enterprise_entities(enterprise: dict, version: str) -> list[dict]:
         if not secret:
             data["gloss"] = (clause.get("gloss") or "").strip()
             data["look_in_dpr"] = _clean(clause.get("look_in_dpr"))
+        definition = _definition_text(data.get("gloss") or "")
+        data["definition"] = definition
         out.append(
             {
                 "id": f"std:{cid}",
                 "type": "STD_CLAUSE",
                 "name": title,
+                "label": title,
+                "definition": definition,
                 "names": [{"text": title, "ns": "std_clause", "src": std_id, "evidence": "standard"}],
                 "uuids": [],
                 "identity": _identity(),
@@ -226,11 +253,15 @@ def _enterprise_entities(enterprise: dict, version: str) -> list[dict]:
         }
         if not secret:
             data["gloss"] = (term.get("gloss") or "").strip()
+        definition = _definition_text(data.get("gloss") or "")
+        data["definition"] = definition
         out.append(
             {
                 "id": f"term:{name}",
                 "type": "TERM",
                 "name": name,
+                "label": name,
+                "definition": definition,
                 "names": [{"text": name, "ns": "std_term", "src": f"{std_id} 第3章", "evidence": "standard"}],
                 "uuids": [],
                 "identity": _identity(),
@@ -241,7 +272,39 @@ def _enterprise_entities(enterprise: dict, version: str) -> list[dict]:
 
 
 def _relation(rel: str, src: str, dst: str) -> dict:
-    return {"id": f"rel:{rel}:{src}->{dst}", "type": rel, "from": src, "to": dst, "data": {"basis": "published_graph"}}
+    """治理台 Bundle 认 source_id / target_id / relation_type；from / to / type 留给本仓闸门。"""
+    return {
+        "id": f"rel:{rel}:{src}->{dst}",
+        "type": rel,
+        "relation_type": rel,
+        "from": src,
+        "to": dst,
+        "source_id": src,
+        "target_id": dst,
+        "data": {"basis": "published_graph"},
+    }
+
+
+def _first_plain_paragraph(markdown: str) -> str:
+    for line in (markdown or "").splitlines():
+        text = line.strip()
+        if not text or text.startswith("#") or text.startswith("---") or text.startswith("- "):
+            continue
+        return text
+    return ""
+
+
+def _wiki_page(page: dict, definition: str = "") -> dict:
+    """治理台 wiki 页认 body / markdown / source_id；摘要用当份 definition。"""
+    out = dict(page)
+    body = out.get("content") or ""
+    out["body"] = body
+    out["markdown"] = body
+    out["source_id"] = out.get("entity_id") or out.get("id") or ""
+    summary = (definition or "").strip() or _first_plain_paragraph(body)
+    out["summary"] = summary
+    out["definition"] = summary
+    return out
 
 
 def _relations(graph: dict, entities: list[dict], dropped: set[int]) -> list[dict]:
@@ -284,6 +347,10 @@ def _clause_page(ent: dict, by_id: dict[str, dict], version: str) -> dict:
         "",
         f"# #{seq} {ent['name']}",
         "",
+    ]
+    if ent.get("definition") or d.get("gloss"):
+        lines += [str(ent.get("definition") or d.get("gloss") or "").strip(), ""]
+    lines += [
         f"- 分组：{d['group']}（{ent['category']['id']}）",
         f"- 状态：{d['status']}" + ("，已开通选段检索" if d["retrieve"] else ""),
     ]
@@ -423,9 +490,13 @@ def build_bundle(now: datetime | None = None) -> dict:
     relations = _relations(graph, entities, dropped)
 
     by_id = {e["id"]: e for e in entities}
-    wiki_pages = [_clause_page(e, by_id, version) for e in entities if e["type"] == "CLAUSE"]
-    wiki_pages.append(_index_page(entities, version))
-    wiki_pages.append(_physics_page(entities, version))
+    wiki_pages = [
+        _wiki_page(_clause_page(e, by_id, version), e.get("definition") or "")
+        for e in entities
+        if e["type"] == "CLAUSE"
+    ]
+    wiki_pages.append(_wiki_page(_index_page(entities, version)))
+    wiki_pages.append(_wiki_page(_physics_page(entities, version)))
 
     stamp = (now or datetime.now(timezone.utc)).strftime("%Y%m%dT%H%M%SZ")
     stats = {t: sum(1 for e in entities if e["type"] == t) for t in ENTITY_TYPES}
@@ -478,6 +549,11 @@ def validate(bundle: dict) -> None:
         for key in ("name", "names", "uuids", "identity", "data"):
             if key not in ent:
                 raise SystemExit(f"实体缺字段 {key}：{ent['id']}")
+        if "definition" not in ent:
+            raise SystemExit(f"实体缺 definition：{ent['id']}")
+        gloss = (ent["data"].get("gloss") or "").strip()
+        if gloss and gloss not in (ent.get("definition") or ""):
+            raise SystemExit(f"实体 definition 必须含当份 gloss：{ent['id']}")
         if ent["identity"]["resolution"] not in {"merged", "distinct", "unresolved"}:
             raise SystemExit(f"identity.resolution 非法：{ent['id']}")
         if ent["type"] == "CLAUSE":
@@ -501,9 +577,17 @@ def validate(bundle: dict) -> None:
         if rel["id"] in rel_ids:
             raise SystemExit(f"关系 id 重复：{rel['id']}")
         rel_ids.add(rel["id"])
-        if rel["type"] not in RELATION_TYPES:
+        kind = rel.get("relation_type") or rel.get("type")
+        if kind not in RELATION_TYPES:
             raise SystemExit(f"关系类型不在领域包声明里：{rel['id']}")
-        if rel["from"] not in ids or rel["to"] not in ids:
+        for key in ("source_id", "target_id", "relation_type", "from", "to", "type"):
+            if not rel.get(key):
+                raise SystemExit(f"关系缺字段 {key}：{rel['id']}")
+        if rel["source_id"] != rel["from"] or rel["target_id"] != rel["to"]:
+            raise SystemExit(f"关系端点别名不一致：{rel['id']}")
+        if rel["relation_type"] != rel["type"]:
+            raise SystemExit(f"关系类型别名不一致：{rel['id']}")
+        if rel["source_id"] not in ids or rel["target_id"] not in ids:
             raise SystemExit(f"关系端点不存在：{rel['id']}")
     page_ids: set[str] = set()
     for page in bundle["wiki_pages"]:
@@ -516,6 +600,10 @@ def validate(bundle: dict) -> None:
             raise SystemExit(f"wiki 实体页指向不存在的实体：{page['id']}")
         if page["page_type"] == "essay" and "category" in page:
             raise SystemExit(f"独立 essay 不得带 category：{page['id']}")
+        if (page.get("body") or "") != (page.get("content") or ""):
+            raise SystemExit(f"wiki 页 body 与 content 不一致：{page['id']}")
+        if not page.get("source_id"):
+            raise SystemExit(f"wiki 页缺 source_id：{page['id']}")
     for d in ("dropped_seqs",):
         for seq in bundle["meta"].get(d) or []:
             if f"clause:{seq}" in ids:

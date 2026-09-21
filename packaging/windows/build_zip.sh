@@ -357,6 +357,9 @@ fi
   -cflags -DSTOP_APP -- \
   -lc -lshell32 -luser32 -lkernel32 -lgdi32 -liphlpapi -lws2_32 -lole32 -luuid \
   -femit-bin="$STAGE/SORStop.exe"
+cp "$ROOT/electrical_krow/frontend/app-icon.ico" "$STAGE/app-icon.ico"
+python3 "$WIN/embed_icon.py" "$STAGE/SORFill.exe" "$STAGE/app-icon.ico"
+python3 "$WIN/embed_icon.py" "$STAGE/SORStop.exe" "$STAGE/app-icon.ico"
 cp "$STAGE/SORFill.exe" "$STAGE/启动SOR填表.exe"
 cp "$STAGE/SORStop.exe" "$STAGE/停止SOR填表.exe"
 
@@ -416,6 +419,10 @@ with zipfile.ZipFile(io.BytesIO(blob), "r") as zf:
         raise SystemExit("exe overlay zip missing knowledge graph")
     if "SORFill.exe" not in names:
         raise SystemExit("exe overlay zip missing SORFill.exe")
+    if "app-icon.ico" not in names:
+        raise SystemExit("exe overlay zip missing app-icon.ico")
+    if b".rsrc" not in stub:
+        raise SystemExit("SORFill.exe missing icon resource")
     if "python/.deps-ok" not in names:
         raise SystemExit("exe overlay zip missing preinstalled python/.deps-ok")
     if not any(n.startswith("python/Lib/site-packages/webview/") for n in names):

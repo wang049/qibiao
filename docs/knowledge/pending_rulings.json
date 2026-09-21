@@ -14,10 +14,10 @@
     },
     {
       "id": "p3-rated-speed-from-power-point",
-      "items": [46],
+      "items": [29, 46],
       "when": "empty",
       "family": ["dpr"],
-      "note": "当份若只写「额定功率 @ 转速」（如 4LDHT260 的 120kW @ 13000rpm）而无单独额定转速行，能否取该转速为额定转速",
+      "note": "当份若只写「额定功率 @ 转速」（如 4LDHT260 的 70kW@7500rpm / 120kW @ 13000rpm）而无单独额定转速行，能否取该转速为额定转速",
       "lesson": "2026-09-16-prompt-lists-field-by-strong-alias-ratio"
     },
     {

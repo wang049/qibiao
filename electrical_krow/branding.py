@@ -10,8 +10,8 @@ from pathlib import Path
 
 from electrical_krow.paths import FRONTEND_DIR, PACKAGE_DIR
 
-TITLE = "电子电器 · SOR填表"
-DOCK_APP_NAME = "电子电器SOR填表"
+TITLE = "电子电器智能体"
+DOCK_APP_NAME = "电子电器智能体"
 BUNDLE_ID = "cn.electrical.krow.sorfill"
 LAUNCHER_NAME = "ElectricalKrow"
 

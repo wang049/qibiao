@@ -709,7 +709,7 @@ def announce(settings: Settings, host: str, origin: str) -> None:
         "yes",
     }:
         return
-    print(f"电子电器 · SOR填表：{origin}/", flush=True)
+    print(f"电子电器智能体：{origin}/", flush=True)
     print(f"识别服务：{settings.server_url}", flush=True)
     print(f"默认模型：{settings.chat_model}", flush=True)
     if settings.delivery == "site":

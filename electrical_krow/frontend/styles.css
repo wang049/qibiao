@@ -934,12 +934,6 @@ body.is-logged .rail:not([hidden]) {
   color: var(--ink-3);
   margin-bottom: 8px;
 }
-.rail-hint {
-  margin: 0 0 10px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: var(--ink-3);
-}
 .rail-fn {
   width: 100%;
   height: auto;
@@ -1111,15 +1105,12 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
 }
 button.job-row {
   width: 100%;
-  height: auto;
-  min-height: 52px;
+  height: max-content;
+  min-height: 64px;
   padding: 8px 10px;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  grid-template-rows: auto auto;
-  align-items: start;
-  column-gap: 8px;
-  row-gap: 2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   text-align: left;
   background: var(--surface-2);
   border: 1px solid var(--rule-2);
@@ -1131,8 +1122,7 @@ button.job-row {
 .job-row.is-on { background: var(--surface); border-color: var(--accent-rule); box-shadow: inset 3px 0 0 var(--accent); }
 .job-row:disabled { opacity: 0.65; cursor: not-allowed; }
 .job-status {
-  grid-row: 1 / span 2;
-  align-self: center;
+  flex: 0 0 auto;
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.02em;
@@ -1145,19 +1135,29 @@ button.job-row {
 .job-status.run { background: var(--accent-wash); color: var(--accent-ink); }
 .job-status.done { background: var(--ok-wash); color: var(--ok); }
 .job-status.fail { background: var(--err-wash); color: var(--err); }
+.job-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: stretch;
+  overflow: hidden;
+}
 .job-name {
   min-width: 0;
-  align-self: start;
   font-size: 12px;
   font-weight: 650;
   color: var(--navy);
   line-height: 1.35;
-  display: block;
   max-height: calc(1.35em * 2);
   overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
-  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 .job-meta {
   min-width: 0;
@@ -1309,6 +1309,7 @@ button.fn-card:hover {
   font-size: 16px;
   font-weight: 650;
   color: var(--navy);
+  line-height: 1.35;
 }
 .fn-card p {
   margin: 8px 0 0;
@@ -1726,6 +1727,29 @@ button.env-choice.is-on {
 }
 button.env-choice strong { font-size: 14px; font-weight: 650; }
 button.env-choice span { font-size: 12px; color: var(--ink-3); word-break: break-all; }
+.env-choices.is-locked button.env-choice,
+button.env-choice:disabled {
+  opacity: 0.55;
+  filter: grayscale(0.35);
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--surface-3);
+  color: var(--ink-3);
+  border-color: var(--rule);
+}
+.env-choices.is-locked button.env-choice.is-on,
+button.env-choice.is-on:disabled {
+  background: var(--surface-3);
+  border-color: var(--rule);
+  color: var(--ink-3);
+}
+.settings-dialog p.env-busy {
+  margin: 10px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--err);
+  line-height: 1.55;
+}
 .settings-dialog .actions { justify-content: flex-end; }
 @media (max-width: 980px) {
   .kb-stats { grid-template-columns: repeat(3, 1fr); }
@@ -1849,7 +1873,7 @@ html[data-font="mono"] { --sans: "SFMono-Regular", Menlo, Consolas, "Sarasa Mono
 /* 密度：紧凑 */
 html[data-density="compact"] .rail { padding: 10px 10px 8px; gap: 10px; }
 html[data-density="compact"] .rail-fn { min-height: 30px; margin-bottom: 2px; }
-html[data-density="compact"] .job-row { min-height: 40px; padding: 5px 8px; }
+html[data-density="compact"] .job-row { min-height: 48px; padding: 5px 8px; }
 html[data-density="compact"] .job-meta { display: none; }
 html[data-density="compact"] body.is-logged main { padding: 0 18px 20px; }
 html[data-density="compact"] .kb-row { padding-top: 5px; padding-bottom: 5px; }

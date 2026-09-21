@@ -1,5 +1,8 @@
 (() => {
   const $ = (id) => document.getElementById(id);
+  function tx(key, vars) {
+    return typeof window.t === "function" ? window.t(key, vars) : key;
+  }
   // 关系种类；颜色在 styles.css（.kb-ge-*），跟随主题
   const REL_KINDS = new Set(["related", "not", "same_slot", "interprets"]);
   const REL_RANK = { not: 0, same_slot: 1, interprets: 2, related: 3 };
@@ -26,7 +29,7 @@
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      throw new Error(data.detail || data.error || resp.statusText || "知识库未能加载");
+      throw new Error(data.detail || data.error || resp.statusText || tx("kb.loadFail"));
     }
     return data;
   }
@@ -129,23 +132,23 @@
 
   function renderAll() {
     const stats = catalog.stats || {};
-    $("kb-version").textContent = "版本 " + (catalog.version || "");
+    $("kb-version").textContent = tx("kb.verN", { v: catalog.version || "" });
     $("kb-banner").textContent =
       catalog.rule ||
-      "抽出值只来自当份规格书。知识库提供条目、互斥与公式关系，不提供取值。";
+      tx("kb.banner");
     $("kb-stats").innerHTML = [
-      ["clauses", "条款卡片"],
-      ["physics", "物理关系"],
-      ["enterprise", "企标试验"],
-      ["groups", "业务分组"],
-      ["edges", "图谱关系"],
-      ["retrieve", "已开通检索"],
+      ["clauses", tx("kb.stat.clauses")],
+      ["physics", tx("kb.stat.physics")],
+      ["enterprise", tx("kb.stat.enterprise")],
+      ["groups", tx("kb.stat.groups")],
+      ["edges", tx("kb.stat.edges")],
+      ["retrieve", tx("kb.stat.retrieve")],
     ]
       .map(([key, label]) => {
         return `<div class="kb-stat"><b>${esc(stats[key] ?? 0)}</b><span>${label}</span></div>`;
       })
       .join("") +
-      `<div class="kb-stat"><b>内部</b><span>密级 · 不出公网</span></div>`;
+      `<div class="kb-stat"><b>${tx("kb.stat.secret")}</b><span>${tx("kb.stat.secretHint")}</span></div>`;
     renderGroups();
     renderList();
     if (!selected && catalog.clauses && catalog.clauses.length) {
@@ -165,7 +168,7 @@
     host.innerHTML = items
       .map((g) => {
         const on = (g.name || "") === groupName;
-        const label = g.name || "全部";
+        const label = g.name || tx("kb.all");
         return `<button type="button" class="kb-group${on ? " is-on" : ""}" data-group="${esc(g.name || "")}">${esc(label)}<i>${esc(g.count)}</i></button>`;
       })
       .join("");
@@ -190,13 +193,13 @@
     const host = $("kb-list");
     const rows = filteredClauses();
     if (!rows.length) {
-      host.innerHTML = `<p class="kb-empty">没有匹配的条款。</p>`;
+      host.innerHTML = `<p class="kb-empty">${tx("kb.noMatch")}</p>`;
       return;
     }
     host.innerHTML = rows
       .map((row) => {
         const on = selected && selected.kind === "clause" && selected.seq === row.seq;
-        const mark = row.retrieve ? "已开通" : row.status_label || "待确认";
+        const mark = row.retrieve ? tx("kb.open") : row.status_label || tx("kb.pending");
         return `<button type="button" class="kb-row${on ? " is-on" : ""}" data-seq="${row.seq}">
           <b>#${row.seq}</b>
           <span class="kb-row-name">${esc(row.name)}</span>
@@ -249,7 +252,7 @@
   function renderDetail(host) {
     if (!host) return;
     if (!selected) {
-      host.innerHTML = `<p class="kb-empty">从左侧选择一条条款。</p>`;
+      host.innerHTML = `<p class="kb-empty">${tx("kb.pickClause")}</p>`;
       return;
     }
     if (selected.kind === "physics") {
@@ -261,18 +264,18 @@
       const see = (card.see_seq || [])
         .map((seq) => clauseBySeq(seq))
         .filter(Boolean)
-        .map((c) => ({ kind: "clause", seq: c.seq, name: c.name, rel_label: "适用条款" }));
+        .map((c) => ({ kind: "clause", seq: c.seq, name: c.name, rel_label: tx("kb.rel.clause") }));
       host.innerHTML = `
-        <div class="kb-kicker">物理关系</div>
+        <div class="kb-kicker">${tx("kb.physics")}</div>
         <h3>${esc(card.title)}</h3>
         <p class="kb-law">${esc(card.law)}</p>
         <div class="kb-flags">
-          <span class="kb-chip">${card.derive ? "当份已给量可推算缺项" : "只用于读表 / 校验"}</span>
-          <span class="kb-chip warn">不提供抽出值</span>
+          <span class="kb-chip">${card.derive ? tx("kb.derive") : tx("kb.readOnly")}</span>
+          <span class="kb-chip warn">${tx("kb.noValue")}</span>
         </div>
         ${card.gloss ? `<p class="kb-gloss">${esc(card.gloss)}</p>` : ""}
-        <h4>关联条款</h4>
-        ${relatedHtml(see) || `<p class="kb-empty">暂无直接挂接条款。</p>`}
+        <h4>${tx("kb.relatedClauses")}</h4>
+        ${relatedHtml(see) || `<p class="kb-empty">${tx("kb.noDirect")}</p>`}
       `;
       bindLinks(host);
       return;
@@ -287,17 +290,17 @@
       <h3>${esc(row.name)}</h3>
       <div class="kb-flags">
         <span class="kb-chip ${row.retrieve ? "ok" : ""}">${esc(row.status_label)}</span>
-        <span class="kb-chip">密级 内部</span>
-        <span class="kb-chip">知识库 ${esc(catalog.version)}</span>
+        <span class="kb-chip">${tx("kb.classInternalVal")}</span>
+        <span class="kb-chip">${tx("kb.knowledgeChip", { v: catalog.version })}</span>
       </div>
       ${row.gloss ? `<p class="kb-gloss">${esc(row.gloss)}</p>` : ""}
-      <p class="kb-cite">出处：电机控制需求清单 #${row.seq}${row.name ? " " + esc(row.name) : ""}；知识库 ${esc(catalog.version)}</p>
-      ${row.aliases && row.aliases.length ? `<h4>常见写法</h4>${chips(row.aliases)}` : ""}
-      ${row.units && row.units.length ? `<h4>单位形态</h4>${chips(row.units)}` : ""}
-      ${row.reject && row.reject.length ? `<h4>禁配 / 易混</h4>${chips(row.reject, "warn")}` : ""}
-      ${row.std && row.std.length ? `<h4>适用标准</h4>${chips(row.std)}` : ""}
-      <h4>图谱邻域</h4>
-      ${relatedHtml(row.related) || `<p class="kb-empty">尚无已登记关联。</p>`}
+      <p class="kb-cite">${tx("kb.cite", { seq: row.seq, name: row.name ? " " + esc(row.name) : "", v: esc(catalog.version) })}</p>
+      ${row.aliases && row.aliases.length ? `<h4>${tx("kb.h.aliases")}</h4>${chips(row.aliases)}` : ""}
+      ${row.units && row.units.length ? `<h4>${tx("kb.h.units")}</h4>${chips(row.units)}` : ""}
+      ${row.reject && row.reject.length ? `<h4>${tx("kb.h.reject")}</h4>${chips(row.reject, "warn")}` : ""}
+      ${row.std && row.std.length ? `<h4>${tx("kb.h.std")}</h4>${chips(row.std)}` : ""}
+      <h4>${tx("kb.h.graph")}</h4>
+      ${relatedHtml(row.related) || `<p class="kb-empty">${tx("kb.noRel")}</p>`}
     `;
     bindLinks(host);
   }
@@ -315,7 +318,7 @@
         return `<button type="button" class="kb-phys${on ? " is-on" : ""}" data-id="${esc(card.id)}">
           <span class="kb-phys-title">${esc(card.title)}</span>
           <span class="kb-law">${esc(card.law)}</span>
-          <span class="kb-phys-meta">${card.derive ? "可推算缺项" : "读表 / 校验"} · 不填数</span>
+          <span class="kb-phys-meta">${card.derive ? tx("kb.phys.derive") : tx("kb.phys.read")} · ${tx("kb.phys.nofill")}</span>
         </button>`;
       })
       .join("");
@@ -334,7 +337,7 @@
       .map((s) => {
         return `<article class="kb-source">
           <h4>${esc(s.title)}</h4>
-          <p>${[s.status, s.version, "密级 " + (s.classification || "内部"), "不出场所"].filter(Boolean).map(esc).join(" · ")}</p>
+          <p>${[s.status, s.version, tx("kb.secretN", { c: s.classification || tx("internal") }), tx("kb.noLeave")].filter(Boolean).map(esc).join(" · ")}</p>
           ${s.used_for ? `<p class="kb-gloss">${esc(s.used_for)}</p>` : ""}
         </article>`;
       })
@@ -342,16 +345,16 @@
     $("kb-scope").innerHTML = `
       <div class="kb-scope-grid">
         <section>
-          <h3>本库回答什么</h3>
+          <h3>${tx("kb.scope.answers")}</h3>
           <ul>${answers}</ul>
         </section>
         <section>
-          <h3>明确不做</h3>
+          <h3>${tx("kb.scope.not")}</h3>
           <ul>${doesNot}</ul>
         </section>
       </div>
       <p class="kb-cite">${esc([scope.owner, scope.site].filter(Boolean).join("。"))}</p>
-      <h3>来源登记</h3>
+      <h3>${tx("kb.scope.sources")}</h3>
       <div class="kb-sources">${sources}</div>
       ${enterpriseBlock()}
     `;
@@ -365,7 +368,7 @@
         return `<article class="kb-source">
           <h4>${esc(row.name)}</h4>
           ${row.gloss ? `<p class="kb-gloss">${esc(row.gloss)}</p>` : ""}
-          ${seqs ? `<p>对照 ${esc(seqs)}</p>` : ""}
+          ${seqs ? `<p>${tx("kb.see", { s: esc(seqs) })}</p>` : ""}
         </article>`;
       })
       .join("");
@@ -376,18 +379,18 @@
         const look = (row.look_in_dpr || []).join("、");
         return `<article class="kb-source">
           <h4>${esc(row.id)} ${esc(row.title)}</h4>
-          <p>${methods ? "方法 " + esc(methods) + " · " : ""}${seqs ? "对照 " + esc(seqs) : "清单无直接对应条"}</p>
+          <p>${methods ? tx("kb.method", { m: esc(methods) }) + " · " : ""}${seqs ? tx("kb.see", { s: esc(seqs) }) : tx("kb.noSee")}</p>
           ${row.gloss ? `<p class="kb-gloss">${esc(row.gloss)}</p>` : ""}
-          ${look ? `<p class="kb-gloss">当份 DPR 里找：${esc(look)}</p>` : ""}
+          ${look ? `<p class="kb-gloss">${tx("kb.lookIn", { s: esc(look) })}</p>` : ""}
         </article>`;
       })
       .join("");
     if (!terms && !clauses) return "";
     return `
-      <h3>${esc(meta.std_id || "企业标准")} · 定义与试验方法</h3>
-      <p class="kb-cite">${esc(meta.coverage || "")} ${esc(meta.rule || "评价看当份 DPR，不提供抽出值。")} 出表时空项：抽出值仍未检索到；企标方法号写在复核备注，不写入抽出值。</p>
-      <div class="kb-flags"><span class="kb-chip warn">不提供抽出值</span></div>
-      <h4>定义</h4>
+      <h3>${esc(meta.std_id || tx("kb.stdDefault"))} · ${tx("kb.stdMethods")}</h3>
+      <p class="kb-cite">${esc(meta.coverage || "")} ${esc(meta.rule || tx("kb.stdEmptyRule"))} ${tx("kb.stdEmptyNote")}</p>
+      <div class="kb-flags"><span class="kb-chip warn">${tx("kb.noValue")}</span></div>
+      <h4>${tx("kb.h.defs")}</h4>
       <div class="kb-sources">${terms}</div>
       <h4>6.2–6.36 / 7 / 7.1–7.9</h4>
       <div class="kb-sources">${clauses}</div>
@@ -481,8 +484,7 @@
     if (spec.legend !== false) {
       const legend = document.createElement("div");
       legend.className = "kb-legend";
-      legend.innerHTML =
-        `<i class="lg-c"></i>条款 <i class="lg-p"></i>物理 <i class="lg-x"></i>互斥 <i class="lg-n"></i>禁配 <i class="lg-f"></i>公式`;
+      legend.innerHTML = tx("kb.legend");
       host.appendChild(legend);
     }
   }
@@ -659,7 +661,7 @@
       const back = document.createElement("button");
       back.type = "button";
       back.className = "kb-back";
-      back.textContent = "返回总览";
+      back.textContent = tx("kb.back");
       back.onclick = () => {
         graphFocus = { kind: "group", id: "" };
         renderOverviewGraph();
@@ -689,7 +691,7 @@
       const back = document.createElement("button");
       back.type = "button";
       back.className = "kb-back";
-      back.textContent = "返回总览";
+      back.textContent = tx("kb.back");
       back.onclick = () => {
         graphFocus = { kind: "group", id: "" };
         renderOverviewGraph();
@@ -729,7 +731,7 @@
       return catalog;
     }
     if (loading) return loading;
-    $("kb-banner").textContent = "正在载入知识库…";
+    $("kb-banner").textContent = tx("kb.loading");
     loading = (async () => {
       catalog = await kbJson("/api/knowledge");
       bindOnce();
@@ -744,5 +746,11 @@
     } finally {
       loading = null;
     }
+  };
+
+  window.kbRerender = function kbRerender() {
+    if (!catalog) return;
+    renderAll();
+    if (tab === "graph") renderOverviewGraph();
   };
 })();

@@ -47,6 +47,7 @@ _HISTORY_FIELDS = (
     "chunk_count",
     "topup_count",
     "chunk_failures",
+    "chunk_error",
     # 结果摘要：待专家口径格数、按业务分组的检索结论、与上次同名文件的差异
     "pending_note",
     "groups",
@@ -531,6 +532,7 @@ class JobStore:
                 chunk_count=getattr(result, "chunk_count", 0),
                 topup_count=getattr(result, "topup_count", 0),
                 chunk_failures=getattr(result, "chunk_failures", 0),
+                chunk_error=getattr(result, "chunk_error", "") or "",
                 pending_note=pending_note_count(cells) if extract_on else 0,
                 groups=group_summary(cells) if extract_on else [],
                 compare=compare,

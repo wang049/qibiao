@@ -181,6 +181,16 @@ text = text.replace(
     "本包默认连公网联调 https://api.krow.cn。",
     f"本包默认连 {url}。",
 )
+if url.rstrip("/") == "https://rdapi.aurobaytech-t.com":
+    if re.search(r"(?m)^lock_environment\s*=", text):
+        text, _ = re.subn(
+            r"(?m)^lock_environment\s*=\s*.*$",
+            "lock_environment = true",
+            text,
+            count=1,
+        )
+    else:
+        text = text.rstrip() + "\nlock_environment = true\n"
 ini.write_text(text, encoding="utf-8")
 print("pack server_url", url)
 PY
@@ -448,6 +458,8 @@ with zipfile.ZipFile(io.BytesIO(blob), "r") as zf:
         ini = zf.read("config.ini").decode("utf-8")
         if f"server_url = {want}" not in ini:
             raise SystemExit("staged config.ini missing PACK_SERVER_URL")
+        if want == "https://rdapi.aurobaytech-t.com" and "lock_environment = true" not in ini:
+            raise SystemExit("site pack missing lock_environment")
 raw = exe_path.read_bytes()
 idx = len(stub)
 if raw[idx : idx + 8] != magic or raw[idx + 8 : idx + 16] != struct.pack("<Q", len(blob)):

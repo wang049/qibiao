@@ -551,6 +551,10 @@ function resultMarkup(data) {
     tip = tx("result.noLlm");
   }
   const incomplete = Number(data.chunk_failures || 0) > 0;
+  if (!tip && incomplete) {
+    tip = tx("result.chunkFail", { n: Number(data.chunk_failures) });
+    if (data.chunk_error) tip += " " + String(data.chunk_error);
+  }
   const heading = data.stopped_early
     ? tx("result.stoppedHead")
     : (incomplete ? tx("result.incompleteHead") : tx("result.doneHead"));
@@ -1338,10 +1342,11 @@ function applyEnvLock() {
   const locked = jobIsRunning();
   const box = $("env-choices");
   const warn = $("env-busy");
+  const packLocked = !!(box && box.classList.contains("is-pack-locked"));
   if (box) {
-    box.classList.toggle("is-locked", locked);
+    box.classList.toggle("is-locked", locked || packLocked);
     box.querySelectorAll("button.env-choice").forEach((btn) => {
-      btn.disabled = locked;
+      btn.disabled = locked || packLocked;
     });
   }
   if (warn) {
@@ -1681,15 +1686,21 @@ async function loadEnvironments() {
       lastHealth = await json("/api/health");
     } catch (_) { /* 锁态仍按已有 lastHealth / currentJob */ }
     box.innerHTML = "";
+    const locked = !!data.environment_locked || (data.environments || []).length <= 1;
+    box.classList.toggle("is-pack-locked", locked);
     (data.environments || []).forEach((env) => {
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "env-choice" + (env.id === data.id ? " is-on" : "");
       btn.innerHTML = "<strong>" + escText(environmentLabel(env.id, env.label)) + "</strong><span>"
         + escText(env.server) + "</span>";
-      btn.addEventListener("click", () => pickEnvironment(env.id));
+      if (locked) btn.disabled = true;
+      else btn.addEventListener("click", () => pickEnvironment(env.id));
       box.appendChild(btn);
     });
+    const note = $("env-note");
+    if (note) note.setAttribute("data-i18n", locked ? "env.locked" : "env.note");
+    if (note) note.textContent = tx(locked ? "env.locked" : "env.note");
     applyEnvLock();
   } catch (err) {
     box.innerHTML = "";

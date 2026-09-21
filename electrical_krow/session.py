@@ -14,6 +14,7 @@ class StoredSession:
     sid: str
     auth: AuthSession
     chat_model: str = ""
+    extract_model: str = ""
     created_at: float = field(default_factory=time.time)
 
 
@@ -56,6 +57,7 @@ class SessionStore:
     def set_chat_model(self, item: StoredSession, name: str) -> None:
         with self._lock:
             item.chat_model = name.strip()
+            item.extract_model = ""
 
     def drop(self, sid: str | None) -> None:
         if not sid:

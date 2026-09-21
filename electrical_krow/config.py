@@ -115,6 +115,25 @@ def match_server_environment(url: str) -> ServerEnvironment | None:
     return None
 
 
+def packaged_environment_lock() -> ServerEnvironment | None:
+    """现场地址打的包锁在现场，不能再切回公网联调。"""
+    ini = _ini_values()
+    env = match_server_environment(ini.get("server_url") or "")
+    forced = (ini.get("lock_environment") or "").strip().lower()
+    if forced in {"1", "true", "yes", "on", "site"}:
+        return SERVER_ENV_BY_ID["site"]
+    if env is not None and env.id == "site":
+        return env
+    return None
+
+
+def available_server_environments() -> tuple[ServerEnvironment, ...]:
+    lock = packaged_environment_lock()
+    if lock is not None:
+        return (lock,)
+    return SERVER_ENVIRONMENTS
+
+
 def server_env_path() -> Path:
     return data_root() / "server_env.json"
 
@@ -154,7 +173,11 @@ def write_server_env_id(env_id: str) -> ServerEnvironment:
 
 
 def apply_server_environment(settings: Settings, env_id: str) -> Settings:
-    env = write_server_env_id(env_id)
+    lock = packaged_environment_lock()
+    want = (env_id or "").strip()
+    if lock is not None and want != lock.id:
+        raise ConfigError("本包为现场识别，不能切换到公网联调。")
+    env = write_server_env_id(want)
     os.environ["KROW_SERVER_URL"] = env.server_url
     return replace(settings, server_url=env.server_url)
 
@@ -278,7 +301,10 @@ def _pick(
 def load_settings(**overrides: object) -> Settings:
     ini = _ini_values()
     picked = dict(overrides)
-    if picked.get("server_url") is None:
+    lock = packaged_environment_lock()
+    if picked.get("server_url") is None and lock is not None:
+        picked["server_url"] = lock.server_url
+    elif picked.get("server_url") is None:
         overlay_id = read_server_env_id()
         if overlay_id:
             picked["server_url"] = SERVER_ENV_BY_ID[overlay_id].server_url

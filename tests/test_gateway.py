@@ -183,13 +183,17 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("function themeFromQuery(", js.text)
         self.assertIn("function langFromQuery(", i18n.text)
         self.assertIn("function applyUiLang(", js.text)
-        self.assertIn('loggedIn ? tx("app.title") : tx("brand.agent")', js.text)
+        self.assertIn('const title = tx("brand.agent")', js.text)
         self.assertIn("function environmentLabel(", js.text)
         self.assertIn('tx("env.cloud")', js.text)
         self.assertIn('tx("env.site")', js.text)
         self.assertIn("function applyEnvLock(", js.text)
+        self.assertIn("is-pack-locked", js.text)
+        self.assertIn("environment_locked", js.text)
         self.assertIn("function jobIsRunning(", js.text)
         self.assertIn('tx("env.busy")', js.text)
+        self.assertIn("本包为现场识别，不能切换到公网联调。", i18n.text)
+        self.assertIn("cannot switch to the public cloud.", i18n.text)
         self.assertIn("Cannot switch during a running job.", i18n.text)
         self.assertIn("从可用环境中选择。可能需要重新登录。", i18n.text)
         self.assertIn("Automatically extract contents from SOR.", i18n.text)
@@ -234,7 +238,8 @@ class GatewayTests(unittest.TestCase):
         self.assertIn(".swatches", css.text)
         # 深浅色都靠变量：面板底色不再写死白色
         self.assertNotIn("background: #fff;", css.text)
-        self.assertNotIn('tx("result.chunkFail"', js.text)
+        self.assertIn('tx("result.chunkFail"', js.text)
+        self.assertIn("chunk_error", js.text)
         self.assertNotIn('tx("result.qa"', js.text)
         self.assertNotIn("交给 Agent", js.text)
 
@@ -274,6 +279,7 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(len(data.get("environments") or []), 2)
         ids = {item["id"] for item in data["environments"]}
         self.assertEqual(ids, {"cloud", "site"})
+        self.assertFalse(data.get("environment_locked"))
 
     def test_site_health_copy(self) -> None:
         settings = load_settings(
@@ -545,6 +551,68 @@ class GatewayTests(unittest.TestCase):
         bad = self.client.post("/api/model", json={"model": "bad name"})
         self.assertEqual(bad.status_code, 400)
 
+    def test_models_replace_default_missing_from_site_list(self) -> None:
+        self._login()
+        with patch(
+            "electrical_krow.gateway.list_models",
+            return_value=["ZHIPU/GLM-5.2"],
+        ):
+            body = self.client.get("/api/models").json()
+        self.assertEqual(body["models"], ["ZHIPU/GLM-5.2"])
+        self.assertEqual(body["model"], "ZHIPU/GLM-5.2")
+        self.assertEqual(self.client.get("/api/session").json()["model"], "ZHIPU/GLM-5.2")
+
+    def test_chat_falls_back_when_model_unavailable(self) -> None:
+        self._login()
+        seen: list[str] = []
+        ok = ChatResult(
+            content='{"rows":[]}',
+            model="ZHIPU/GLM-5.2",
+            raw={"choices": [{"message": {"content": '{"rows":[]}'}}]},
+        )
+
+        def fake_complete(_url, _auth, _messages, **kwargs):
+            name = str(kwargs.get("model") or "")
+            seen.append(name)
+            if name == "deepseek-v4-pro":
+                raise LLMError(
+                    '识别服务 HTTP 400: {"error":"This model is currently unavailable. Please try another model."}'
+                )
+            return ok
+
+        with patch("electrical_krow.gateway.complete", side_effect=fake_complete):
+            with patch(
+                "electrical_krow.gateway.list_models",
+                return_value=["deepseek-v4-pro", "ZHIPU/GLM-5.2"],
+            ):
+                chat = self.client.post(
+                    "/v1/chat/completions",
+                    headers={"Authorization": "Bearer local"},
+                    json={
+                        "model": "deepseek-v4-pro",
+                        "messages": [{"role": "user", "content": "hi"}],
+                    },
+                )
+        self.assertEqual(chat.status_code, 200, chat.text)
+        self.assertEqual(seen, ["deepseek-v4-pro", "ZHIPU/GLM-5.2"])
+        again: list[str] = []
+
+        def fake_again(_url, _auth, _messages, **kwargs):
+            again.append(str(kwargs.get("model") or ""))
+            return ok
+
+        with patch("electrical_krow.gateway.complete", side_effect=fake_again):
+            second = self.client.post(
+                "/v1/chat/completions",
+                headers={"Authorization": "Bearer local"},
+                json={
+                    "model": "deepseek-v4-pro",
+                    "messages": [{"role": "user", "content": "hi"}],
+                },
+            )
+        self.assertEqual(second.status_code, 200, second.text)
+        self.assertEqual(again, ["ZHIPU/GLM-5.2"])
+
     def _login(self, client: TestClient | None = None) -> TestClient:
         target = client or self.client
         session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
@@ -673,7 +741,7 @@ class GatewayTests(unittest.TestCase):
         return data
 
     def test_jobs_thinking_flag_sets_env_and_rejects_bad_value(self) -> None:
-        """/api/jobs 表单 thinking（留给父壳 / 运维）：off 落成 SPEC_SHEET_LLM_THINKING=disabled，on / 空清掉。"""
+        """/api/jobs 表单 thinking：off/空关掉推理；on 才走上游默认。"""
         self._login()
         os.environ.pop("SPEC_SHEET_LLM_THINKING", None)
         bad = self.client.post(
@@ -698,7 +766,7 @@ class GatewayTests(unittest.TestCase):
                             data={"thinking": mode},
                         )
                         self.assertEqual(resp.status_code, 200, resp.text)
-        self.assertEqual(seen, [("off", "disabled"), ("on", None), ("", None)])
+        self.assertEqual(seen, [("off", "disabled"), ("on", None), ("", "disabled")])
         os.environ.pop("SPEC_SHEET_LLM_THINKING", None)
 
     def test_open_file_locally_only_inside_output_dir(self) -> None:
@@ -963,6 +1031,36 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertFalse(resp.json().get("changed"))
         self.assertTrue(client.get("/api/session").json().get("logged_in"))
+
+    def test_site_pack_cannot_switch_to_cloud(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        ini = root / "config.ini"
+        ini.write_text(
+            "[krow]\n"
+            f"server_url = {SITE_API_URL}\n"
+            "lock_environment = true\n",
+            encoding="utf-8",
+        )
+        extra = {
+            "ELECTRICAL_KROW_CONFIG": str(ini),
+            "ELECTRICAL_KROW_DATA": str(root),
+        }
+        patcher = patch.dict(os.environ, extra, clear=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        os.environ.pop("KROW_SERVER_URL", None)
+        settings = load_settings()
+        client = TestClient(create_app(settings, output_dir=root))
+        data = client.get("/api/settings").json()
+        self.assertTrue(data.get("environment_locked"))
+        self.assertEqual([item["id"] for item in data.get("environments") or []], ["site"])
+        self.assertTrue(client.get("/api/health").json().get("environment_locked"))
+        denied = client.post("/api/settings", json={"id": "cloud"})
+        self.assertEqual(denied.status_code, 403)
+        self.assertIn("现场识别", denied.json().get("detail") or "")
+        self.assertEqual(client.get("/api/health").json().get("server"), SITE_API_URL)
 
 
 if __name__ == "__main__":

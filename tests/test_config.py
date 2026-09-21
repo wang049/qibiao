@@ -190,6 +190,56 @@ class ConfigTests(unittest.TestCase):
         with self.assertRaises(ConfigError):
             apply_server_environment(s, "")
 
+    def test_site_pack_ignores_cloud_overlay(self) -> None:
+        from electrical_krow.config import packaged_environment_lock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.ini"
+            path.write_text(
+                "[krow]\n"
+                f"server_url = {SITE_API_URL}\n",
+                encoding="utf-8",
+            )
+            extra = {
+                "ELECTRICAL_KROW_CONFIG": str(path),
+                "ELECTRICAL_KROW_DATA": tmp,
+                "KROW_SERVER_URL": CLOUD_API_URL,
+            }
+            with patch.dict(os.environ, extra, clear=False):
+                write_server_env_id("cloud")
+                lock = packaged_environment_lock()
+                self.assertIsNotNone(lock)
+                self.assertEqual(lock.id, "site")
+                s = load_settings()
+                self.assertEqual(s.server_url, SITE_API_URL)
+                with self.assertRaises(ConfigError):
+                    apply_server_environment(s, "cloud")
+
+    def test_lock_environment_stays_on_site_if_ini_url_tampered(self) -> None:
+        from electrical_krow.config import packaged_environment_lock
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config.ini"
+            path.write_text(
+                "[krow]\n"
+                f"server_url = {CLOUD_API_URL}\n"
+                "lock_environment = true\n",
+                encoding="utf-8",
+            )
+            extra = {
+                "ELECTRICAL_KROW_CONFIG": str(path),
+                "ELECTRICAL_KROW_DATA": tmp,
+            }
+            with patch.dict(os.environ, extra, clear=False):
+                os.environ.pop("KROW_SERVER_URL", None)
+                lock = packaged_environment_lock()
+                self.assertIsNotNone(lock)
+                self.assertEqual(lock.id, "site")
+                s = load_settings()
+                self.assertEqual(s.server_url, SITE_API_URL)
+                with self.assertRaises(ConfigError):
+                    apply_server_environment(s, "cloud")
+
 
 if __name__ == "__main__":
     unittest.main()

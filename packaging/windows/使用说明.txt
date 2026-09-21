@@ -8,7 +8,8 @@
 给谁用
   64 位 Windows 10 / 11。不必先装 Python。需要已安装 Microsoft Edge（系统通常自带，不是 Chrome）。
   识别地址写在安装目录的 config.ini（server_url）。本包默认 https://api.krow.cn。
-  到客户现场再改成现场 Krow Server。覆盖安装会用安装包里的地址，旧文件备份为 config.ini.bak。
+  若本句已是现场 rdapi 地址，则本包锁定现场识别，设置里不能再切回公网联调。
+  公网联调包仍可在设置里切换。覆盖安装会用安装包里的地址，旧文件备份为 config.ini.bak。
 
 推荐：安装包 exe
   1. 双击「电子电器SOR填表-windows-x64.exe」。

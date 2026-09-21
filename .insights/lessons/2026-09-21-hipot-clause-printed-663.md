@@ -2,11 +2,11 @@
 
 - 状态：active
 - 条目：#14 高压安全-耐电压
-- 闸门：`electrical/tests/test_extract_quality.py`（`test_continuous_hvdc_withstand_is_dielectric_663`、`test_dielectric_prefers_continuous_hvdc_over_iso6469`、`test_hipot_clause_iso6469_stays_on_printed_section`）；`electrical/extract.py` `_is_continuous_hvdc_withstand`、`_rule_cells` 连续高压直流耐压先于 ISO 6469
+- 闸门：`electrical/tests/test_extract_quality.py`（`test_continuous_hvdc_withstand_is_dielectric_663`、`test_continuous_hvdc_body_without_heading_still_stores`、`test_dielectric_prefers_continuous_hvdc_over_iso6469`、`test_hipot_clause_iso6469_stays_on_printed_section`）；`electrical/extract.py` `_is_continuous_hvdc_withstand` 认正文句，扩句丢掉标题后仍进 #14
 
 ## 代价
 
-把 DHTS #14 写成 ISO 6469-3 工频（1min、50–60Hz、(2U+1000) VAC），条款号再硬贴 6.6.3。专家指出 6.6.3 的正文是 Continuous HVDC withstand voltage：母线最大 500V 连续供电、无永久性损坏、ISO 16750-1 最低 C。
+把 DHTS #14 写成 ISO 6469-3 工频（1min、50–60Hz、(2U+1000) VAC）。规则已抽到 500V 连续耐压，扩句丢掉 `Continuous HVDC` 标题后被当成工作耐压扔掉，6.10.3.2 工频又填回去。6.6.3 正文是母线最大 500V 连续供电、无永久性损坏、ISO 16750-1 最低 C。
 
 ## 反事实
 

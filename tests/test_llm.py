@@ -7,6 +7,34 @@ from fastapi.testclient import TestClient
 from electrical_krow.mock_server import DEMO_TOKEN, create_app
 
 
+class ModelUnavailableTests(unittest.TestCase):
+    def test_looks_like_model_unavailable(self) -> None:
+        from electrical_krow.llm import chat_model_candidates, looks_like_model_unavailable
+
+        self.assertTrue(
+            looks_like_model_unavailable(
+                400,
+                '{"error":"This model is currently unavailable. Please try another model."}',
+            )
+        )
+        self.assertTrue(looks_like_model_unavailable(body="识别模型「x」当前不可用"))
+        self.assertFalse(looks_like_model_unavailable(200, "ok"))
+        self.assertEqual(
+            chat_model_candidates(
+                ["krow-ocr-table", "ZHIPU/GLM-5.2", "qwen-plus"],
+                "deepseek-v4-pro",
+            ),
+            ["ZHIPU/GLM-5.2", "qwen-plus"],
+        )
+        self.assertEqual(
+            chat_model_candidates(
+                ["deepseek-v4-pro", "ZHIPU/GLM-5.2"],
+                "deepseek-v4-pro",
+            ),
+            ["deepseek-v4-pro", "ZHIPU/GLM-5.2"],
+        )
+
+
 class LlmTests(unittest.TestCase):
     def setUp(self) -> None:
         self.client = TestClient(create_app())
@@ -120,6 +148,54 @@ class LlmTests(unittest.TestCase):
         self.assertEqual(seen["max_tokens"], 4096)
         self.assertNotIn("reasoning_effort", seen)
         self.assertNotIn("options", seen)
+
+    def test_complete_uses_reasoning_content_when_content_empty(self) -> None:
+        from unittest.mock import patch
+
+        import httpx
+
+        from electrical_krow.login import AuthSession
+        from electrical_krow.llm import assistant_text, complete
+
+        self.assertEqual(
+            assistant_text({"content": "", "reasoning_content": '{"rows":[]}'}),
+            '{"rows":[]}',
+        )
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={
+                    "choices": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "content": "",
+                                "reasoning_content": '{"rows":[{"seq":1}]}',
+                            }
+                        }
+                    ]
+                },
+            )
+
+        real_client = httpx.Client
+
+        def client_factory(**kwargs):
+            kwargs["transport"] = httpx.MockTransport(handler)
+            return real_client(**kwargs)
+
+        with patch("electrical_krow.llm.httpx.Client", side_effect=client_factory):
+            result = complete(
+                "https://rdapi.aurobaytech-t.com",
+                AuthSession(access_token="tok", username="u", source="password"),
+                [{"role": "user", "content": "hi"}],
+                model="deepseek-v4-pro",
+            )
+        self.assertEqual(result.content, '{"rows":[{"seq":1}]}')
+        self.assertEqual(
+            result.raw["choices"][0]["message"]["content"],
+            '{"rows":[{"seq":1}]}',
+        )
 
     def test_ocr_endpoint(self) -> None:
         empty = self.client.post(

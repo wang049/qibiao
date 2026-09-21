@@ -26,20 +26,26 @@ from electrical_krow.about import OpenError, open_locally, versions as about_ver
 from electrical_krow.bridge import wire_extract_endpoint
 from electrical_krow.config import (
     SERVER_ENV_BY_ID,
-    SERVER_ENVIRONMENTS,
     Settings,
     allows_page_images,
     apply_macos_client_server,
     apply_server_environment,
+    available_server_environments,
     load_settings,
     match_server_environment,
+    packaged_environment_lock,
     require_gateway_bind,
 )
 from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.jobs import JobStore
 from electrical_krow.inspect_doc import inspect_upload
 from electrical_krow.knowledge import browse_catalog, knowledge_summary, pending_rulings_count
-from electrical_krow.llm import complete, list_models
+from electrical_krow.llm import (
+    chat_model_candidates,
+    complete,
+    list_models,
+    looks_like_model_unavailable,
+)
 from electrical_krow.login import login_with_password, refresh_sdk_key, revoke_sdk_key
 from electrical_krow.ocr import decode_image_payload, prepare_page_ocr, recognize_page
 from electrical_krow.paths import FRONTEND_DIR, OUTPUT_DIR
@@ -117,7 +123,7 @@ class SettingsIn(BaseModel):
     id: str = ""
 
 
-# /api/jobs 的 thinking 表单值：空 = 上游默认（开）。工位页不传，此参数留给父壳 / 运维显式关。
+# /api/jobs 的 thinking：工位页不传。空/off = 关掉推理（出表只要 JSON）；on 才走上游默认。
 THINKING_MODES = frozenset({"", "on", "off"})
 
 
@@ -155,6 +161,7 @@ def create_app(
 
     def _settings_payload() -> dict[str, object]:
         env = match_server_environment(cfg.server_url)
+        lock = packaged_environment_lock()
         try:
             origin = cfg.server_origin()
         except ConfigError:
@@ -164,9 +171,10 @@ def create_app(
             "id": env.id if env else "",
             "label": env.label if env else "",
             "server": origin,
+            "environment_locked": lock is not None,
             "environments": [
                 {"id": item.id, "label": item.label, "server": item.server_url}
-                for item in SERVER_ENVIRONMENTS
+                for item in available_server_environments()
             ],
         }
 
@@ -193,6 +201,7 @@ def create_app(
             "active_job": app.state.jobs.active(),
             "environment": env.id if env else "",
             "environment_label": env.label if env else "",
+            "environment_locked": packaged_environment_lock() is not None,
             # 「关于」页：版本与核对表目录
             "versions": about_versions(),
             "output_dir": str(app.state.jobs.output_dir),
@@ -213,6 +222,9 @@ def create_app(
         env_id = (body.id or "").strip()
         if env_id not in SERVER_ENV_BY_ID:
             raise HTTPException(400, "请选择公网联调或现场识别。")
+        lock = packaged_environment_lock()
+        if lock is not None and env_id != lock.id:
+            raise HTTPException(403, "本包为现场识别，不能切换到公网联调。")
         current = match_server_environment(cfg.server_url)
         if current is not None and current.id == env_id:
             return {
@@ -304,7 +316,12 @@ def create_app(
         except (LLMError, ConfigError):
             names = []
         current = _active_model(item)
-        if current and current not in names:
+        if names:
+            picked = chat_model_candidates(names, current)
+            if current not in names and picked:
+                current = picked[0]
+                request.app.state.store.set_chat_model(item, current)
+        elif current and current not in names:
             names = [current, *names]
         seen: set[str] = set()
         ordered: list[str] = []
@@ -339,7 +356,8 @@ def create_app(
         item = _session_from(request, authorization)
         if item is None:
             raise HTTPException(401, "请先登录")
-        model = (body.model or _active_model(item)).strip() or cfg.chat_model
+        requested = (body.model or _active_model(item)).strip() or cfg.chat_model
+        model = (item.extract_model or requested).strip() or requested
         messages = [{"role": m.role, "content": m.content} for m in body.messages]
         if any(message_has_image(m.content) for m in body.messages):
             if not allows_page_images(cfg.server_url):
@@ -356,12 +374,12 @@ def create_app(
                     )
                 model = vision
 
-        def _call(auth):
+        def _call(auth, model_name: str):
             return complete(
                 cfg.server_url,
                 auth,
                 messages,
-                model=model,
+                model=model_name,
                 temperature=body.temperature,
                 timeout=cfg.timeout_sec,
                 extra={
@@ -371,28 +389,65 @@ def create_app(
                 },
             )
 
+        def _fallback_model(auth, failed: str, exc: LLMError):
+            dead = {failed}
+            names: list[str] = []
+            try:
+                names = list_models(cfg.server_url, auth, timeout=15.0)
+            except (LLMError, ConfigError):
+                names = []
+            for alt in chat_model_candidates(names, _active_model(item)):
+                if alt in dead:
+                    continue
+                try:
+                    result = _call(auth, alt)
+                except LLMError as inner:
+                    if looks_like_model_unavailable(body=str(inner)):
+                        dead.add(alt)
+                        continue
+                    raise
+                item.extract_model = alt
+                if not item.chat_model or item.chat_model in dead:
+                    item.chat_model = alt
+                return result
+            raise HTTPException(
+                400,
+                f"识别模型「{failed}」当前不可用，请改选其他 chat 模型。",
+            ) from exc
+
         try:
-            result = _call(item.auth)
+            result = _call(item.auth, model)
         except ConfigError as exc:
             raise HTTPException(502, str(exc)) from exc
         except LLMError as exc:
-            if not _looks_like_auth_error(exc):
+            if looks_like_model_unavailable(body=str(exc)):
+                result = _fallback_model(item.auth, model, exc)
+            elif not _looks_like_auth_error(exc):
                 raise HTTPException(502, str(exc)) from exc
-            try:
-                with _AUTH_REFRESH:
-                    try:
-                        result = _call(item.auth)
-                    except LLMError as inner:
-                        if not _looks_like_auth_error(inner):
-                            raise
-                        item.auth = refresh_sdk_key(cfg.server_url, item.auth)
-                        result = _call(item.auth)
-            except LoginError as exc2:
-                raise HTTPException(401, str(exc2)) from exc2
-            except LLMError as exc2:
-                if _looks_like_auth_error(exc2):
-                    raise HTTPException(401, "识别未授权，请重新登录。") from exc2
-                raise HTTPException(502, str(exc2)) from exc2
+            else:
+                try:
+                    with _AUTH_REFRESH:
+                        try:
+                            result = _call(item.auth, model)
+                        except LLMError as inner:
+                            if looks_like_model_unavailable(body=str(inner)):
+                                result = _fallback_model(item.auth, model, inner)
+                            elif not _looks_like_auth_error(inner):
+                                raise
+                            else:
+                                item.auth = refresh_sdk_key(cfg.server_url, item.auth)
+                                result = _call(item.auth, model)
+                except HTTPException:
+                    raise
+                except LoginError as exc2:
+                    raise HTTPException(401, str(exc2)) from exc2
+                except LLMError as exc2:
+                    if looks_like_model_unavailable(body=str(exc2)):
+                        result = _fallback_model(item.auth, model, exc2)
+                    elif _looks_like_auth_error(exc2):
+                        raise HTTPException(401, "识别未授权，请重新登录。") from exc2
+                    else:
+                        raise HTTPException(502, str(exc2)) from exc2
         return result.raw
 
     @app.post("/v1/ocr")
@@ -435,18 +490,19 @@ def create_app(
             raise HTTPException(400, "thinking 只能是 on / off。")
         data = await file.read()
         incoming, out = request.app.state.jobs.prepare_upload(file, data)
-        model = _active_model(item)
+        model = item.extract_model or _active_model(item)
         if prepare_page_ocr(cfg, item):
             os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
             os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
         else:
             prepare_page_vision(cfg, item)
         # 模型推理开关：同一时刻只跑一份，进程级环境变量即本次任务的开关。
-        # off → thinking.type=disabled（deepseek-v4-pro 开推理时单段常撞 180s 超时）；on / 空 → 上游默认。
-        if mode == "off":
-            os.environ["SPEC_SHEET_LLM_THINKING"] = "disabled"
-        else:
+        # 空/off → thinking.type=disabled。现场 deepseek 开推理时常只回 reasoning_content，
+        # 工位会把整层分段记成失败，两分钟出一张只有规则的表。
+        if mode == "on":
             os.environ.pop("SPEC_SHEET_LLM_THINKING", None)
+        else:
+            os.environ["SPEC_SHEET_LLM_THINKING"] = "disabled"
         try:
             job_id = request.app.state.jobs.start(
                 file.filename,

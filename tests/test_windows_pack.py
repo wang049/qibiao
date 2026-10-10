@@ -20,6 +20,15 @@ class WindowsPackIconTests(unittest.TestCase):
         self.assertIn("电子电器SOR填表.lnk", app_c)
         self.assertIn("正在打开电子电器智能体", app_c)
         self.assertIn("正在启动电子电器智能体", app_c)
+        self.assertIn("请把这个窗口截图发给我们", app_c)
+        self.assertNotIn("请查看 gateway.log", app_c)
+        console = (WIN / "console.bat").read_text(encoding="utf-8")
+        start = (WIN / "start.bat").read_text(encoding="utf-8")
+        self.assertIn('"!PYW!" "!ROOT!\\run.py"', console)
+        self.assertNotIn('"!PY!" "!ROOT!\\run.py"', console)
+        self.assertIn('"!PYW!" "!ROOT!\\run.py" --wait-gateway', start)
+        self.assertNotIn('"!PY!" "!ROOT!\\run.py"', start)
+        self.assertNotIn("%LOCALAPPDATA%\\electrical-krow\\gateway.log", app_c)
         self.assertNotIn("正在打开出表窗口", app_c)
 
     def test_pack_script_embeds_frontend_icon(self) -> None:

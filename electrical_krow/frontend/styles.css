@@ -1192,7 +1192,15 @@ button.job-row {
   justify-content: center;
   gap: 14px;
 }
-.home-grid .fn-card { flex: 0 1 600px; }
+.home-grid .fn-card { flex: 1 1 280px; max-width: 420px; }
+.home-grid .fn-go { margin-top: auto; }
+.io-steps {
+  margin: 8px 0 0;
+  padding-left: 1.2em;
+  color: var(--ink);
+  line-height: 1.7;
+}
+#io-card .fn-kicker { margin-bottom: 4px; }
 /* 出表页：一行统计 + 最近核对表 */
 .work-meta {
   margin: 10px 0 0;

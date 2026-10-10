@@ -44,9 +44,9 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20260918l", resp.text)
-        self.assertIn("i18n.js?v=20260918ai", resp.text)
-        self.assertIn("app.js?v=20260918q", resp.text)
+        self.assertIn("styles.css?v=20261010a", resp.text)
+        self.assertIn("i18n.js?v=20261010a", resp.text)
+        self.assertIn("app.js?v=20261010a", resp.text)
         self.assertIn('id="env-busy"', resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
@@ -663,8 +663,11 @@ class GatewayTests(unittest.TestCase):
         for gone in ('id="home-stats"', 'id="home-recent"', 'id="home-open-dir"', 'id="home-flow"', 'id="home-kb"'):
             self.assertNotIn(gone, page)
         home = page[page.index('id="home-card"'):page.index('id="work-card"')]
-        self.assertEqual(home.count('class="fn-card'), 1)
+        self.assertEqual(home.count('class="fn-card'), 2)
         self.assertIn("进入出表", home)
+        self.assertIn("IO口规划", home)
+        self.assertIn('data-go="io"', home)
+        self.assertIn('id="io-card"', page)
         self.assertNotIn("上传规格书", home)
         self.assertNotIn('id="home-foot"', page)
         self.assertEqual(home.count("禁止用库填数"), 0)
@@ -706,6 +709,26 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("-webkit-line-clamp: 2", css)
         self.assertIn("max-height: calc(1.35em * 2)", css)
         self.assertIn("class='job-copy'", js)
+
+    def test_io_sheet_opens_blank_workbook(self) -> None:
+        self._login()
+        with patch("electrical_krow.gateway.open_locally") as opened:
+            resp = self.client.post("/api/io-sheet")
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["name"], "IO口初始配置表.xlsx")
+        path = Path(self._tmp.name) / "IO口初始配置表.xlsx"
+        self.assertTrue(path.is_file())
+        opened.assert_called_once()
+        from openpyxl import load_workbook
+
+        book = load_workbook(path, data_only=True)
+        try:
+            rows = list(book["IO口初始配置表"].iter_rows(values_only=True))
+        finally:
+            book.close()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], "手册引脚号")
+        self.assertEqual(rows[0][6], "端口名")
 
     def test_inspect_requires_login_and_reports_type_pages_estimate(self) -> None:
         from electrical_krow.mock_server import DEMO_USER

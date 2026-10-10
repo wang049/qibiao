@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器智能体</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20260918l" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261010a" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -69,9 +69,15 @@
         </div>
         <button type="button" id="rail-new" class="rail-new" data-i18n="rail.new">+ 新建出表</button>
         <div class="rail-block">
-          <div class="rail-label" data-i18n="rail.group.extract">出表</div>
           <button type="button" id="rail-home" class="rail-fn" data-i18n="rail.home">工作台</button>
+        </div>
+        <div class="rail-block">
+          <div class="rail-label" data-i18n="rail.group.extract">出表</div>
           <button type="button" id="rail-extract" class="rail-fn" data-i18n="rail.extract">SOR 参数提取</button>
+        </div>
+        <div class="rail-block">
+          <div class="rail-label" data-i18n="rail.group.plan">规划</div>
+          <button type="button" id="rail-io" class="rail-fn" data-i18n="rail.io">IO口规划</button>
         </div>
         <div class="rail-block rail-jobs">
           <div class="rail-label" data-i18n="rail.jobs">出表记录</div>
@@ -161,7 +167,32 @@
                 </span>
                 <span class="fn-go" data-i18n="home.go">进入出表</span>
               </button>
+              <button type="button" class="fn-card" data-go="io">
+                <span class="fn-kicker" data-i18n="home.io.kicker">IO口规划</span>
+                <strong data-i18n="home.io.cardTitle">对照芯片手册生成初始配置表。</strong>
+                <span class="fn-chips">
+                  <span data-i18n="home.io.chipManual">手册</span>
+                  <span data-i18n="home.io.chipPins">引脚</span>
+                </span>
+                <span class="fn-go" data-i18n="home.io.go">进入规划</span>
+              </button>
             </div>
+          </div>
+
+          <div id="io-card" class="card" hidden>
+            <p class="fn-kicker" data-i18n="home.io.kicker">IO口规划</p>
+            <ol class="io-steps">
+              <li data-i18n="io.step1">读取芯片数据手册</li>
+              <li data-i18n="io.step2">提取引脚、复用及约束</li>
+              <li data-i18n="io.step3">命名规则确认后才写端口名，未确认则留空</li>
+              <li data-i18n="io.step4">保留人工修改列，已填内容不得覆盖</li>
+            </ol>
+            <p class="work-meta" data-i18n="io.note">手册未到，表内只有栏目，不填引脚。命名规则未确认，端口名留空。确认前不得作为接口控制依据。</p>
+            <div class="actions">
+              <button id="io-back" type="button" class="ghost" data-i18n="io.back">返回</button>
+              <button id="io-blank" type="button" data-i18n="io.blank">生成空表</button>
+            </div>
+            <p id="io-msg" class="msg" hidden></p>
           </div>
 
           <div id="work-card" class="card" hidden>
@@ -470,8 +501,8 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20260918ai" defer></script>
-  <script src="/static/app.js?v=20260918q" defer></script>
+  <script src="/static/i18n.js?v=20261010a" defer></script>
+  <script src="/static/app.js?v=20261010a" defer></script>
   <script src="/static/kb.js?v=20260918g" defer></script>
 </body>
 </html>

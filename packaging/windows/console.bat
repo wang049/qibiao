@@ -9,6 +9,7 @@ setlocal EnableExtensions EnableDelayedExpansion
 set "ROOT=%~dp0"
 if "!ROOT:~-1!"=="\" set "ROOT=!ROOT:~0,-1!"
 set "PY=!ROOT!\python\python.exe"
+set "PYW=!ROOT!\python\pythonw.exe"
 set "PYDIR=!ROOT!\python"
 set "APP=!ROOT!\app"
 set "MARKER=!PYDIR!\.deps-ok"
@@ -45,11 +46,22 @@ copy /y "!ROOT!\python312._pth" "!PTH!" >nul
 copy /y "!ROOT!\sitecustomize.py" "!SITE!\sitecustomize.py" >nul
 if not exist "!ELECTRICAL_KROW_DATA!" mkdir "!ELECTRICAL_KROW_DATA!"
 
-echo Console mode. Close this window to stop. Native app window will open.
+echo 正在打开电子电器智能体。请稍候，不要关这个窗口。
 echo.
-"!PY!" "!ROOT!\run.py"
+if not exist "!PYW!" (
+  echo 找不到 pythonw.exe。
+  call :hint_extract
+  goto :end
+)
+set "PYTHONLEGACYWINDOWSSTDIO=1"
+"!PYW!" "!ROOT!\run.py"
+set "RC=!ERRORLEVEL!"
 echo.
-echo Server exited. Code !ERRORLEVEL!
+echo Server exited. Code !RC!
+if not "!RC!"=="0" if exist "%LOCALAPPDATA%\electrical-krow\gateway.log" (
+  echo.
+  type "%LOCALAPPDATA%\electrical-krow\gateway.log"
+)
 
 :end
 echo.

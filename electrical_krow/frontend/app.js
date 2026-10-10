@@ -281,9 +281,11 @@ function applyWorkPanel() {
   const home = on && workPanel === "home";
   const kb = on && workPanel === "kb";
   const extract = on && workPanel === "extract";
+  const io = on && workPanel === "io";
   $("home-card").hidden = !home;
   $("work-card").hidden = !extract;
   $("kb-card").hidden = !kb;
+  $("io-card").hidden = !io;
   document.body.classList.toggle("is-logged", on);
   document.body.classList.toggle("is-home", home);
   document.body.classList.toggle("is-kb", kb);
@@ -291,6 +293,7 @@ function applyWorkPanel() {
   document.querySelector("main")?.classList.toggle("is-kb", kb);
   $("rail-home")?.classList.toggle("is-on", home);
   $("rail-extract")?.classList.toggle("is-on", extract);
+  $("rail-io")?.classList.toggle("is-on", io);
   $("rail-kb")?.classList.toggle("is-on", kb);
   if (!on) {
     $("kicker").textContent = isSite() ? tx("login.kicker.site") : tx("login.kicker.client");
@@ -309,6 +312,12 @@ function applyWorkPanel() {
     $("title").innerHTML = tx("hero.kb.title");
     $("lead").textContent = tx("hero.kb.lead");
     if (typeof window.kbEnsure === "function") window.kbEnsure();
+    return;
+  }
+  if (io) {
+    $("kicker").textContent = tx("hero.io.kicker");
+    $("title").innerHTML = tx("hero.io.title");
+    $("lead").textContent = tx("hero.io.lead");
     return;
   }
   $("kicker").textContent = tx("hero.extract.kicker");
@@ -777,8 +786,22 @@ function goExtract(opts) {
 
 $("rail-home").onclick = () => setPanel("home");
 $("rail-extract").onclick = () => goExtract();
+$("rail-io").onclick = () => setPanel("io");
 $("rail-kb").onclick = () => setPanel("kb");
 $("rail-new").onclick = () => goExtract({ clearFile: true });
+$("io-back").onclick = () => setPanel("home");
+$("io-blank").onclick = async () => {
+  const msg = $("io-msg");
+  msg.hidden = true;
+  try {
+    await json("/api/io-sheet", { method: "POST" });
+    msg.hidden = false;
+    msg.textContent = tx("io.opened");
+  } catch (err) {
+    msg.hidden = false;
+    msg.textContent = err.message || String(err);
+  }
+};
 // 工作台卡片只切页，不自动弹文件选择；选文件由页内拖放区/按钮触发
 document.querySelectorAll(".fn-card[data-go]").forEach((btn) => {
   btn.addEventListener("click", () => {

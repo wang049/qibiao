@@ -342,6 +342,59 @@ static HANDLE start_gui(wchar_t *cmdline, const wchar_t *cwd)
     return pi.hProcess;
 }
 
+/* 启动失败时把日志末尾放进弹窗，用户截图即可，不必自己去翻目录。 */
+static void gateway_log_tail(wchar_t *out, int cap)
+{
+    wchar_t local[MAXP], path[MAXP];
+    HANDLE h;
+    DWORD size, nread = 0;
+    char buf[2400];
+    char *text = buf;
+    int n;
+
+    out[0] = 0;
+    if (cap < 8)
+        return;
+    if (GetEnvironmentVariableW(L"LOCALAPPDATA", local, MAXP) == 0)
+        return;
+    join2(path, MAXP, local, L"electrical-krow\\gateway.log");
+    h = CreateFileW(
+        path,
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    if (h == INVALID_HANDLE_VALUE)
+        return;
+    size = GetFileSize(h, NULL);
+    if (size == 0 || size == INVALID_FILE_SIZE) {
+        CloseHandle(h);
+        return;
+    }
+    if (size > sizeof(buf) - 1) {
+        SetFilePointer(h, (LONG)(size - (sizeof(buf) - 1)), NULL, FILE_BEGIN);
+        size = (DWORD)(sizeof(buf) - 1);
+    }
+    if (!ReadFile(h, buf, size, &nread, NULL) || nread == 0) {
+        CloseHandle(h);
+        return;
+    }
+    CloseHandle(h);
+    buf[nread] = 0;
+    if (nread > 400) {
+        char *nl = strchr(buf, '\n');
+        if (nl && nl[1])
+            text = nl + 1;
+    }
+    n = MultiByteToWideChar(CP_UTF8, 0, text, -1, out, cap);
+    if (n <= 0)
+        out[0] = 0;
+    else
+        out[cap - 1] = 0;
+}
+
 /* 0=已在听端口  1=进程已退出  2=仍在启动 */
 static int wait_ready(HANDLE proc, int ms)
 {
@@ -418,15 +471,28 @@ static int start_from_dir(const wchar_t *dir)
             return 0;
         if (ready == 2)
             return 0;
-        MessageBoxW(
-            NULL,
-            L"安装已完成，但没有打开电子电器智能体。\n\n"
-            L"请双击桌面快捷方式「电子电器智能体」。\n"
-            L"若仍没有窗口，双击安装目录里的 console.bat 查看报错，\n"
-            L"并把窗口里的文字发给我们。\n"
-            L"日志在 %LOCALAPPDATA%\\electrical-krow\\gateway.log",
-            TITLE,
-            MB_OK | MB_ICONWARNING);
+        {
+            wchar_t tail[1200];
+            wchar_t msg[2000];
+            gateway_log_tail(tail, 1200);
+            if (tail[0]) {
+                _snwprintf(
+                    msg,
+                    2000,
+                    L"安装已完成，但没有打开电子电器智能体。\n"
+                    L"请把这个窗口截图发给我们。\n\n%s",
+                    tail);
+            } else {
+                _snwprintf(
+                    msg,
+                    2000,
+                    L"安装已完成，但没有打开电子电器智能体。\n\n"
+                    L"请再双击一次桌面快捷方式「电子电器智能体」。\n"
+                    L"若仍没有窗口，把这个提示截图发给我们。");
+            }
+            msg[1999] = 0;
+            MessageBoxW(NULL, msg, TITLE, MB_OK | MB_ICONWARNING);
+        }
         return 1;
     }
 }

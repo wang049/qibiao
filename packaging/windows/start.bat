@@ -56,8 +56,9 @@ if not exist "!SITE!\httpx\__init__.py" (
   goto :fail
 )
 echo Opening app window...
+set "PYTHONLEGACYWINDOWSSTDIO=1"
 start "" /D "!ROOT!" "!PYW!" "!ROOT!\run.py"
-"!PY!" "!ROOT!\run.py" --wait-gateway
+"!PYW!" "!ROOT!\run.py" --wait-gateway
 if errorlevel 1 (
   echo ERROR: app window did not start.
   echo Log: %LOCALAPPDATA%\electrical-krow\gateway.log

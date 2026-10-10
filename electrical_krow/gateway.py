@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
+from electrical_krow.io_plan import write_io_sheet
 from electrical_krow.bridge import wire_extract_endpoint
 from electrical_krow.config import (
     SERVER_ENV_BY_ID,
@@ -86,6 +87,14 @@ def prepare_page_vision(settings: Settings, item: StoredSession | None) -> str:
     os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
     os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
     return ""
+
+
+def _safe_call(fn, fallback):
+    """启动探测不能因为关于页或知识库读失败而把整个服务判死。"""
+    try:
+        return fn()
+    except Exception:
+        return fallback
 
 
 def apply_windows_event_loop_policy() -> None:
@@ -203,11 +212,11 @@ def create_app(
             "environment_label": env.label if env else "",
             "environment_locked": packaged_environment_lock() is not None,
             # 「关于」页：版本与核对表目录
-            "versions": about_versions(),
+            "versions": _safe_call(about_versions, {}),
             "output_dir": str(app.state.jobs.output_dir),
             # 工作台摘要卡：知识库数量与待专家口径条目数（只有数字，不含条目内容）
-            "knowledge": knowledge_summary(),
-            "pending_rulings": pending_rulings_count(),
+            "knowledge": _safe_call(knowledge_summary, {}),
+            "pending_rulings": _safe_call(pending_rulings_count, 0),
         }
 
     @app.get("/api/settings")
@@ -612,6 +621,21 @@ def create_app(
         return request.app.state.jobs.snapshot(
             job_id, username=item.auth.username
         )
+
+    @app.post("/api/io-sheet")
+    def create_io_sheet(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """第3项空表。不填引脚，端口名留空，并用本机表格程序打开。"""
+        _require_session(request, authorization)
+        dest = request.app.state.jobs.output_dir / "IO口初始配置表.xlsx"
+        write_io_sheet(dest)
+        try:
+            open_locally(dest)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        return {"ok": True, "name": dest.name}
 
     @app.get("/files/{name}")
     def download(

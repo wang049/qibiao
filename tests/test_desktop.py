@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -15,6 +16,7 @@ from electrical_krow.desktop import (
     edge_profile_busy,
     gateway_command,
     gateway_in_thread,
+    gateway_log_tail,
     http_ok,
     main as desktop_main,
     msedge_path,
@@ -23,6 +25,7 @@ from electrical_krow.desktop import (
     picked_save_path,
     port_is_open,
     reap_stale_gateway,
+    service_not_ready_message,
     sheet_file,
     start_gateway,
     wait_edge_app_closed,
@@ -37,6 +40,55 @@ class DesktopTests(unittest.TestCase):
         from electrical_krow.desktop import _set_native_app_identity
 
         _set_native_app_identity()
+
+    def test_startup_failure_message_includes_log_tail_without_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "gateway.log").write_text(
+                "---- 2026-10-09T10:11:00 ----\n"
+                "Traceback (most recent call last):\n"
+                "ModuleNotFoundError: No module named 'httpx'\n",
+                encoding="utf-8",
+            )
+            with patch.dict(os.environ, {"ELECTRICAL_KROW_DATA": tmp}, clear=False):
+                tail = gateway_log_tail()
+                message = service_not_ready_message()
+        self.assertIn("ModuleNotFoundError", tail)
+        self.assertNotIn("---- ", tail)
+        self.assertIn("请把这个窗口截图发给我们", message)
+        self.assertIn("ModuleNotFoundError", message)
+        self.assertNotIn("gateway.log", message)
+        self.assertNotIn("LOCALAPPDATA", message)
+
+    def test_external_gateway_waits_without_spawning_another(self) -> None:
+        settings = load_settings(server_url="http://127.0.0.1:18766")
+        args = SimpleNamespace(host=None, port=None, site=False, no_browser=True)
+        env = {
+            "ELECTRICAL_KROW_GATEWAY_EXTERNAL": "1",
+            "ELECTRICAL_KROW_GATEWAY_PID": "1",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            with patch("electrical_krow.desktop.parse_gateway_argv", return_value=args):
+                with patch(
+                    "electrical_krow.desktop.listen_from_args",
+                    return_value=(settings, "127.0.0.1", 18765, "http://127.0.0.1:18765"),
+                ):
+                    with patch("electrical_krow.desktop.handoff_macos_app", return_value=False):
+                        with patch("electrical_krow.desktop.webview_installed", return_value=True):
+                            with patch("electrical_krow.desktop._load_webview"):
+                                with patch("electrical_krow.desktop._pid_running", return_value=True):
+                                    with patch(
+                                        "electrical_krow.desktop.wait_until_ready",
+                                        return_value=True,
+                                    ):
+                                        with patch("electrical_krow.desktop.open_window") as window:
+                                            with patch("electrical_krow.desktop.start_gateway") as serve:
+                                                with patch("electrical_krow.desktop.reap_stale_gateway") as reap:
+                                                    code = desktop_main([])
+        self.assertEqual(code, 0)
+        window.assert_called_once()
+        serve.assert_not_called()
+        reap.assert_not_called()
 
     def test_port_is_open_false_for_unused(self) -> None:
         self.assertFalse(port_is_open("127.0.0.1", 1))
@@ -290,9 +342,11 @@ class DesktopTests(unittest.TestCase):
                 cmd = gateway_command("127.0.0.1", 18765)
         self.assertEqual(cmd[0], "/tmp/krow-python")
 
-    def test_gateway_python_prefers_console_next_to_pythonw(self) -> None:
-        from electrical_krow.desktop import gateway_python
+    def test_gateway_python_keeps_windowed_runtime(self) -> None:
+        from electrical_krow.desktop import format_process_exit_code, gateway_python
 
+        self.assertEqual(format_process_exit_code(3221225477), "-1073741819")
+        self.assertEqual(format_process_exit_code(-1073741819), "-1073741819")
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)
             pythonw = root / "pythonw.exe"
@@ -301,7 +355,55 @@ class DesktopTests(unittest.TestCase):
             python.write_text("", encoding="utf-8")
             with patch("electrical_krow.desktop.sys.platform", "win32"):
                 with patch("electrical_krow.desktop.runtime_python", return_value=str(pythonw)):
-                    self.assertEqual(gateway_python(), str(python))
+                    self.assertEqual(gateway_python(), str(pythonw))
+                with patch("electrical_krow.desktop.runtime_python", return_value=str(python)):
+                    self.assertEqual(gateway_python(), str(pythonw))
+
+    def test_spawn_gateway_redirects_stdio_and_uses_windowed_python(self) -> None:
+        class FakeProc:
+            def __init__(self) -> None:
+                self.pid = 5150
+                self._handle = None
+
+            def poll(self):
+                return None
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            pythonw = root / "pythonw.exe"
+            python = root / "python.exe"
+            pythonw.write_text("", encoding="utf-8")
+            python.write_text("", encoding="utf-8")
+            class StartupInfo:
+                dwFlags = 0
+                wShowWindow = 0
+
+            with patch("electrical_krow.desktop.data_root", return_value=root):
+                with patch("electrical_krow.desktop.sys.platform", "win32"):
+                    with patch("electrical_krow.desktop.gateway_in_thread", return_value=False):
+                        with patch("electrical_krow.desktop.runtime_python", return_value=str(python)):
+                            with patch(
+                                "electrical_krow.desktop.subprocess.STARTUPINFO",
+                                StartupInfo,
+                                create=True,
+                            ):
+                                with patch.object(sys, "argv", [str(root / "run.py")]):
+                                    with patch(
+                                        "electrical_krow.desktop.subprocess.Popen",
+                                        return_value=FakeProc(),
+                                    ) as popen:
+                                        start_gateway(
+                                            None,
+                                            "127.0.0.1",
+                                            18765,
+                                            "http://127.0.0.1:18765",
+                                        )
+        cmd = popen.call_args.args[0]
+        kwargs = popen.call_args.kwargs
+        self.assertEqual(Path(cmd[0]).name, "pythonw.exe")
+        self.assertIs(kwargs["stdin"], subprocess.DEVNULL)
+        self.assertIsNotNone(kwargs["stdout"])
+        self.assertEqual(kwargs["env"]["PYTHONLEGACYWINDOWSSTDIO"], "1")
 
     def test_reap_stale_gateway_removes_dead_pid_file(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

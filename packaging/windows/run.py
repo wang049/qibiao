@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import os
+import socket
+import subprocess
 import sys
 import traceback
 from datetime import datetime
@@ -84,12 +86,100 @@ def _wait_gateway() -> int:
     if host in {"0.0.0.0", "::", "*"}:
         host = "127.0.0.1"
     origin = f"http://{host}:{settings.gateway_port}"
-    return 0 if wait_until_ready(host, settings.gateway_port, origin, seconds=45) else 1
+    return 0 if wait_until_ready(host, settings.gateway_port, origin, seconds=120) else 1
+
+
+def _windowed_python() -> str:
+    """现场 python.exe 会以 0xC0000005 在进脚本前退出。网关和窗口都用 pythonw。"""
+    exe = Path(sys.executable)
+    if exe.name.lower() == "python.exe":
+        windowed = exe.with_name("pythonw.exe")
+        if windowed.is_file():
+            return str(windowed)
+    return str(exe)
+
+
+def _popen_hidden(cmd: list[str], env: dict[str, str]) -> subprocess.Popen:
+    data = Path(os.environ["ELECTRICAL_KROW_DATA"])
+    data.mkdir(parents=True, exist_ok=True)
+    log = open(data / "gateway.log", "a", encoding="utf-8", errors="replace", buffering=1)
+    kwargs: dict[str, object] = {
+        "stdin": subprocess.DEVNULL,
+        "stdout": log,
+        "stderr": subprocess.STDOUT,
+    }
+    if sys.platform == "win32":
+        flags = int(getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        flags |= int(getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+        kwargs["creationflags"] = flags
+        info = subprocess.STARTUPINFO()
+        info.dwFlags |= int(getattr(subprocess, "STARTF_USESHOWWINDOW", 1))
+        info.wShowWindow = 0
+        kwargs["startupinfo"] = info
+        env = dict(env)
+        env["PYTHONLEGACYWINDOWSSTDIO"] = "1"
+    try:
+        return subprocess.Popen(cmd, env=env, **kwargs)
+    finally:
+        log.close()
+
+
+def _port_open(host: str, port: int) -> bool:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(0.3)
+    try:
+        return sock.connect_ex((host, port)) == 0
+    except OSError:
+        return False
+    finally:
+        sock.close()
+
+
+def _prestart_gateway() -> subprocess.Popen | None:
+    """先拉起本机服务，再导入界面。杀毒扫描和界面导入可以同时进行。"""
+    from electrical_krow.config import load_settings
+
+    settings = load_settings()
+    host = settings.gateway_host
+    if host in {"0.0.0.0", "::", "*"}:
+        host = "127.0.0.1"
+    port = int(settings.gateway_port)
+    if _port_open(host, port):
+        os.environ["ELECTRICAL_KROW_GATEWAY_EXTERNAL"] = "1"
+        os.environ["ELECTRICAL_KROW_GATEWAY_PID"] = "0"
+        return None
+    cmd = [
+        _windowed_python(),
+        str(ROOT / "run.py"),
+        "--gateway",
+        "--host",
+        host,
+        "--port",
+        str(port),
+    ]
+    env = os.environ.copy()
+    env["ELECTRICAL_KROW_NESTED"] = "1"
+    env["ELECTRICAL_KROW_GW_THREAD"] = "0"
+    proc = _popen_hidden(cmd, env)
+    os.environ["ELECTRICAL_KROW_GATEWAY_EXTERNAL"] = "1"
+    os.environ["ELECTRICAL_KROW_GATEWAY_PID"] = str(proc.pid)
+    return proc
+
+
+def _stop_prestarted(proc: subprocess.Popen | None) -> None:
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
 
 
 def _run_gateway() -> int:
     _prepare()
     _redirect_log()
+    print("本机服务进程已进入 Python。", flush=True)
     from electrical_krow.gateway import main as gateway_main
 
     return gateway_main(["--no-browser", *sys.argv[2:]])
@@ -118,6 +208,12 @@ def main() -> int:
         print(msg, flush=True)
         _win_error(msg)
         return 1
+    prestarted = None
+    try:
+        prestarted = _prestart_gateway()
+    except Exception:
+        traceback.print_exc()
+        prestarted = None
     try:
         from electrical_krow.desktop import main as desktop_main
     except Exception:
@@ -127,9 +223,10 @@ def main() -> int:
             print(f"  {item}", flush=True)
         print("\nFailed to import electrical_krow. Send this window text to us.", flush=True)
         _win_error(
-            "无法启动出表窗口。请把 %LOCALAPPDATA%\\electrical-krow\\gateway.log 发给我们。\n\n"
+            "无法启动出表窗口。请把这个窗口截图发给我们。\n\n"
             + traceback.format_exc()[-1200:]
         )
+        _stop_prestarted(prestarted)
         return 1
     try:
         return desktop_main([])
@@ -137,7 +234,13 @@ def main() -> int:
         traceback.print_exc()
         _win_error("出表窗口异常退出。\n\n" + traceback.format_exc()[-1200:])
         return 1
+    finally:
+        _stop_prestarted(prestarted)
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    code = main()
+    # 嵌入式 Python 在卸载 pydantic / asyncio 时会再访问冲突一次。服务已经停掉，直接结束。
+    if sys.platform == "win32":
+        os._exit(code)
+    raise SystemExit(code)

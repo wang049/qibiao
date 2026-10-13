@@ -39,7 +39,8 @@ from electrical_krow.config import (
 )
 from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.jobs import JobStore
-from electrical_krow.inspect_doc import inspect_upload
+from electrical_krow import paths as path_limits
+from electrical_krow.inspect_doc import document_needs_ocr, inspect_upload
 from electrical_krow.knowledge import browse_catalog, knowledge_summary, pending_rulings_count
 from electrical_krow.llm import (
     chat_model_candidates,
@@ -56,6 +57,32 @@ from electrical_krow.vision import is_text_chat_model, message_has_image, pick_v
 COOKIE = "electrical_krow_sid"
 FRONTEND = FRONTEND_DIR
 _AUTH_REFRESH = threading.Lock()
+
+
+async def read_capped_upload(file: UploadFile) -> bytes:
+    """按块读取，超过限额立刻拒绝，避免先把整文件读进内存。"""
+    limit = path_limits.MAX_BYTES
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        block = await file.read(1024 * 1024)
+        if not block:
+            break
+        total += len(block)
+        if total > limit:
+            raise HTTPException(400, f"文件超过 {path_limits.MAX_MB}MB")
+        chunks.append(block)
+    if total == 0:
+        raise HTTPException(400, "文件是空的")
+    return b"".join(chunks)
+
+
+def _digital_page_env() -> None:
+    """电子版不探测 OCR，也不把上一份扫描件的开关留在进程里。"""
+    os.environ["SPEC_SHEET_PAGE_OCR"] = "0"
+    os.environ.pop("SPEC_SHEET_OCR_TASK", None)
+    os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
+    os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
 
 
 def _looks_like_auth_error(exc: BaseException) -> bool:
@@ -497,10 +524,13 @@ def create_app(
         mode = (thinking or "").strip().lower()
         if mode not in THINKING_MODES:
             raise HTTPException(400, "thinking 只能是 on / off。")
-        data = await file.read()
+        data = await read_capped_upload(file)
         incoming, out = request.app.state.jobs.prepare_upload(file, data)
         model = item.extract_model or _active_model(item)
-        if prepare_page_ocr(cfg, item):
+        needs_ocr = document_needs_ocr(file.filename or "", data)
+        if needs_ocr is False:
+            _digital_page_env()
+        elif prepare_page_ocr(cfg, item):
             os.environ["SPEC_SHEET_PAGE_VISION"] = "0"
             os.environ.pop("SPEC_SHEET_VISION_MODEL", None)
         else:
@@ -537,9 +567,7 @@ def create_app(
         suffix = Path(file.filename or "").suffix.lower()
         if suffix not in {".pdf", ".docx", ".xlsx", ".xlsm"}:
             raise HTTPException(400, f"暂不支持 {suffix or '该类型'}。请用 PDF / Word / Excel。")
-        data = await file.read()
-        if not data:
-            raise HTTPException(400, "文件是空的")
+        data = await read_capped_upload(file)
         history = request.app.state.jobs.list_recent(limit=80, username=item.auth.username)
         return await asyncio.to_thread(inspect_upload, file.filename or "", data, history)
 

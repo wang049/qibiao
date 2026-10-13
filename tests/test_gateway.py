@@ -752,6 +752,40 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(info["estimate_n"], 0)
         self.assertEqual(info["estimate_seconds"], 0)
 
+    def test_oversize_upload_is_rejected(self) -> None:
+        self._login()
+        payload = b"0123456789"
+        with patch("electrical_krow.paths.MAX_BYTES", 4), patch("electrical_krow.paths.MAX_MB", 0):
+            inspect = self.client.post(
+                "/api/inspect",
+                files={"file": ("a.pdf", payload, "application/pdf")},
+            )
+            job = self.client.post(
+                "/api/jobs",
+                files={"file": ("a.pdf", payload, "application/pdf")},
+                data={"thinking": "off"},
+            )
+        self.assertEqual(inspect.status_code, 400)
+        self.assertEqual(job.status_code, 400)
+        self.assertIn("超过", inspect.text)
+
+    def test_digital_job_skips_remote_ocr_probe(self) -> None:
+        self._login()
+        pdf = self._tiny_pdf()
+        with patch.object(self.client.app.state.jobs, "start", return_value="job1"):
+            with patch("electrical_krow.gateway.prepare_page_ocr") as ocr:
+                with patch("electrical_krow.gateway.prepare_page_vision") as vision:
+                    resp = self.client.post(
+                        "/api/jobs",
+                        files={"file": ("spec.pdf", pdf, "application/pdf")},
+                        data={"thinking": "off"},
+                    )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        ocr.assert_not_called()
+        vision.assert_not_called()
+        self.assertEqual(os.environ.get("SPEC_SHEET_PAGE_OCR"), "0")
+        os.environ.pop("SPEC_SHEET_PAGE_OCR", None)
+
     @staticmethod
     def _tiny_pdf() -> bytes:
         import fitz

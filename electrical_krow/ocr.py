@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import base64
 import os
+import threading
+import time
 from typing import Any
 
 import httpx
@@ -18,6 +20,15 @@ from electrical_krow.login import AuthSession
 from electrical_krow.quota import json_payload, looks_like_quota, note_remote, quota_error_message
 
 OCR_PATH = "/v1/ocr"
+# 同一识别服务的探测结果短时复用，避免每份规格书都打一记远程。
+_PROBE_TTL_SEC = 600.0
+_probe_cache: dict[str, tuple[float, bool]] = {}
+_probe_lock = threading.Lock()
+
+
+def clear_ocr_probe_cache() -> None:
+    with _probe_lock:
+        _probe_cache.clear()
 
 
 def ocr_endpoint_available(
@@ -31,6 +42,11 @@ def ocr_endpoint_available(
         origin = origin_of(base_url)
     except ConfigError:
         return False
+    now = time.monotonic()
+    with _probe_lock:
+        cached = _probe_cache.get(origin)
+        if cached is not None and now - cached[0] < _PROBE_TTL_SEC:
+            return cached[1]
     try:
         with httpx.Client(
             timeout=timeout,
@@ -47,18 +63,25 @@ def ocr_endpoint_available(
             )
     except httpx.HTTPError:
         return False
-    if resp.status_code in {404, 405, 501}:
-        return False
     if resp.status_code == 401:
         return False
-    if looks_like_quota(resp.status_code, resp.text, json_payload(resp.text)):
+    quota = looks_like_quota(resp.status_code, resp.text, json_payload(resp.text))
+    if quota:
         note_remote(
             "ocr-probe",
             resp.status_code,
             resp.text,
             payload=json_payload(resp.text),
         )
-    return resp.status_code < 500
+    if resp.status_code in {404, 405, 501}:
+        available = False
+    else:
+        available = resp.status_code < 500
+    # 鉴权失败和配额是暂时状态，不写入缓存。
+    if not quota and resp.status_code != 401:
+        with _probe_lock:
+            _probe_cache[origin] = (time.monotonic(), available)
+    return available
 
 
 def decode_image_payload(raw: str) -> bytes:

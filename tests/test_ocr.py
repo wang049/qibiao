@@ -7,6 +7,7 @@ from unittest.mock import patch
 from electrical_krow.config import load_settings
 from electrical_krow.login import AuthSession
 from electrical_krow.ocr import (
+    clear_ocr_probe_cache,
     decode_image_payload,
     ocr_endpoint_available,
     prepare_page_ocr,
@@ -52,6 +53,9 @@ class PreparePageOcrTests(unittest.TestCase):
 
 
 class OcrEndpointProbeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        clear_ocr_probe_cache()
+
     def test_404_means_unavailable(self) -> None:
         session = AuthSession(access_token="sk-user-aaaaaaaaaaaaaaaaaaaaaaaa", username="demo")
 
@@ -99,6 +103,33 @@ class OcrEndpointProbeTests(unittest.TestCase):
 
         with patch("httpx.Client", FakeClient):
             self.assertTrue(ocr_endpoint_available("https://api.krow.cn", session))
+
+    def test_same_origin_is_not_probed_twice(self) -> None:
+        session = AuthSession(access_token="sk-user-aaaaaaaaaaaaaaaaaaaaaaaa", username="demo")
+        calls = {"n": 0}
+
+        class FakeResp:
+            status_code = 404
+            text = "no"
+
+        class FakeClient:
+            def __init__(self, **_kwargs) -> None:
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_exc) -> bool:
+                return False
+
+            def post(self, *_a, **_k):
+                calls["n"] += 1
+                return FakeResp()
+
+        with patch("httpx.Client", FakeClient):
+            self.assertFalse(ocr_endpoint_available("https://cache.example", session))
+            self.assertFalse(ocr_endpoint_available("https://cache.example", session))
+        self.assertEqual(calls["n"], 1)
 
 
 class RecognizePageTests(unittest.TestCase):

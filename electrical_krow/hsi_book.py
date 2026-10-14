@@ -8,11 +8,14 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
 from openpyxl import load_workbook
+from openpyxl.styles import Alignment
+from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook
 
 from electrical_krow.mcu_pins import (
@@ -76,6 +79,8 @@ _ACCEPT_HEADERS = (
     "与确认约束是否一致",
 )
 _CONSTRAINT_SOURCE = "吉利模板"
+_COLUMN_CAP = 40
+_COLUMN_FLOOR = 12
 _NC_NAMES = frozenset({"NC", "N.C.", "N/A", "NA"})
 _VERSION = re.compile(r"^(?P<body>.+)-(?P<n>\d+)$")
 
@@ -317,6 +322,46 @@ def _write_rows(sheet, rows: list[list[object]]) -> None:
                 sheet.cell(row_index, column, value)
 
 
+def _units(value: object) -> int:
+    return sum(2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1 for char in _text(value))
+
+
+def _fit_columns(sheet, *, skip_rows: frozenset[int] = frozenset(), header_row: int = 1) -> None:
+    """按表头和单元格内容设列宽。新建表默认列宽约 8，中文显示不全。"""
+    last_column = max(sheet.max_column, 1)
+    widths: dict[int, int] = {}
+    for row in sheet.iter_rows(max_row=sheet.max_row, max_col=last_column):
+        if not row or row[0].row in skip_rows:
+            continue
+        for cell in row:
+            if cell.value in (None, ""):
+                continue
+            widths[cell.column] = max(widths.get(cell.column, 0), _units(cell.value))
+    for column, units in widths.items():
+        sheet.column_dimensions[get_column_letter(column)].width = min(max(units + 2, _COLUMN_FLOOR), _COLUMN_CAP)
+    for row in sheet.iter_rows(max_row=sheet.max_row, max_col=last_column):
+        if not row or row[0].row in skip_rows:
+            continue
+        lines = 1
+        for cell in row:
+            text = _text(cell.value)
+            if not text:
+                continue
+            width = sheet.column_dimensions[get_column_letter(cell.column)].width or _COLUMN_FLOOR
+            capacity = max(int(width) - 1, 1)
+            pieces = 0
+            for line in text.splitlines():
+                pieces += max(1, (_units(line) + capacity - 1) // capacity)
+            if pieces > 1:
+                cell.alignment = Alignment(wrap_text=True, vertical="center")
+            lines = max(lines, pieces)
+        if lines > 1 and row[0].row:
+            sheet.row_dimensions[row[0].row].height = min(15 * lines + 4, 48)
+    if sheet.max_row >= header_row:
+        sheet.freeze_panes = f"A{header_row + 1}"
+        sheet.auto_filter.ref = f"A{header_row}:{get_column_letter(last_column)}{max(sheet.max_row, header_row)}"
+
+
 def _diff(previous: dict[str, _PortRow], current: dict[str, _PortRow]) -> list[tuple[str, str]]:
     changes: list[tuple[str, str]] = []
     for symbol in sorted(set(previous) | set(current)):
@@ -446,6 +491,7 @@ def _write_evidence(workbook: Workbook, pins: tuple[ChipPin, ...]) -> None:
         for column, value in enumerate(values, start=1):
             if value not in (None, ""):
                 sheet.cell(index, column, value)
+    _fit_columns(sheet)
 
 
 def _constraint_values(row: _PortRow, status: str, note: str) -> list[object]:
@@ -501,11 +547,26 @@ def _write_constraints(
         for row in distinct:
             body.append(_constraint_values(row, status, note))
     _write_rows(sheet, body)
+    _fit_columns(sheet)
 
 
 def _write_kept_sheet(workbook: Workbook, title: str, snapshot: list[list[object]] | None, default: list[list[object]]) -> None:
     sheet = _fresh_sheet(workbook, title)
     _write_rows(sheet, snapshot if snapshot is not None else default)
+    skip: frozenset[int] = frozenset()
+    header_row = 1
+    if (
+        title == SHEET_ACCEPT
+        and _text(sheet.cell(1, 1).value).startswith("本表只保留")
+        and sheet.cell(1, 2).value in (None, "")
+    ):
+        span = max(sheet.max_column, len(_ACCEPT_HEADERS))
+        sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=span)
+        sheet.cell(1, 1).alignment = Alignment(wrap_text=True, vertical="center")
+        sheet.row_dimensions[1].height = 32
+        skip = frozenset({1})
+        header_row = 2
+    _fit_columns(sheet, skip_rows=skip, header_row=header_row)
 
 
 def write_hsi_workbook(

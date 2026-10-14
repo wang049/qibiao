@@ -1343,35 +1343,50 @@ button.job-row {
   font-weight: 650;
   line-height: 28px;
 }
-.io-form .io-package-field {
-  grid-column: 1 / -1;
-  border: 0;
+.io-package-body { min-width: 0; }
+.io-package-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
-  padding: 0;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--accent-rule);
+  border-radius: 8px;
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  font-size: 14px;
+  font-weight: 650;
 }
-.io-form .io-package-field legend {
-  padding: 0;
-  font-size: 12px;
-  color: var(--ink-3);
+.io-package-status.is-reading::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--accent-rule);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: io-spin 0.7s linear infinite;
 }
-.io-form .io-package-field .work-meta { margin-top: 4px; }
+@keyframes io-spin { to { transform: rotate(360deg); } }
 .io-form .io-packages {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 6px;
 }
+.io-package-status:not([hidden]) + .io-packages { margin-top: 8px; }
 .io-form .io-packages label {
   flex-direction: row;
   align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
   border: 1px solid var(--rule);
   border-radius: 8px;
   background: var(--surface);
-  font-size: 13px;
-  color: var(--ink);
+  font-size: 14px;
+  font-weight: 650;
+  color: var(--navy);
   cursor: pointer;
 }
 .io-form .io-packages label:has(input:checked) {
@@ -1385,10 +1400,6 @@ button.job-row {
   margin: 0;
   padding: 0;
   accent-color: var(--accent);
-}
-#io-card > .work-meta {
-  margin: 12px 0 0;
-  line-height: 1.55;
 }
 #io-card .io-bar {
   display: flex;

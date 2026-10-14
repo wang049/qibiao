@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器智能体</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20261014j" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261014l" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -197,13 +197,14 @@
                   <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
                 </label>
               </div>
-              <fieldset id="io-package-field" class="io-package-field" hidden>
-                <legend data-i18n="io.package">封装</legend>
-                <p id="io-package-status" class="work-meta" hidden></p>
-                <div id="io-package-choices" class="io-packages"></div>
-              </fieldset>
+              <div id="io-package-field" class="io-file" hidden>
+                <span class="io-file-label" data-i18n="io.package">封装</span>
+                <div class="io-package-body">
+                  <p id="io-package-status" class="io-package-status" hidden></p>
+                  <div id="io-package-choices" class="io-packages"></div>
+                </div>
+              </div>
             </form>
-            <p class="work-meta" data-i18n="io.note">按当前模板 PCM-HSI 吉利模板 V1.0 生成。端口表只填当份手册里的引脚。</p>
             <div class="io-bar">
               <button id="io-back" type="button" class="ghost" data-i18n="io.back">返回</button>
               <div class="io-bar-end">
@@ -523,8 +524,8 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261014j" defer></script>
-  <script src="/static/app.js?v=20261014j" defer></script>
+  <script src="/static/i18n.js?v=20261014l" defer></script>
+  <script src="/static/app.js?v=20261014l" defer></script>
   <script src="/static/kb.js?v=20260918g" defer></script>
 </body>
 </html>

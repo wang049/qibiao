@@ -473,3 +473,41 @@ class HsiBookTests(unittest.TestCase):
                 self.assertEqual(port.cell(6, COL_STATUS).value, STATUS_DRAFT)
             finally:
                 book.close()
+
+    def test_generated_sheets_are_wide_enough_to_read(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            template = root / "template.xlsx"
+            dest = root / "out.xlsx"
+            _template(template)
+            prepared = load_workbook(template)
+            prepared[SHEET_PORT]["K6"] = "三相电流采样输入，需对照手册确认电平与复位状态后再使用"
+            prepared.save(template)
+            prepared.close()
+            write_hsi_workbook(
+                template,
+                dest,
+                mcu="TC38x",
+                package="BGA516",
+                pins=(_pin("P00.0", "M6", "General-purpose input"),),
+            )
+            book = load_workbook(dest)
+            try:
+                sheet = book[SHEET_CONSTRAINT]
+                self.assertGreaterEqual(sheet.column_dimensions["A"].width, 12)
+                self.assertGreaterEqual(sheet.column_dimensions["G"].width, 14)
+                self.assertGreaterEqual(sheet.column_dimensions["H"].width, 16)
+                self.assertEqual(sheet.column_dimensions["C"].width, 40)
+                self.assertLessEqual(sheet.column_dimensions["N"].width, 40)
+                self.assertTrue(sheet["C2"].alignment.wrap_text)
+                self.assertGreater(sheet.row_dimensions[2].height, 15)
+                self.assertEqual(sheet.freeze_panes, "A2")
+                evidence = book[SHEET_EVIDENCE]
+                self.assertGreaterEqual(evidence.column_dimensions["A"].width, 12)
+                self.assertLessEqual(evidence.column_dimensions["H"].width, 40)
+                accept = book[SHEET_ACCEPT]
+                self.assertIn("不计算匹配率", accept["A1"].value)
+                self.assertTrue(accept["A1"].alignment.wrap_text)
+                self.assertEqual(accept.freeze_panes, "A3")
+            finally:
+                book.close()

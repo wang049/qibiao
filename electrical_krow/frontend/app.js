@@ -901,23 +901,31 @@ function refreshIoGenerate() {
   btn.disabled = ioPackagesLoading || !selectedIoPackage();
 }
 
+function setPackageStatus(text, kind) {
+  const status = $("io-package-status");
+  if (!status) return;
+  status.className = "io-package-status" + (kind ? " is-" + kind : "");
+  if (!text) {
+    status.hidden = true;
+    status.textContent = "";
+    return;
+  }
+  status.hidden = false;
+  status.textContent = text;
+}
+
 function clearIoPackages() {
   ioPackagesLoading = false;
   const field = $("io-package-field");
-  const status = $("io-package-status");
   const choices = $("io-package-choices");
   if (field) field.hidden = true;
-  if (status) {
-    status.hidden = true;
-    status.textContent = "";
-  }
+  setPackageStatus("");
   if (choices) choices.innerHTML = "";
   refreshIoGenerate();
 }
 
 function renderIoPackages(packages) {
   const choices = $("io-package-choices");
-  const status = $("io-package-status");
   if (!choices) return;
   choices.innerHTML = "";
   packages.forEach((name) => {
@@ -931,18 +939,13 @@ function renderIoPackages(packages) {
     label.appendChild(document.createTextNode(name));
     choices.appendChild(label);
   });
-  if (status) {
-    const needsPick = packages.length > 1;
-    status.hidden = !needsPick;
-    status.textContent = needsPick ? tx("io.packagePick") : "";
-  }
+  setPackageStatus(packages.length > 1 ? tx("io.packagePick") : "", packages.length > 1 ? "pick" : "");
   refreshIoGenerate();
 }
 
 async function loadIoPackages(file) {
   const seq = ++ioPackageSeq;
   const field = $("io-package-field");
-  const status = $("io-package-status");
   const choices = $("io-package-choices");
   clearIoDownload();
   setIoMsg("");
@@ -953,10 +956,7 @@ async function loadIoPackages(file) {
   ioPackagesLoading = true;
   if (field) field.hidden = false;
   if (choices) choices.innerHTML = "";
-  if (status) {
-    status.hidden = false;
-    status.textContent = tx("io.packageReading");
-  }
+  setPackageStatus(tx("io.packageReading"), "reading");
   refreshIoGenerate();
   const body = new FormData();
   body.append("datasheet", file);

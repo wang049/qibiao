@@ -26,4 +26,4 @@ build-backend = "setuptools.build_meta"
 include = ["electrical_krow*"]
 
 [tool.setuptools.package-data]
-electrical_krow = ["frontend/*"]
+electrical_krow = ["frontend/*", "templates/*.xlsx"]

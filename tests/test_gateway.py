@@ -44,9 +44,14 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20261010a", resp.text)
-        self.assertIn("i18n.js?v=20261010a", resp.text)
-        self.assertIn("app.js?v=20261010a", resp.text)
+        self.assertIn("styles.css?v=20261014j", resp.text)
+        self.assertIn("i18n.js?v=20261014j", resp.text)
+        self.assertIn("app.js?v=20261014j", resp.text)
+        self.assertIn('id="rail-tab-hsi"', resp.text)
+        self.assertIn('id="hsi-list"', resp.text)
+        self.assertIn('id="io-dl"', resp.text)
+        self.assertIn('id="io-package-field"', resp.text)
+        self.assertIn('id="io-package-choices"', resp.text)
         self.assertIn('id="env-busy"', resp.text)
         self.assertIn("js-open-settings", resp.text)
         self.assertIn("settings-dialog", resp.text)
@@ -729,6 +734,83 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(len(rows), 1)
         self.assertEqual(rows[0][0], "手册引脚号")
         self.assertEqual(rows[0][6], "端口名")
+
+    def test_hsi_route_copies_built_workbook(self) -> None:
+        from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, HsiResult
+
+        self._login()
+        seen = {}
+
+        def fake_build(template, datasheet, dest, package="", previous=None):
+            seen["template"] = Path(template)
+            dest = Path(dest)
+            dest.write_bytes(b"hsi-bytes")
+            return HsiResult(dest, "TC38x", "BGA516", "TC38x-BGA516-1", 2, 0)
+
+        with patch("electrical_krow.gateway.build_hsi", side_effect=fake_build), patch(
+            "electrical_krow.gateway.open_locally"
+        ) as opened:
+            resp = self.client.post(
+                "/api/hsi",
+                data={"package": "BGA516"},
+                files={
+                    "datasheet": ("infineon-tc38x-datasheet-en.pdf", b"%PDF-1.4", "application/pdf"),
+                },
+            )
+        self.assertEqual(seen["template"], DEFAULT_HSI_TEMPLATE)
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["version"], "TC38x-BGA516-1")
+        self.assertEqual(resp.json()["changes"], 0)
+        from datetime import date
+
+        stamp = date.today().strftime("%Y%m%d")
+        self.assertEqual(resp.json()["download"], f"/files/HSI-TC38x-BGA516-1-{stamp}.xlsx")
+        got = self.client.get(resp.json()["download"])
+        self.assertEqual(got.status_code, 200)
+        self.assertEqual(got.content, b"hsi-bytes")
+        saved = Path(self._tmp.name) / f"HSI-TC38x-BGA516-1-{stamp}.xlsx"
+        self.assertEqual(saved.read_bytes(), b"hsi-bytes")
+        opened.assert_called_once()
+        history = self.client.get("/api/hsi/history")
+        self.assertEqual(history.status_code, 200, history.text)
+        names = [row.get("source") for row in history.json()["records"]]
+        self.assertIn(f"HSI-TC38x-BGA516-1-{stamp}.xlsx", names)
+
+    def test_hsi_packages_route_lists_packages(self) -> None:
+        self._login()
+        with patch(
+            "electrical_krow.gateway.packages_in_pdf",
+            return_value=("LFBGA516", "LFBGA292"),
+        ):
+            resp = self.client.post(
+                "/api/hsi/packages",
+                files={
+                    "datasheet": (
+                        "Infineon-TC39x-DataSheet-v01_02-EN.pdf",
+                        b"%PDF-1.4",
+                        "application/pdf",
+                    ),
+                },
+            )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(resp.json()["mcu"], "TC39x")
+        self.assertEqual(resp.json()["packages"], ["LFBGA516", "LFBGA292"])
+        page = self.client.get("/")
+        self.assertIn('id="io-package-choices"', page.text)
+        self.assertIn("/api/hsi/packages", self.client.get("/static/app.js").text)
+        empty = None
+        with patch("electrical_krow.gateway.packages_in_pdf", return_value=()):
+            empty = self.client.post(
+                "/api/hsi/packages",
+                files={
+                    "datasheet": (
+                        "Infineon-TC39x-DataSheet-v01_02-EN.pdf",
+                        b"%PDF-1.4",
+                        "application/pdf",
+                    ),
+                },
+            )
+        self.assertEqual(empty.status_code, 400)
 
     def test_inspect_requires_login_and_reports_type_pages_estimate(self) -> None:
         from electrical_krow.mock_server import DEMO_USER

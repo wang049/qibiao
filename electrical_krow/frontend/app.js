@@ -61,7 +61,7 @@ const go = $("go");
 const pauseBtn = $("pause");
 const stopBtn = $("stop");
 const status = $("status");
-const health = $("health");
+  const health = $("health");
 const progress = $("progress");
 const barfill = $("barfill");
 const result = $("result");
@@ -295,6 +295,8 @@ function applyWorkPanel() {
   $("rail-extract")?.classList.toggle("is-on", extract);
   $("rail-io")?.classList.toggle("is-on", io);
   $("rail-kb")?.classList.toggle("is-on", kb);
+  if (io) setRailRecordTab("hsi");
+  else if (extract) setRailRecordTab("jobs");
   if (!on) {
     $("kicker").textContent = isSite() ? tx("login.kicker.site") : tx("login.kicker.client");
     $("title").innerHTML = tx("hero.login.title");
@@ -396,11 +398,58 @@ function fileNameOf(download) {
   try { return decodeURIComponent(raw); } catch (_) { return raw; }
 }
 
+function recordTitle(name) {
+  const base = String(name || "").replace(/\.(pdf|xlsx|xlsm|xls)$/i, "");
+  const hsi = base.match(/^HSI-(.+?)(?:-\d{8})?$/i);
+  return hsi ? hsi[1] : (base || String(name || ""));
+}
+
 const EMPTY_JOBS_SVG = "<svg viewBox='0 0 64 48' width='64' height='48' fill='none' aria-hidden='true'>"
   + "<rect x='8' y='6' width='34' height='38' rx='3' stroke='currentColor' stroke-width='1.5'/>"
   + "<path d='M15 16h20M15 23h20M15 30h12' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'/>"
   + "<circle cx='48' cy='34' r='9' fill='var(--surface)' stroke='currentColor' stroke-width='1.5'/>"
   + "<path d='M48 30v8M44 34h8' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'/></svg>";
+
+let hsiRows = [];
+
+function renderHsi() {
+  const host = $("hsi-list");
+  if (!host) return;
+  if (!hsiRows.length) {
+    host.innerHTML = "<p class='job-empty'>" + tx("empty.hsi") + "</p>";
+    return;
+  }
+  host.innerHTML = hsiRows.map((row) => {
+    const name = fileNameOf(row.download) || String(row.source || "");
+    const bits = [];
+    const when = fmtWhen(row.created_at);
+    if (when) bits.push(when);
+    if (row.pins) bits.push(tx("io.pins", { n: row.pins }));
+    return "<button type='button' class='job-row' data-hsi='" + escText(row.download || "") + "' title='" + escText(name) + "'>"
+      + "<span class='job-copy'>"
+      + "<span class='job-name'>" + escText(recordTitle(name)) + "</span>"
+      + "<span class='job-meta'>"
+      + "<span class='job-status done'>" + tx("job.done") + "</span>"
+      + "<span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span>"
+      + "</span></span></button>";
+  }).join("");
+  host.querySelectorAll("[data-hsi]").forEach((btn) => {
+    btn.addEventListener("click", () => openHsiRecord(btn.getAttribute("data-hsi") || ""));
+  });
+}
+
+function openHsiRecord(download) {
+  const row = hsiRows.find((item) => item.download === download) || {};
+  const name = fileNameOf(download) || String(row.source || "");
+  setPanel("io");
+  if (row.pins) {
+    const key = row.changes ? "io.done" : "io.doneFirst";
+    setIoMsg(tx(key, { name, pins: row.pins, changes: row.changes || 0 }), "ok");
+  } else {
+    setIoMsg(name, "ok");
+  }
+  showIoDownload({ name, download });
+}
 
 function renderJobs() {
   const host = $("job-list");
@@ -430,12 +479,12 @@ function renderJobs() {
       + " data-id='" + escText(id) + "'"
       + " title='" + escText(name) + "'"
       + (block ? " disabled" : "") + ">"
-      + "<span class='job-status " + st.cls + "'>" + st.text + "</span>"
       + "<span class='job-copy'>"
       + "<span class='job-name'>" + escText(name) + "</span>"
       + "<span class='job-meta'>"
-      + (tag ? "<i class='job-tag'>" + escText(tag) + "</i> " : "")
-      + escText(bits.join(" · ") || (row.message || ""))
+      + "<span class='job-status " + st.cls + "'>" + st.text + "</span>"
+      + (tag ? "<i class='job-tag'>" + escText(tag) + "</i>" : "")
+      + "<span class='job-meta-text'>" + escText(bits.join(" · ") || (row.message || "")) + "</span>"
       + "</span></span>"
       + "</button>";
   }).join("");
@@ -534,9 +583,14 @@ $("work-open-dir")?.addEventListener("click", async () => {
 async function loadJobs() {
   if (!loggedIn) return;
   try {
-    const data = await json("/api/jobs");
+    const [data, hsi] = await Promise.all([
+      json("/api/jobs"),
+      json("/api/hsi/history").catch(() => ({ records: [] })),
+    ]);
     jobRows = data.jobs || [];
+    hsiRows = hsi.records || [];
     renderJobs();
+    renderHsi();
   } catch {
     if (!$("job-list").children.length) {
       $("job-list").innerHTML = "<p class='job-empty'>" + tx("jobs.unread") + "</p>";
@@ -784,24 +838,272 @@ function goExtract(opts) {
   setPanel("extract");
 }
 
+function setRailRecordTab(tab) {
+  const hsi = tab === "hsi";
+  const jobs = $("job-list");
+  const plans = $("hsi-list");
+  const tabJobs = $("rail-tab-jobs");
+  const tabHsi = $("rail-tab-hsi");
+  if (jobs) jobs.hidden = hsi;
+  if (plans) plans.hidden = !hsi;
+  tabJobs?.classList.toggle("is-on", !hsi);
+  tabHsi?.classList.toggle("is-on", hsi);
+  tabJobs?.setAttribute("aria-selected", hsi ? "false" : "true");
+  tabHsi?.setAttribute("aria-selected", hsi ? "true" : "false");
+}
+
 $("rail-home").onclick = () => setPanel("home");
 $("rail-extract").onclick = () => goExtract();
 $("rail-io").onclick = () => setPanel("io");
 $("rail-kb").onclick = () => setPanel("kb");
+$("rail-tab-jobs").onclick = () => setRailRecordTab("jobs");
+$("rail-tab-hsi").onclick = () => setRailRecordTab("hsi");
 $("rail-new").onclick = () => goExtract({ clearFile: true });
+function syncIoResult() {
+  const row = $("io-result");
+  const msg = $("io-msg");
+  const link = $("io-dl");
+  if (!row) return;
+  const msgOn = !!(msg && !msg.hidden && String(msg.textContent || "").trim());
+  const dlOn = !!(link && !link.hidden);
+  row.hidden = !(msgOn || dlOn);
+}
+
+function setIoMsg(text, kind) {
+  const msg = $("io-msg");
+  if (!msg) return;
+  msg.classList.remove("is-info", "is-ok");
+  if (kind) msg.classList.add("is-" + kind);
+  msg.textContent = text || "";
+  msg.hidden = !String(text || "").trim();
+  syncIoResult();
+}
+
+function clearIoDownload() {
+  const link = $("io-dl");
+  if (!link) return;
+  link.hidden = true;
+  link.removeAttribute("href");
+  syncIoResult();
+}
+
+let ioPackageSeq = 0;
+let ioPackagesLoading = false;
+
+function selectedIoPackage() {
+  const picked = document.querySelector("#io-package-choices input:checked");
+  return picked ? String(picked.value || "") : "";
+}
+
+function refreshIoGenerate() {
+  const btn = $("io-hsi");
+  if (!btn) return;
+  btn.disabled = ioPackagesLoading || !selectedIoPackage();
+}
+
+function clearIoPackages() {
+  ioPackagesLoading = false;
+  const field = $("io-package-field");
+  const status = $("io-package-status");
+  const choices = $("io-package-choices");
+  if (field) field.hidden = true;
+  if (status) {
+    status.hidden = true;
+    status.textContent = "";
+  }
+  if (choices) choices.innerHTML = "";
+  refreshIoGenerate();
+}
+
+function renderIoPackages(packages) {
+  const choices = $("io-package-choices");
+  const status = $("io-package-status");
+  if (!choices) return;
+  choices.innerHTML = "";
+  packages.forEach((name) => {
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "io-package";
+    input.value = name;
+    if (packages.length === 1) input.checked = true;
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(name));
+    choices.appendChild(label);
+  });
+  if (status) {
+    const needsPick = packages.length > 1;
+    status.hidden = !needsPick;
+    status.textContent = needsPick ? tx("io.packagePick") : "";
+  }
+  refreshIoGenerate();
+}
+
+async function loadIoPackages(file) {
+  const seq = ++ioPackageSeq;
+  const field = $("io-package-field");
+  const status = $("io-package-status");
+  const choices = $("io-package-choices");
+  clearIoDownload();
+  setIoMsg("");
+  if (!file) {
+    clearIoPackages();
+    return;
+  }
+  ioPackagesLoading = true;
+  if (field) field.hidden = false;
+  if (choices) choices.innerHTML = "";
+  if (status) {
+    status.hidden = false;
+    status.textContent = tx("io.packageReading");
+  }
+  refreshIoGenerate();
+  const body = new FormData();
+  body.append("datasheet", file);
+  try {
+    const resp = await fetch(apiUrl("/api/hsi/packages"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+      body,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (seq !== ioPackageSeq) return;
+    if (!resp.ok) {
+      const detail = data.detail || data.error || resp.statusText;
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    const packages = Array.isArray(data.packages) ? data.packages.map(String) : [];
+    if (!packages.length) throw new Error(tx("io.needPackage"));
+    ioPackagesLoading = false;
+    renderIoPackages(packages);
+  } catch (err) {
+    if (seq !== ioPackageSeq) return;
+    ioPackagesLoading = false;
+    if (choices) choices.innerHTML = "";
+    if (status) status.hidden = true;
+    setIoMsg(err.message || String(err));
+    refreshIoGenerate();
+  }
+}
+
+function showIoDownload(data) {
+  const link = $("io-dl");
+  const name = data && data.name ? String(data.name) : "";
+  if (!link || !name) {
+    clearIoDownload();
+    return;
+  }
+  const path = data.download || ("/files/" + encodeURIComponent(name));
+  link.href = apiUrl(path);
+  link.textContent = tx("io.download");
+  link.hidden = false;
+  syncIoResult();
+}
+
+function syncIoFileName(input, nameEl) {
+  if (!input || !nameEl) return;
+  const file = input.files && input.files[0];
+  if (file) {
+    nameEl.removeAttribute("data-i18n");
+    nameEl.textContent = file.name;
+    nameEl.classList.add("is-set");
+    return;
+  }
+  nameEl.setAttribute("data-i18n", "io.fileNone");
+  nameEl.textContent = tx("io.fileNone");
+  nameEl.classList.remove("is-set");
+}
+
+$("io-manual").addEventListener("change", () => {
+  syncIoFileName($("io-manual"), $("io-manual-name"));
+  const manual = $("io-manual").files && $("io-manual").files[0];
+  loadIoPackages(manual || null);
+});
+$("io-previous").addEventListener("change", () => {
+  syncIoFileName($("io-previous"), $("io-previous-name"));
+});
+$("io-package-choices").addEventListener("change", () => {
+  const status = $("io-package-status");
+  if (status && selectedIoPackage()) status.hidden = true;
+  clearIoDownload();
+  const msg = $("io-msg");
+  if (msg && msg.classList.contains("is-ok")) setIoMsg("");
+  refreshIoGenerate();
+});
 $("io-back").onclick = () => setPanel("home");
 $("io-blank").onclick = async () => {
-  const msg = $("io-msg");
-  msg.hidden = true;
+  clearIoDownload();
+  setIoMsg("");
   try {
     await json("/api/io-sheet", { method: "POST" });
-    msg.hidden = false;
-    msg.textContent = tx("io.opened");
+    setIoMsg(tx("io.opened"));
   } catch (err) {
-    msg.hidden = false;
-    msg.textContent = err.message || String(err);
+    setIoMsg(err.message || String(err));
   }
 };
+$("io-hsi").onclick = async () => {
+  const manual = $("io-manual").files && $("io-manual").files[0];
+  clearIoDownload();
+  if (!manual) {
+    setIoMsg(tx("io.needManual"));
+    return;
+  }
+  const packageName = selectedIoPackage();
+  if (!packageName) {
+    setIoMsg(tx("io.needPackage"));
+    return;
+  }
+  const body = new FormData();
+  body.append("datasheet", manual);
+  const previous = $("io-previous").files && $("io-previous").files[0];
+  if (previous) body.append("previous", previous);
+  body.append("package", packageName);
+  setIoMsg(tx("io.working"), "info");
+  $("io-hsi").disabled = true;
+  try {
+    const resp = await fetch(apiUrl("/api/hsi"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+      body,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = data.detail || data.error || resp.statusText;
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    const key = data.changes ? "io.done" : "io.doneFirst";
+    setIoMsg(tx(key, {
+      name: data.name,
+      pins: data.pins,
+      changes: data.changes,
+    }), "ok");
+    showIoDownload(data);
+    loadJobs();
+  } catch (err) {
+    clearIoDownload();
+    setIoMsg(err.message || String(err));
+  } finally {
+    refreshIoGenerate();
+  }
+};
+$("io-dl").addEventListener("click", async (ev) => {
+  const link = ev.currentTarget;
+  const api = desktopSave();
+  if (!api) return;
+  ev.preventDefault();
+  const href = link.getAttribute("href") || "";
+  const name = decodeURIComponent(href.split("/").pop() || "");
+  try {
+    const out = await api.save_sheet(name, "HSI (*.xlsx)");
+    if (out && out.canceled) return;
+    if (out && out.ok) return;
+    throw new Error((out && out.error) || tx("err.save"));
+  } catch (e) {
+    setIoMsg(e.message || String(e));
+  }
+});
 // 工作台卡片只切页，不自动弹文件选择；选文件由页内拖放区/按钮触发
 document.querySelectorAll(".fn-card[data-go]").forEach((btn) => {
   btn.addEventListener("click", () => {

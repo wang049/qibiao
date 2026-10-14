@@ -53,6 +53,12 @@ _HISTORY_FIELDS = (
     "groups",
     "compare",
     "detail",
+    "kind",
+    "mcu",
+    "package",
+    "pins",
+    "changes",
+    "version",
 )
 # 出表中的实时计数（不进历史）：已处理分段 / 分段总数 / 已抽出格数
 _LIVE_FIELDS = {"chunk_done", "chunk_total", "filled"}
@@ -324,6 +330,8 @@ class JobStore:
     ) -> list[dict[str, object]]:
         by_id: dict[str, dict[str, object]] = {}
         for rec in self._read_history():
+            if str(rec.get("kind") or "") == "hsi":
+                continue
             job_id = str(rec.get("id") or "")
             if job_id:
                 by_id[job_id] = rec
@@ -342,6 +350,8 @@ class JobStore:
             for path in self._output_dir.glob("*.xlsx"):
                 if path.name.startswith("~$") or path.name in seen_files:
                     continue
+                if path.name.startswith("HSI-"):
+                    continue
                 rec = _xlsx_history(path)
                 by_id[str(rec["id"])] = rec
         jobs = sorted(
@@ -352,6 +362,73 @@ class JobStore:
         if (username or "").strip():
             jobs = [item for item in jobs if job_visible_to(item, username)]
         return jobs[: max(1, min(int(limit), 80))]
+
+    def remember_hsi(
+        self,
+        *,
+        name: str,
+        username: str,
+        mcu: str,
+        package: str,
+        pins: int,
+        changes: int,
+        version: str,
+    ) -> dict[str, object]:
+        """记下一次 HSI 生成。不进 SOR 出表记录。"""
+        record = {
+            "id": f"hsi-{uuid.uuid4().hex[:12]}",
+            "status": "done",
+            "kind": "hsi",
+            "message": "HSI 已生成",
+            "source": name,
+            "username": (username or "").strip(),
+            "created_at": time.time(),
+            "download": f"/files/{name}",
+            "mcu": mcu,
+            "package": package,
+            "pins": pins,
+            "changes": changes,
+            "version": version,
+        }
+        path = self._history_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            line = json.dumps(_history_record(record), ensure_ascii=False)
+            with self._persist_lock:
+                with path.open("a", encoding="utf-8") as fh:
+                    fh.write(line + "\n")
+        except OSError:
+            return record
+        return record
+
+    def list_hsi(
+        self, limit: int = _HISTORY_LIMIT, *, username: str = ""
+    ) -> list[dict[str, object]]:
+        """规划记录：已记下的 HSI，再加上本机目录里还没记过的 HSI 文件。"""
+        by_name: dict[str, dict[str, object]] = {}
+        for rec in self._read_history():
+            if str(rec.get("kind") or "") != "hsi":
+                continue
+            if (username or "").strip() and not job_visible_to(rec, username):
+                continue
+            name = str(rec.get("download") or "").rsplit("/", 1)[-1]
+            if name:
+                by_name[name] = rec
+        if self._output_dir.is_dir():
+            for path in self._output_dir.glob("HSI-*.xlsx"):
+                if path.name.startswith("~$") or path.name in by_name:
+                    continue
+                by_name[path.name] = {
+                    "id": f"hsi-file-{path.name}",
+                    "status": "done",
+                    "kind": "hsi",
+                    "message": "HSI 已生成",
+                    "source": path.name,
+                    "created_at": path.stat().st_mtime,
+                    "download": f"/files/{path.name}",
+                }
+        rows = sorted(by_name.values(), key=_created_at, reverse=True)
+        return rows[: max(1, min(int(limit), 80))]
 
     def update(self, job_id: str, **fields: object) -> None:
         with self._lock:

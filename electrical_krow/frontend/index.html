@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器智能体</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20261010a" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261014j" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -68,27 +68,21 @@
           </div>
         </div>
         <button type="button" id="rail-new" class="rail-new" data-i18n="rail.new">+ 新建出表</button>
-        <div class="rail-block">
+        <nav class="rail-nav" aria-label="功能">
           <button type="button" id="rail-home" class="rail-fn" data-i18n="rail.home">工作台</button>
-        </div>
-        <div class="rail-block">
-          <div class="rail-label" data-i18n="rail.group.extract">出表</div>
           <button type="button" id="rail-extract" class="rail-fn" data-i18n="rail.extract">SOR 参数提取</button>
-        </div>
-        <div class="rail-block">
-          <div class="rail-label" data-i18n="rail.group.plan">规划</div>
           <button type="button" id="rail-io" class="rail-fn" data-i18n="rail.io">IO口规划</button>
-        </div>
-        <div class="rail-block rail-jobs">
-          <div class="rail-label" data-i18n="rail.jobs">出表记录</div>
-          <div id="job-list" class="job-list"></div>
-        </div>
-        <div class="rail-block">
-          <div class="rail-label" data-i18n="rail.kb">知识库</div>
-          <button type="button" id="rail-kb" class="rail-tool">
-            <i class="tool-dot" aria-hidden="true"></i>
-            <span data-i18n="rail.kbName">电机控制器知识库</span>
+          <button type="button" id="rail-kb" class="rail-fn">
+            <span class="rail-fn-label"><i class="tool-dot" aria-hidden="true"></i><span data-i18n="rail.kbName">电机控制器知识库</span></span>
           </button>
+        </nav>
+        <div class="rail-block rail-jobs">
+          <div class="rail-tabs" role="tablist">
+            <button type="button" id="rail-tab-jobs" class="rail-tab is-on" role="tab" aria-selected="true" data-i18n="rail.jobs">出表记录</button>
+            <button type="button" id="rail-tab-hsi" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.hsiJobs">规划记录</button>
+          </div>
+          <div id="job-list" class="job-list" role="tabpanel"></div>
+          <div id="hsi-list" class="job-list" role="tabpanel" hidden></div>
         </div>
         <div id="who-wrap" class="rail-user" hidden>
           <span id="who-avatar" class="who-avatar" aria-hidden="true">工</span>
@@ -180,19 +174,47 @@
           </div>
 
           <div id="io-card" class="card" hidden>
-            <p class="fn-kicker" data-i18n="home.io.kicker">IO口规划</p>
             <ol class="io-steps">
-              <li data-i18n="io.step1">读取芯片数据手册</li>
-              <li data-i18n="io.step2">提取引脚、复用及约束</li>
-              <li data-i18n="io.step3">命名规则确认后才写端口名，未确认则留空</li>
-              <li data-i18n="io.step4">保留人工修改列，已填内容不得覆盖</li>
+              <li><span>1</span><em data-i18n="io.step1">读取芯片数据手册</em></li>
+              <li><span>2</span><em data-i18n="io.step2">按所选封装把引脚写入 HSI 端口表</em></li>
+              <li><span>3</span><em data-i18n="io.step3">命名和约束按吉利模板对照填写，并标出缺项、多候选和约束冲突</em></li>
+              <li><span>4</span><em data-i18n="io.step4">有上一版才写变更记录；没有则变更表留空</em></li>
             </ol>
-            <p class="work-meta" data-i18n="io.note">手册未到，表内只有栏目，不填引脚。命名规则未确认，端口名留空。确认前不得作为接口控制依据。</p>
-            <div class="actions">
+            <form id="io-form" class="io-form">
+              <div class="io-file">
+                <span class="io-file-label" data-i18n="io.manual">芯片手册</span>
+                <label class="io-file-box">
+                  <input id="io-manual" type="file" accept=".pdf,application/pdf" />
+                  <span class="io-file-name" id="io-manual-name" data-i18n="io.fileNone">未选择文件</span>
+                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
+                </label>
+              </div>
+              <div class="io-file">
+                <span class="io-file-label" data-i18n="io.previous">上一版 HSI（可选）</span>
+                <label class="io-file-box">
+                  <input id="io-previous" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                  <span class="io-file-name" id="io-previous-name" data-i18n="io.fileNone">未选择文件</span>
+                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
+                </label>
+              </div>
+              <fieldset id="io-package-field" class="io-package-field" hidden>
+                <legend data-i18n="io.package">封装</legend>
+                <p id="io-package-status" class="work-meta" hidden></p>
+                <div id="io-package-choices" class="io-packages"></div>
+              </fieldset>
+            </form>
+            <p class="work-meta" data-i18n="io.note">按当前模板 PCM-HSI 吉利模板 V1.0 生成。端口表只填当份手册里的引脚。</p>
+            <div class="io-bar">
               <button id="io-back" type="button" class="ghost" data-i18n="io.back">返回</button>
-              <button id="io-blank" type="button" data-i18n="io.blank">生成空表</button>
+              <div class="io-bar-end">
+                <button id="io-blank" type="button" class="ghost" data-i18n="io.blank">生成空表</button>
+                <button id="io-hsi" type="button" data-i18n="io.generate" disabled>生成 HSI</button>
+              </div>
             </div>
-            <p id="io-msg" class="msg" hidden></p>
+            <div id="io-result" class="io-result" hidden>
+              <p id="io-msg" class="msg" hidden></p>
+              <a id="io-dl" class="dl" hidden></a>
+            </div>
           </div>
 
           <div id="work-card" class="card" hidden>
@@ -501,8 +523,8 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261010a" defer></script>
-  <script src="/static/app.js?v=20261010a" defer></script>
+  <script src="/static/i18n.js?v=20261014j" defer></script>
+  <script src="/static/app.js?v=20261014j" defer></script>
   <script src="/static/kb.js?v=20260918g" defer></script>
 </body>
 </html>

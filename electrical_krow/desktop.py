@@ -676,19 +676,20 @@ class DesktopApi:
         except Exception:
             return False
 
-    def save_sheet(self, name: str) -> dict[str, object]:
+    def save_sheet(self, name: str, file_type: str = "") -> dict[str, object]:
         src = sheet_file(name)
         if src is None:
             return {"ok": False, "canceled": False, "error": "找不到核对表"}
         if self.window is None:
             return {"ok": False, "canceled": False, "error": "窗口未就绪"}
+        label = str(file_type or "").strip() or "Excel 核对表 (*.xlsx)"
         try:
             webview = _load_webview()
             dests = self.window.create_file_dialog(
                 webview.FileDialog.SAVE,
                 directory=str(Path.home() / "Desktop"),
                 save_filename=src.name,
-                file_types=("Excel 核对表 (*.xlsx)",),
+                file_types=(label,),
             )
             dest = picked_save_path(dests, default_name=src.name)
             if dest is None:

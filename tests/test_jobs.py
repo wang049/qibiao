@@ -533,6 +533,38 @@ class JobHistoryTests(unittest.TestCase):
             self.assertEqual(snap["status"], "done")
             self.assertEqual(snap["download"], "/files/spec_20260907100000.xlsx")
 
+    def test_hsi_files_stay_out_of_extract_history(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            (root / "spec.xlsx").write_bytes(b"xlsx")
+            (root / "HSI-TC499-BGA436-1-20261014.xlsx").write_bytes(b"hsi")
+            store = JobStore(output_dir=root)
+            store.remember_hsi(
+                name="HSI-TC38x-BGA516-1-20261014.xlsx",
+                username="alice",
+                mcu="TC38x",
+                package="BGA516",
+                pins=307,
+                changes=0,
+                version="TC38x-BGA516-1",
+            )
+            (root / "HSI-TC38x-BGA516-1-20261014.xlsx").write_bytes(b"hsi")
+            extract = {str(row.get("source") or "") for row in store.list_recent()}
+            self.assertIn("spec", extract)
+            self.assertFalse(any(name.startswith("HSI-") for name in extract))
+            planning = store.list_hsi(username="alice")
+            names = {str(row.get("source") or "") for row in planning}
+            self.assertEqual(
+                names,
+                {
+                    "HSI-TC38x-BGA516-1-20261014.xlsx",
+                    "HSI-TC499-BGA436-1-20261014.xlsx",
+                },
+            )
+            remembered = next(row for row in planning if "TC38x" in str(row.get("source")))
+            self.assertEqual(remembered["pins"], 307)
+            self.assertEqual(remembered["package"], "BGA516")
+
     def test_user_list_hides_tests_errors_and_foreign(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             root = Path(raw)

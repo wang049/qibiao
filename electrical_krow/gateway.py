@@ -9,8 +9,10 @@ import argparse
 import asyncio
 import os
 import sys
+import tempfile
 import threading
 import webbrowser
+from datetime import date
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
+from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, build_hsi
+from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
 from electrical_krow.io_plan import write_io_sheet
 from electrical_krow.bridge import wire_extract_endpoint
 from electrical_krow.config import (
@@ -664,6 +668,122 @@ def create_app(
         except OpenError as exc:
             raise HTTPException(500, str(exc)) from exc
         return {"ok": True, "name": dest.name}
+
+    @app.post("/api/hsi/packages")
+    async def list_hsi_packages(
+        request: Request,
+        datasheet: UploadFile = File(...),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """选中手册后立刻返回封装，供页面点选。不生成表。"""
+        _require_session(request, authorization)
+        manual_name = Path(datasheet.filename or "").name
+        if Path(manual_name).suffix.lower() != ".pdf":
+            raise HTTPException(400, "芯片手册请用 PDF。")
+        manual_bytes = await read_capped_upload(datasheet)
+
+        def scan() -> tuple[str, tuple[str, ...]]:
+            with tempfile.TemporaryDirectory() as raw:
+                manual_path = Path(raw) / manual_name
+                manual_path.write_bytes(manual_bytes)
+                return mcu_name(manual_path.name), packages_in_pdf(manual_path)
+
+        try:
+            mcu, packages = await asyncio.to_thread(scan)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if not packages:
+            raise HTTPException(400, "手册中没有读到封装引脚表。")
+        return {"ok": True, "mcu": mcu, "packages": list(packages)}
+
+    @app.get("/api/hsi/history")
+    def hsi_history(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        return {
+            "records": request.app.state.jobs.list_hsi(username=item.auth.username)
+        }
+
+    @app.post("/api/hsi")
+    async def create_hsi(
+        request: Request,
+        datasheet: UploadFile = File(...),
+        template: UploadFile | None = File(default=None),
+        previous: UploadFile | None = File(default=None),
+        package: str = Form(default=""),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """按当份手册生成 HSI。未另选模板时用当前吉利模板。上一版用来写变更记录。"""
+        item = _require_session(request, authorization)
+        manual_name = Path(datasheet.filename or "").name
+        if Path(manual_name).suffix.lower() != ".pdf":
+            raise HTTPException(400, "芯片手册请用 PDF。")
+        manual_bytes = await read_capped_upload(datasheet)
+        template_name = Path(template.filename or "").name if template is not None else ""
+        template_bytes = b""
+        if template_name:
+            if Path(template_name).suffix.lower() not in {".xlsx", ".xlsm"}:
+                raise HTTPException(400, "HSI 模板请用 Excel。")
+            template_bytes = await read_capped_upload(template)
+        elif not DEFAULT_HSI_TEMPLATE.is_file():
+            raise HTTPException(400, "当前 HSI 模板不在程序里。")
+        previous_name = Path(previous.filename or "").name if previous is not None else ""
+        previous_bytes = b""
+        if previous_name:
+            if Path(previous_name).suffix.lower() not in {".xlsx", ".xlsm"}:
+                raise HTTPException(400, "上一版 HSI 请用 Excel。")
+            previous_bytes = await read_capped_upload(previous)
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            manual_path = folder / manual_name
+            manual_path.write_bytes(manual_bytes)
+            if template_bytes:
+                template_path = folder / template_name
+                template_path.write_bytes(template_bytes)
+            else:
+                template_path = DEFAULT_HSI_TEMPLATE
+            previous_path = None
+            if previous_bytes:
+                previous_path = folder / previous_name
+                previous_path.write_bytes(previous_bytes)
+            try:
+                result = build_hsi(
+                    template_path,
+                    manual_path,
+                    folder / "hsi.xlsx",
+                    package=package,
+                    previous=previous_path,
+                )
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            stamp = result.issued or date.today().strftime("%Y%m%d")
+            dest = request.app.state.jobs.output_dir / f"HSI-{result.version}-{stamp}.xlsx"
+            dest.write_bytes(result.path.read_bytes())
+        try:
+            open_locally(dest)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        request.app.state.jobs.remember_hsi(
+            name=dest.name,
+            username=item.auth.username,
+            mcu=result.mcu,
+            package=result.package,
+            pins=result.pins,
+            changes=result.changes,
+            version=result.version,
+        )
+        return {
+            "ok": True,
+            "name": dest.name,
+            "download": f"/files/{dest.name}",
+            "mcu": result.mcu,
+            "package": result.package,
+            "version": result.version,
+            "pins": result.pins,
+            "changes": result.changes,
+        }
 
     @app.get("/files/{name}")
     def download(

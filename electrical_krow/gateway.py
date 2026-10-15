@@ -814,6 +814,20 @@ def create_app(
             if Path(name).suffix.lower() != ".pdf":
                 raise HTTPException(400, f"{name or '所选文件'} 不是 PDF。需求文件请用 PDF。")
             payloads.append((name, await read_capped_upload(upload)))
+        model = (item.extract_model or _active_model(item)).strip() or cfg.chat_model
+
+        def ask(messages: list[dict[str, str]]) -> str:
+            """参数清单用：模型只给正文参数起名、归并同义名，不产生取值。关掉推理，只要 JSON。"""
+            extra = {"thinking": {"type": "disabled"}}
+            try:
+                return complete(cfg.server_url, item.auth, messages, model=model, temperature=0.0, timeout=cfg.timeout_sec, extra=extra).content
+            except LLMError as exc:
+                if not _looks_like_auth_error(exc):
+                    raise
+                with _AUTH_REFRESH:
+                    item.auth = refresh_sdk_key(cfg.server_url, item.auth)
+                return complete(cfg.server_url, item.auth, messages, model=model, temperature=0.0, timeout=cfg.timeout_sec, extra=extra).content
+
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)
             sources: list[Path] = []
@@ -824,7 +838,7 @@ def create_app(
                 target.write_bytes(data)
                 sources.append(target)
             try:
-                result = await asyncio.to_thread(build_contrast, sources, folder / "arch.xlsx")
+                result = await asyncio.to_thread(build_contrast, sources, folder / "arch.xlsx", ask)
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
             dest = request.app.state.jobs.output_dir / contrast_file_name()
@@ -850,6 +864,13 @@ def create_app(
             "files": result.files,
             "rows": result.rows,
             "tables": result.tables,
+            "params": result.params,
+            "conflicts": result.conflicts,
+            "model_used": result.model_used,
+            "image_tables": result.image_tables,
+            "figures": result.figures,
+            "reqs": result.reqs,
+            "shots": result.shots,
             "unreadable": unreadable,
         }
 

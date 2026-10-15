@@ -44,9 +44,9 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20261015n", resp.text)
-        self.assertIn("i18n.js?v=20261015n", resp.text)
-        self.assertIn("app.js?v=20261015n", resp.text)
+        self.assertIn("styles.css?v=20261015s", resp.text)
+        self.assertIn("i18n.js?v=20261015s", resp.text)
+        self.assertIn("app.js?v=20261015s", resp.text)
         self.assertIn('id="rail-tab-hsi"', resp.text)
         self.assertIn('id="hsi-list"', resp.text)
         self.assertIn('id="io-dl"', resp.text)
@@ -835,11 +835,12 @@ class GatewayTests(unittest.TestCase):
         self._login()
         seen: dict[str, object] = {}
 
-        def fake_build(sources, dest):
+        def fake_build(sources, dest, ask=None):
             seen["names"] = [Path(p).name for p in sources]
+            seen["ask"] = ask
             dest = Path(dest)
             dest.write_bytes(b"arch-bytes")
-            return ContrastResult(dest, 1, 51, 2, (Unreadable("BHDC.pdf", 67, "没有文字层"),))
+            return ContrastResult(dest, 1, 51, 2, (Unreadable("BHDC.pdf", 67, "没有文字层"),), params=40, conflicts=3, model_used=True)
 
         with patch("electrical_krow.gateway.build_contrast", side_effect=fake_build), patch(
             "electrical_krow.gateway.open_locally"
@@ -857,6 +858,9 @@ class GatewayTests(unittest.TestCase):
         data = resp.json()
         self.assertTrue(data["name"].startswith("架构对照-"))
         self.assertEqual((data["files"], data["rows"], data["tables"]), (1, 51, 2))
+        self.assertEqual((data["params"], data["conflicts"], data["model_used"]), (40, 3, True))
+        self.assertEqual((data["image_tables"], data["figures"], data["reqs"], data["shots"]), (0, 0, 0, 0))
+        self.assertTrue(callable(seen["ask"]))  # 参数指认走网关的模型通道，不在出表模块里建会话
         self.assertEqual(data["unreadable"][0]["name"], "BHDC.pdf")
         got = self.client.get(data["download"])
         self.assertEqual(got.status_code, 200)

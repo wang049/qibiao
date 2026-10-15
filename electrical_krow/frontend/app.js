@@ -1312,6 +1312,12 @@ $("arch-build").onclick = async () => {
       throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
     }
     let text = tx("arch.done", { name: data.name, files: data.files, rows: data.rows, tables: data.tables || 0 });
+    if (typeof data.reqs === "number") text += " " + tx("arch.reqs", { n: data.reqs, shots: data.shots || 0 });
+    if (data.image_tables) text += " " + tx("arch.ocr", { n: data.image_tables });
+    if (data.figures) text += " " + tx("arch.figures", { n: data.figures });
+    if (typeof data.params === "number") {
+      text += " " + tx(data.conflicts ? "arch.paramsDiff" : "arch.params", { params: data.params, conflicts: data.conflicts || 0 });
+    }
     const skipped = Array.isArray(data.unreadable) ? data.unreadable : [];
     if (skipped.length) {
       text += " " + tx("arch.unreadable", { n: skipped.length, names: skipped.map((u) => u.name).join("、") });

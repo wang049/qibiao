@@ -58,8 +58,15 @@ _HISTORY_FIELDS = (
     "package",
     "pins",
     "changes",
+    "previous",
     "version",
+    # 架构材料对照：文件数、条目数、整表页数、未能读取数
+    "files",
+    "rows",
+    "tables",
+    "unreadable",
 )
+ARCH_PREFIX = "架构对照-"
 # 出表中的实时计数（不进历史）：已处理分段 / 分段总数 / 已抽出格数
 _LIVE_FIELDS = {"chunk_done", "chunk_total", "filled"}
 _COMPARE_LIST_LIMIT = 20
@@ -330,7 +337,7 @@ class JobStore:
     ) -> list[dict[str, object]]:
         by_id: dict[str, dict[str, object]] = {}
         for rec in self._read_history():
-            if str(rec.get("kind") or "") == "hsi":
+            if str(rec.get("kind") or "") in {"hsi", "arch"}:
                 continue
             job_id = str(rec.get("id") or "")
             if job_id:
@@ -350,7 +357,7 @@ class JobStore:
             for path in self._output_dir.glob("*.xlsx"):
                 if path.name.startswith("~$") or path.name in seen_files:
                     continue
-                if path.name.startswith("HSI-"):
+                if path.name.startswith("HSI-") or path.name.startswith(ARCH_PREFIX):
                     continue
                 rec = _xlsx_history(path)
                 by_id[str(rec["id"])] = rec
@@ -373,8 +380,9 @@ class JobStore:
         pins: int,
         changes: int,
         version: str,
+        previous: bool = False,
     ) -> dict[str, object]:
-        """记下一次 HSI 生成。不进 SOR 出表记录。"""
+        """记下一次 HSI 生成。不进 SOR 出表记录。previous 记有没有带上一版。"""
         record = {
             "id": f"hsi-{uuid.uuid4().hex[:12]}",
             "status": "done",
@@ -388,6 +396,7 @@ class JobStore:
             "package": package,
             "pins": pins,
             "changes": changes,
+            "previous": bool(previous),
             "version": version,
         }
         path = self._history_path()
@@ -423,6 +432,71 @@ class JobStore:
                     "status": "done",
                     "kind": "hsi",
                     "message": "HSI 已生成",
+                    "source": path.name,
+                    "created_at": path.stat().st_mtime,
+                    "download": f"/files/{path.name}",
+                }
+        rows = sorted(by_name.values(), key=_created_at, reverse=True)
+        return rows[: max(1, min(int(limit), 80))]
+
+    def remember_arch(
+        self,
+        *,
+        name: str,
+        username: str,
+        files: int,
+        rows: int,
+        tables: int,
+        unreadable: int,
+    ) -> dict[str, object]:
+        """记下一次架构材料对照。不进 SOR 出表记录。"""
+        record = {
+            "id": f"arch-{uuid.uuid4().hex[:12]}",
+            "status": "done",
+            "kind": "arch",
+            "message": "材料对照稿已生成",
+            "source": name,
+            "username": (username or "").strip(),
+            "created_at": time.time(),
+            "download": f"/files/{name}",
+            "files": files,
+            "rows": rows,
+            "tables": tables,
+            "unreadable": unreadable,
+        }
+        path = self._history_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            line = json.dumps(_history_record(record), ensure_ascii=False)
+            with self._persist_lock:
+                with path.open("a", encoding="utf-8") as fh:
+                    fh.write(line + "\n")
+        except OSError:
+            return record
+        return record
+
+    def list_arch(
+        self, limit: int = _HISTORY_LIMIT, *, username: str = ""
+    ) -> list[dict[str, object]]:
+        """拆解记录：已记下的对照稿，再加上本机目录里还没记过的对照稿文件。"""
+        by_name: dict[str, dict[str, object]] = {}
+        for rec in self._read_history():
+            if str(rec.get("kind") or "") != "arch":
+                continue
+            if (username or "").strip() and not job_visible_to(rec, username):
+                continue
+            name = str(rec.get("download") or "").rsplit("/", 1)[-1]
+            if name:
+                by_name[name] = rec
+        if self._output_dir.is_dir():
+            for path in self._output_dir.glob(f"{ARCH_PREFIX}*.xlsx"):
+                if path.name.startswith("~$") or path.name in by_name:
+                    continue
+                by_name[path.name] = {
+                    "id": f"arch-file-{path.name}",
+                    "status": "done",
+                    "kind": "arch",
+                    "message": "材料对照稿已生成",
                     "source": path.name,
                     "created_at": path.stat().st_mtime,
                     "download": f"/files/{path.name}",

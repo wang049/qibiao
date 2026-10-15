@@ -25,6 +25,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
+from electrical_krow.arch_contrast import build_contrast, contrast_file_name
 from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, build_hsi
 from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
 from electrical_krow.io_plan import write_io_sheet
@@ -773,6 +774,7 @@ def create_app(
             pins=result.pins,
             changes=result.changes,
             version=result.version,
+            previous=bool(previous_bytes),
         )
         return {
             "ok": True,
@@ -783,6 +785,72 @@ def create_app(
             "version": result.version,
             "pins": result.pins,
             "changes": result.changes,
+            "previous": bool(previous_bytes),
+        }
+
+    @app.get("/api/arch/history")
+    def arch_history(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        return {
+            "records": request.app.state.jobs.list_arch(username=item.auth.username)
+        }
+
+    @app.post("/api/arch")
+    async def create_arch(
+        request: Request,
+        files: list[UploadFile] = File(...),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """架构填报：把当份需求 PDF 拆成材料对照稿。只摘原文，不写满足结论。"""
+        item = _require_session(request, authorization)
+        if not files:
+            raise HTTPException(400, "请选择需求文件 PDF。")
+        payloads: list[tuple[str, bytes]] = []
+        for upload in files:
+            name = Path(upload.filename or "").name
+            if Path(name).suffix.lower() != ".pdf":
+                raise HTTPException(400, f"{name or '所选文件'} 不是 PDF。需求文件请用 PDF。")
+            payloads.append((name, await read_capped_upload(upload)))
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            sources: list[Path] = []
+            # 每份放各自的子目录，文件名原样进对照稿；同名文件也不互相覆盖
+            for index, (name, data) in enumerate(payloads, start=1):
+                target = folder / f"{index:02d}" / name
+                target.parent.mkdir()
+                target.write_bytes(data)
+                sources.append(target)
+            try:
+                result = await asyncio.to_thread(build_contrast, sources, folder / "arch.xlsx")
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            dest = request.app.state.jobs.output_dir / contrast_file_name()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(result.path.read_bytes())
+        try:
+            open_locally(dest)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        unreadable = [{"name": u.name, "pages": u.pages, "reason": u.reason} for u in result.unreadable]
+        request.app.state.jobs.remember_arch(
+            name=dest.name,
+            username=item.auth.username,
+            files=result.files,
+            rows=result.rows,
+            tables=result.tables,
+            unreadable=len(unreadable),
+        )
+        return {
+            "ok": True,
+            "name": dest.name,
+            "download": f"/files/{dest.name}",
+            "files": result.files,
+            "rows": result.rows,
+            "tables": result.tables,
+            "unreadable": unreadable,
         }
 
     @app.get("/files/{name}")

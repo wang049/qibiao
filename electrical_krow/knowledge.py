@@ -142,8 +142,8 @@ _STATUS_LABEL = {
 }
 _REL_LABEL = {
     "related": "相关",
-    "not": "禁配",
-    "same_slot": "互斥",
+    "not": "易混",
+    "same_slot": "同一格",
     "interprets": "适用公式",
 }
 _REL_RANK = {"not": 0, "same_slot": 1, "interprets": 2, "related": 3}
@@ -481,7 +481,7 @@ def browse_catalog() -> dict:
         "rule": _scrub_text(
             str(
                 citation.get("rule")
-                or "抽出值只来自当份规格书。知识库只提供条目号、出处、互斥与公式关系，不提供取值。"
+                or "抽出值只来自当份规格书。知识库只提供条目的含义、出处和条目间关系，不提供取值。"
             )
         ),
         "scope": {

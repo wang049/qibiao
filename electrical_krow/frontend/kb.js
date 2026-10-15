@@ -133,22 +133,18 @@
   function renderAll() {
     const stats = catalog.stats || {};
     $("kb-version").textContent = tx("kb.verN", { v: catalog.version || "" });
-    $("kb-banner").textContent =
-      catalog.rule ||
-      tx("kb.banner");
+    // 顶部只留一句口径，用界面文案（知识包 manifest 里的 rule 意思相同，仍在「范围与来源」里原样列出）
+    $("kb-banner").textContent = tx("kb.banner");
+    // 统计只给用户关心的三项；密级、版本已在 chip 里，图谱边数、分组数、检索开通数是维护者指标
     $("kb-stats").innerHTML = [
       ["clauses", tx("kb.stat.clauses")],
       ["physics", tx("kb.stat.physics")],
       ["enterprise", tx("kb.stat.enterprise")],
-      ["groups", tx("kb.stat.groups")],
-      ["edges", tx("kb.stat.edges")],
-      ["retrieve", tx("kb.stat.retrieve")],
     ]
       .map(([key, label]) => {
         return `<div class="kb-stat"><b>${esc(stats[key] ?? 0)}</b><span>${label}</span></div>`;
       })
-      .join("") +
-      `<div class="kb-stat"><b>${tx("kb.stat.secret")}</b><span>${tx("kb.stat.secretHint")}</span></div>`;
+      .join("");
     renderGroups();
     renderList();
     if (!selected && catalog.clauses && catalog.clauses.length) {
@@ -199,11 +195,13 @@
     host.innerHTML = rows
       .map((row) => {
         const on = selected && selected.kind === "clause" && selected.seq === row.seq;
-        const mark = row.retrieve ? tx("kb.open") : row.status_label || tx("kb.pending");
-        return `<button type="button" class="kb-row${on ? " is-on" : ""}" data-seq="${row.seq}">
+        // 已确认的标「可检索」；未确认的不写字，悬停才解释（116 条里大多未确认，整列写「待确认」像全没定）
+        const mark = row.retrieve ? ` · ${esc(tx("kb.open"))}` : "";
+        const tip = row.retrieve ? "" : ` title="${esc(tx("kb.pendingTip"))}"`;
+        return `<button type="button" class="kb-row${on ? " is-on" : ""}" data-seq="${row.seq}"${tip}>
           <b>#${row.seq}</b>
           <span class="kb-row-name">${esc(row.name)}</span>
-          <em>${esc(row.group)} · ${esc(mark)}</em>
+          <em>${esc(row.group)}${mark}</em>
         </button>`;
       })
       .join("");
@@ -289,8 +287,7 @@
       <div class="kb-kicker">${esc(row.group)} · #${row.seq}</div>
       <h3>${esc(row.name)}</h3>
       <div class="kb-flags">
-        <span class="kb-chip ${row.retrieve ? "ok" : ""}">${esc(row.status_label)}</span>
-        <span class="kb-chip">${tx("kb.classInternalVal")}</span>
+        <span class="kb-chip ${row.retrieve ? "ok" : ""}" title="${esc(row.retrieve ? tx("kb.openTip") : tx("kb.pendingTip"))}">${esc(row.retrieve ? tx("kb.open") : tx("kb.pending"))}</span>
         <span class="kb-chip">${tx("kb.knowledgeChip", { v: catalog.version })}</span>
       </div>
       ${row.gloss ? `<p class="kb-gloss">${esc(row.gloss)}</p>` : ""}
@@ -446,6 +443,12 @@
       const on = spec.active && spec.active === n.id;
       const kind = n.kind === "physics" || n.kind === "group" ? n.kind : "clause";
       const g = svgEl("g", { class: "kb-gn kb-gn-" + kind + (on ? " is-on" : ""), style: "cursor:pointer" });
+      if (n.full) {
+        // 悬停给整名和这条线的意思（易混 / 同一格 / 适用公式 / 相关）
+        const tip = svgEl("title", {});
+        tip.textContent = n.full + (n.rel ? " — " + tx("kb.rel." + (REL_KINDS.has(n.rel) ? n.rel : "related")) : "");
+        g.appendChild(tip);
+      }
       const r = kind === "group" ? 22 : kind === "physics" ? 16 : 11;
       g.appendChild(
         svgEl("circle", {
@@ -481,6 +484,13 @@
       svg.appendChild(g);
     });
     host.appendChild(svg);
+    if (spec.hint) {
+      // 一句话说清这张图怎么看，放在图上方
+      const hint = document.createElement("p");
+      hint.className = "kb-graph-hint";
+      hint.textContent = spec.hint;
+      host.insertBefore(hint, svg);
+    }
     if (spec.legend !== false) {
       const legend = document.createElement("div");
       legend.className = "kb-legend";
@@ -489,15 +499,35 @@
     }
   }
 
+  // 图上的条款节点：圈里是序号，圈下是短名（用户认名字不认号）；整名和关系放在悬停提示里
+  function shortName(name, cap) {
+    const text = String(name || "").replace(/^#\d+\s*/, "");
+    return text.length > cap ? text.slice(0, cap) + "…" : text;
+  }
+
+  function clauseNode(n, cap) {
+    return {
+      id: n.id,
+      kind: n.kind,
+      label: n.kind === "physics" ? n.label : shortName(n.label, cap) || "#" + n.seq,
+      full: n.kind === "physics" ? n.label + (n.law ? " · " + n.law : "") : "#" + n.seq + " " + (n.label || ""),
+      mark: n.kind === "clause" ? String(n.seq) : "",
+      law: n.law || "",
+    };
+  }
+
   function neighborhood(id) {
     const edges = (catalog.graph.edges || [])
       .filter((e) => e.from === id || e.to === id)
       .sort((a, b) => (REL_RANK[a.rel] ?? 9) - (REL_RANK[b.rel] ?? 9))
       .slice(0, 16);
     const ids = new Set([id]);
+    const relOf = {};
     edges.forEach((e) => {
       ids.add(e.from);
       ids.add(e.to);
+      const other = e.from === id ? e.to : e.from;
+      if (!relOf[other]) relOf[other] = e.rel;
     });
     const nodeMap = {};
     (catalog.graph.nodes || []).forEach((n) => {
@@ -506,13 +536,11 @@
     const nodes = [...ids]
       .map((nid) => nodeMap[nid])
       .filter(Boolean)
-      .map((n) => ({
-        id: n.id,
-        kind: n.kind,
-        label: n.kind === "physics" ? n.label : "#" + n.seq,
-        mark: n.kind === "clause" ? String(n.seq) : "",
-        law: n.law || "",
-      }));
+      .map((n) => {
+        const node = clauseNode(n, n.id === id ? 14 : 8);
+        if (n.id !== id && relOf[n.id]) node.rel = relOf[n.id];
+        return node;
+      });
     return { nodes, edges };
   }
 
@@ -534,6 +562,7 @@
       edges: nb.edges,
       height: 250,
       active: selected.id,
+      hint: others.length ? tx("kb.graphHint") : tx("kb.graphNone"),
       onClick: (n) => {
         if (n.kind === "physics") selectPhysics(n.id);
         else selectClause(Number(String(n.id).split(":")[1]), true);
@@ -624,12 +653,7 @@
     const nodes = [...ids]
       .map((nid) => nodeMap[nid])
       .filter(Boolean)
-      .map((n) => ({
-        id: n.id,
-        kind: n.kind,
-        label: n.kind === "physics" ? n.label : "#" + n.seq,
-        mark: n.kind === "clause" ? String(n.seq) : "",
-      }));
+      .map((n) => clauseNode(n, 6));
     const edges = (catalog.graph.edges || []).filter(
       (e) => ids.has(e.from) && ids.has(e.to)
     );
@@ -683,6 +707,7 @@
         edges: nb.edges,
         height: 430,
         active: graphFocus.id,
+        hint: others.length ? tx("kb.graphHint") : tx("kb.graphNone"),
         onClick: (n) => {
           if (n.kind === "physics") selectPhysics(n.id);
           else selectClause(Number(String(n.id).split(":")[1]), true);

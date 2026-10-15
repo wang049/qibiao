@@ -44,9 +44,9 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20261014l", resp.text)
-        self.assertIn("i18n.js?v=20261014l", resp.text)
-        self.assertIn("app.js?v=20261014l", resp.text)
+        self.assertIn("styles.css?v=20261015n", resp.text)
+        self.assertIn("i18n.js?v=20261015n", resp.text)
+        self.assertIn("app.js?v=20261015n", resp.text)
         self.assertIn('id="rail-tab-hsi"', resp.text)
         self.assertIn('id="hsi-list"', resp.text)
         self.assertIn('id="io-dl"', resp.text)
@@ -88,7 +88,7 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("工作台", resp.text)
         self.assertIn("SOR 参数提取", resp.text)
         self.assertIn("开始出表", resp.text)
-        self.assertIn("新建出表", resp.text)
+        self.assertNotIn("新建出表", resp.text)
         self.assertNotIn("后续节点", resp.text)
         self.assertNotIn("核心能力", resp.text)
         self.assertNotIn("分节点交付", resp.text)
@@ -160,13 +160,29 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('tx("kb.back")', kb.text)
         self.assertNotIn(".yaml", kb.text)
         self.assertNotIn("clause_lexicon", kb.text)
+        # 知识库页只留三张统计卡和一句口径，列表里未确认条目不写字、悬停才解释
+        self.assertNotIn('tx("kb.stat.edges")', kb.text)
+        self.assertNotIn('tx("kb.stat.groups")', kb.text)
+        self.assertNotIn('tx("kb.stat.retrieve")', kb.text)
+        self.assertNotIn('tx("kb.stat.secret")', kb.text)
+        self.assertNotIn("catalog.rule ||", kb.text)
+        self.assertIn('tx("kb.pendingTip")', kb.text)
+        page = self.client.get("/").text
+        self.assertNotIn("kb.noFill", page)
+        self.assertIn("库只提供条目含义、出处和条目间关系，抽出值一律来自当份规格书。", page)
+        i18n = self.client.get("/static/i18n.js")
+        self.assertIn('"hero.kb.kicker": "本机知识库"', i18n.text)
+        self.assertIn('"kb.onPrem": "不出公网"', i18n.text)
+        self.assertIn('"kb.open": "可检索"', i18n.text)
+        self.assertNotIn("场所知识库", i18n.text)
+        self.assertNotIn("禁止用库填数", i18n.text)
         self.assertIn(".kb-graph-wrap", css.text)
         self.assertIn(".rail-fn", css.text)
         self.assertIn(".fn-card", css.text)
         self.assertIn(".fn-card.is-later", css.text)
         self.assertNotIn(".fn-card.is-soon", css.text)
         self.assertIn(".rail", css.text)
-        self.assertIn(".rail-new", css.text)
+        self.assertNotIn(".rail-new", css.text)
         self.assertIn(".job-row", css.text)
         self.assertIn(".settings-dialog", css.text)
         self.assertRegex(
@@ -667,12 +683,20 @@ class GatewayTests(unittest.TestCase):
             self.assertIn(marker, page)
         for gone in ('id="home-stats"', 'id="home-recent"', 'id="home-open-dir"', 'id="home-flow"', 'id="home-kb"'):
             self.assertNotIn(gone, page)
-        home = page[page.index('id="home-card"'):page.index('id="work-card"')]
-        self.assertEqual(home.count('class="fn-card'), 2)
+        home = page[page.index('id="home-card"'):page.index('id="arch-card"')]
+        self.assertEqual(home.count('class="fn-card'), 3)
         self.assertIn("进入出表", home)
         self.assertIn("IO口规划", home)
         self.assertIn('data-go="io"', home)
+        self.assertIn('data-go="arch"', home)
+        self.assertIn("电驱需求拆解", home)
         self.assertIn('id="io-card"', page)
+        self.assertIn('id="arch-card"', page)
+        self.assertIn('id="arch-files"', page)
+        self.assertIn("multiple", page[page.index('id="arch-files"'):page.index('id="arch-files"') + 120])
+        self.assertIn('id="rail-arch"', page)
+        self.assertIn('id="rail-tab-arch"', page)
+        self.assertIn('id="arch-list"', page)
         self.assertNotIn("上传规格书", home)
         self.assertNotIn('id="home-foot"', page)
         self.assertEqual(home.count("禁止用库填数"), 0)
@@ -701,7 +725,17 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("title='", js)
         self.assertIn("function goExtract", js)
         self.assertIn("function clearExtractOutcome", js)
-        self.assertIn("rail-extract\").onclick = () => goExtract()", js)
+        self.assertIn("rail-extract\").onclick = () => goExtract({ clearFile: true })", js)
+        self.assertNotIn("rail-new", js)
+        self.assertIn("/api/arch", js)
+        self.assertIn("function renderArch", js)
+        # 一次选一个也能攒成一批：自己累积，不靠原生文件框
+        self.assertIn("function addArchFiles", js)
+        self.assertIn("function removeArchFile", js)
+        # 两份以上可一键清空；按钮在 label 里，须拦住默认的弹出选择
+        self.assertIn("function clearArchFiles", js)
+        self.assertIn('id="arch-clear"', page)
+        self.assertIn("setRailRecordTab(\"arch\")", js)
         self.assertIn("openHistory", js)
         css = self.client.get("/static/styles.css").text
         for marker in (".work-meta", ".work-recent", ".recent-row", ".file-info", ".gbar-track", ".compare", ".job-tag", ".live"):
@@ -761,6 +795,8 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(resp.status_code, 200, resp.text)
         self.assertEqual(resp.json()["version"], "TC38x-BGA516-1")
         self.assertEqual(resp.json()["changes"], 0)
+        # 没带上一版：页面据此说「没有上一版」，而不是「无差异」
+        self.assertIs(resp.json()["previous"], False)
         from datetime import date
 
         stamp = date.today().strftime("%Y%m%d")
@@ -775,6 +811,71 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(history.status_code, 200, history.text)
         names = [row.get("source") for row in history.json()["records"]]
         self.assertIn(f"HSI-TC38x-BGA516-1-{stamp}.xlsx", names)
+        self.assertIs(history.json()["records"][0]["previous"], False)
+        # 带了上一版且 0 条差异：previous 为真，变更表留空但不是「没有上一版」
+        with patch("electrical_krow.gateway.build_hsi", side_effect=fake_build), patch(
+            "electrical_krow.gateway.open_locally"
+        ):
+            again = self.client.post(
+                "/api/hsi",
+                data={"package": "BGA516"},
+                files={
+                    "datasheet": ("infineon-tc38x-datasheet-en.pdf", b"%PDF-1.4", "application/pdf"),
+                    "previous": ("HSI-TC38x-BGA516-1.xlsx", b"PK\x03\x04", "application/octet-stream"),
+                },
+            )
+        self.assertEqual(again.status_code, 200, again.text)
+        self.assertIs(again.json()["previous"], True)
+        self.assertEqual(again.json()["changes"], 0)
+        self.assertIs(self.client.get("/api/hsi/history").json()["records"][0]["previous"], True)
+
+    def test_arch_route_builds_contrast_and_records_history(self) -> None:
+        from electrical_krow.arch_contrast import ContrastResult, Unreadable
+
+        self._login()
+        seen: dict[str, object] = {}
+
+        def fake_build(sources, dest):
+            seen["names"] = [Path(p).name for p in sources]
+            dest = Path(dest)
+            dest.write_bytes(b"arch-bytes")
+            return ContrastResult(dest, 1, 51, 2, (Unreadable("BHDC.pdf", 67, "没有文字层"),))
+
+        with patch("electrical_krow.gateway.build_contrast", side_effect=fake_build), patch(
+            "electrical_krow.gateway.open_locally"
+        ) as opened:
+            resp = self.client.post(
+                "/api/arch",
+                files=[
+                    ("files", ("260605_LDC_SR.pdf", b"%PDF-1.4", "application/pdf")),
+                    ("files", ("BHDC.pdf", b"%PDF-1.4", "application/pdf")),
+                ],
+            )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        # 文件名原样进对照稿，不带上传序号
+        self.assertEqual(seen["names"], ["260605_LDC_SR.pdf", "BHDC.pdf"])
+        data = resp.json()
+        self.assertTrue(data["name"].startswith("架构对照-"))
+        self.assertEqual((data["files"], data["rows"], data["tables"]), (1, 51, 2))
+        self.assertEqual(data["unreadable"][0]["name"], "BHDC.pdf")
+        got = self.client.get(data["download"])
+        self.assertEqual(got.status_code, 200)
+        self.assertEqual(got.content, b"arch-bytes")
+        opened.assert_called_once()
+        history = self.client.get("/api/arch/history")
+        self.assertEqual(history.status_code, 200, history.text)
+        names = [row.get("source") for row in history.json()["records"]]
+        self.assertIn(data["name"], names)
+        self.assertEqual(history.json()["records"][0]["rows"], 51)
+        # 不进 SOR 出表记录
+        jobs = [row.get("source") for row in self.client.get("/api/jobs").json()["jobs"]]
+        self.assertNotIn(data["name"], jobs)
+        bad = self.client.post(
+            "/api/arch",
+            files=[("files", ("sr.pptx", b"SCDSA004", "application/octet-stream"))],
+        )
+        self.assertEqual(bad.status_code, 400)
+        self.assertIn("PDF", bad.json()["detail"])
 
     def test_hsi_packages_route_lists_packages(self) -> None:
         self._login()

@@ -282,10 +282,12 @@ function applyWorkPanel() {
   const kb = on && workPanel === "kb";
   const extract = on && workPanel === "extract";
   const io = on && workPanel === "io";
+  const arch = on && workPanel === "arch";
   $("home-card").hidden = !home;
   $("work-card").hidden = !extract;
   $("kb-card").hidden = !kb;
   $("io-card").hidden = !io;
+  $("arch-card").hidden = !arch;
   document.body.classList.toggle("is-logged", on);
   document.body.classList.toggle("is-home", home);
   document.body.classList.toggle("is-kb", kb);
@@ -294,9 +296,13 @@ function applyWorkPanel() {
   $("rail-home")?.classList.toggle("is-on", home);
   $("rail-extract")?.classList.toggle("is-on", extract);
   $("rail-io")?.classList.toggle("is-on", io);
+  $("rail-arch")?.classList.toggle("is-on", arch);
   $("rail-kb")?.classList.toggle("is-on", kb);
   if (io) setRailRecordTab("hsi");
+  else if (arch) setRailRecordTab("arch");
   else if (extract) setRailRecordTab("jobs");
+  // 知识库页的口径只在页内蓝条说一次，标题下不再放副标题
+  $("lead").hidden = Boolean(on && kb);
   if (!on) {
     $("kicker").textContent = isSite() ? tx("login.kicker.site") : tx("login.kicker.client");
     $("title").innerHTML = tx("hero.login.title");
@@ -320,6 +326,12 @@ function applyWorkPanel() {
     $("kicker").textContent = tx("hero.io.kicker");
     $("title").innerHTML = tx("hero.io.title");
     $("lead").textContent = tx("hero.io.lead");
+    return;
+  }
+  if (arch) {
+    $("kicker").textContent = tx("hero.arch.kicker");
+    $("title").innerHTML = tx("hero.arch.title");
+    $("lead").textContent = tx("hero.arch.lead");
     return;
   }
   $("kicker").textContent = tx("hero.extract.kicker");
@@ -438,13 +450,58 @@ function renderHsi() {
   });
 }
 
+let archRows = [];
+
+function renderArch() {
+  const host = $("arch-list");
+  if (!host) return;
+  if (!archRows.length) {
+    host.innerHTML = "<p class='job-empty'>" + tx("empty.arch") + "</p>";
+    return;
+  }
+  host.innerHTML = archRows.map((row) => {
+    const name = fileNameOf(row.download) || String(row.source || "");
+    const bits = [];
+    const when = fmtWhen(row.created_at);
+    if (when) bits.push(when);
+    if (row.rows) bits.push(tx("arch.rows", { n: row.rows }));
+    return "<button type='button' class='job-row' data-arch='" + escText(row.download || "") + "' title='" + escText(name) + "'>"
+      + "<span class='job-copy'>"
+      + "<span class='job-name'>" + escText(recordTitle(name)) + "</span>"
+      + "<span class='job-meta'>"
+      + "<span class='job-status done'>" + tx("job.done") + "</span>"
+      + "<span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span>"
+      + "</span></span></button>";
+  }).join("");
+  host.querySelectorAll("[data-arch]").forEach((btn) => {
+    btn.addEventListener("click", () => openArchRecord(btn.getAttribute("data-arch") || ""));
+  });
+}
+
+function openArchRecord(download) {
+  const row = archRows.find((item) => item.download === download) || {};
+  const name = fileNameOf(download) || String(row.source || "");
+  setPanel("arch");
+  if (row.rows) {
+    setArchMsg(tx("arch.done", { name, files: row.files || 0, rows: row.rows, tables: row.tables || 0 }), "ok");
+  } else {
+    setArchMsg(name, "ok");
+  }
+  showArchDownload({ name, download });
+}
+
+// 带了上一版才谈差异；0 条差异和没有上一版是两回事。
+function hsiDoneKey(row) {
+  if (Number(row.changes || 0) > 0) return "io.done";
+  return row.previous ? "io.doneSame" : "io.doneFirst";
+}
+
 function openHsiRecord(download) {
   const row = hsiRows.find((item) => item.download === download) || {};
   const name = fileNameOf(download) || String(row.source || "");
   setPanel("io");
   if (row.pins) {
-    const key = row.changes ? "io.done" : "io.doneFirst";
-    setIoMsg(tx(key, { name, pins: row.pins, changes: row.changes || 0 }), "ok");
+    setIoMsg(tx(hsiDoneKey(row), { name, pins: row.pins, changes: row.changes || 0 }), "ok");
   } else {
     setIoMsg(name, "ok");
   }
@@ -583,14 +640,17 @@ $("work-open-dir")?.addEventListener("click", async () => {
 async function loadJobs() {
   if (!loggedIn) return;
   try {
-    const [data, hsi] = await Promise.all([
+    const [data, hsi, arch] = await Promise.all([
       json("/api/jobs"),
       json("/api/hsi/history").catch(() => ({ records: [] })),
+      json("/api/arch/history").catch(() => ({ records: [] })),
     ]);
     jobRows = data.jobs || [];
     hsiRows = hsi.records || [];
+    archRows = arch.records || [];
     renderJobs();
     renderHsi();
+    renderArch();
   } catch {
     if (!$("job-list").children.length) {
       $("job-list").innerHTML = "<p class='job-empty'>" + tx("jobs.unread") + "</p>";
@@ -806,7 +866,7 @@ function extractBusy() {
   return !!(currentJob || submitting || attaching);
 }
 
-// 点「SOR 参数提取 / 进入出表 / 新建出表」是准备再出一份，不是回看。
+// 点「SOR 参数提取 / 进入出表」是准备再出一份，不是回看。
 // 上次完成或点侧栏打开的核对结果会留在本页，必须清掉；正在跑的任务不能清。
 function clearExtractOutcome() {
   viewingJob = null;
@@ -839,26 +899,25 @@ function goExtract(opts) {
 }
 
 function setRailRecordTab(tab) {
-  const hsi = tab === "hsi";
-  const jobs = $("job-list");
-  const plans = $("hsi-list");
-  const tabJobs = $("rail-tab-jobs");
-  const tabHsi = $("rail-tab-hsi");
-  if (jobs) jobs.hidden = hsi;
-  if (plans) plans.hidden = !hsi;
-  tabJobs?.classList.toggle("is-on", !hsi);
-  tabHsi?.classList.toggle("is-on", hsi);
-  tabJobs?.setAttribute("aria-selected", hsi ? "false" : "true");
-  tabHsi?.setAttribute("aria-selected", hsi ? "true" : "false");
+  const pick = (tab === "hsi" || tab === "arch") ? tab : "jobs";
+  const panels = { jobs: $("job-list"), hsi: $("hsi-list"), arch: $("arch-list") };
+  const tabs = { jobs: $("rail-tab-jobs"), hsi: $("rail-tab-hsi"), arch: $("rail-tab-arch") };
+  Object.keys(panels).forEach((key) => {
+    const on = key === pick;
+    if (panels[key]) panels[key].hidden = !on;
+    tabs[key]?.classList.toggle("is-on", on);
+    tabs[key]?.setAttribute("aria-selected", on ? "true" : "false");
+  });
 }
 
 $("rail-home").onclick = () => setPanel("home");
-$("rail-extract").onclick = () => goExtract();
+$("rail-extract").onclick = () => goExtract({ clearFile: true });
 $("rail-io").onclick = () => setPanel("io");
+$("rail-arch").onclick = () => setPanel("arch");
 $("rail-kb").onclick = () => setPanel("kb");
 $("rail-tab-jobs").onclick = () => setRailRecordTab("jobs");
 $("rail-tab-hsi").onclick = () => setRailRecordTab("hsi");
-$("rail-new").onclick = () => goExtract({ clearFile: true });
+$("rail-tab-arch").onclick = () => setRailRecordTab("arch");
 function syncIoResult() {
   const row = $("io-result");
   const msg = $("io-msg");
@@ -979,15 +1038,13 @@ async function loadIoPackages(file) {
     renderIoPackages(packages);
   } catch (err) {
     if (seq !== ioPackageSeq) return;
-    ioPackagesLoading = false;
-    if (choices) choices.innerHTML = "";
-    if (status) status.hidden = true;
+    // 读不出封装就收起封装行，原因写在结果区
+    clearIoPackages();
     setIoMsg(err.message || String(err));
-    refreshIoGenerate();
   }
 }
 
-function showIoDownload(data) {
+function showIoDownload(data, labelKey) {
   const link = $("io-dl");
   const name = data && data.name ? String(data.name) : "";
   if (!link || !name) {
@@ -996,7 +1053,7 @@ function showIoDownload(data) {
   }
   const path = data.download || ("/files/" + encodeURIComponent(name));
   link.href = apiUrl(path);
-  link.textContent = tx("io.download");
+  link.textContent = tx(labelKey || "io.download");
   link.hidden = false;
   syncIoResult();
 }
@@ -1022,6 +1079,9 @@ $("io-manual").addEventListener("change", () => {
 });
 $("io-previous").addEventListener("change", () => {
   syncIoFileName($("io-previous"), $("io-previous-name"));
+  // 换了上一版，上次的结果就不再对应当前输入
+  clearIoDownload();
+  setIoMsg("");
 });
 $("io-package-choices").addEventListener("change", () => {
   const status = $("io-package-status");
@@ -1036,8 +1096,9 @@ $("io-blank").onclick = async () => {
   clearIoDownload();
   setIoMsg("");
   try {
-    await json("/api/io-sheet", { method: "POST" });
-    setIoMsg(tx("io.opened"));
+    const data = await json("/api/io-sheet", { method: "POST" });
+    setIoMsg(tx("io.opened"), "ok");
+    if (data && data.name) showIoDownload(data, "io.downloadBlank");
   } catch (err) {
     setIoMsg(err.message || String(err));
   }
@@ -1073,8 +1134,7 @@ $("io-hsi").onclick = async () => {
       const detail = data.detail || data.error || resp.statusText;
       throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
     }
-    const key = data.changes ? "io.done" : "io.doneFirst";
-    setIoMsg(tx(key, {
+    setIoMsg(tx(hsiDoneKey(data), {
       name: data.name,
       pins: data.pins,
       changes: data.changes,
@@ -1096,12 +1156,190 @@ $("io-dl").addEventListener("click", async (ev) => {
   const href = link.getAttribute("href") || "";
   const name = decodeURIComponent(href.split("/").pop() || "");
   try {
-    const out = await api.save_sheet(name, "HSI (*.xlsx)");
+    const out = await api.save_sheet(name, "Excel (*.xlsx)");
     if (out && out.canceled) return;
     if (out && out.ok) return;
     throw new Error((out && out.error) || tx("err.save"));
   } catch (e) {
     setIoMsg(e.message || String(e));
+  }
+});
+// 架构填报：多选需求 PDF，出材料对照稿。只摘原文，不写满足结论。
+function syncArchResult() {
+  const row = $("arch-result");
+  const msg = $("arch-msg");
+  const link = $("arch-dl");
+  if (!row) return;
+  const msgOn = !!(msg && !msg.hidden && String(msg.textContent || "").trim());
+  const dlOn = !!(link && !link.hidden);
+  row.hidden = !(msgOn || dlOn);
+}
+
+function setArchMsg(text, kind) {
+  const msg = $("arch-msg");
+  if (!msg) return;
+  msg.classList.remove("is-info", "is-ok");
+  if (kind) msg.classList.add("is-" + kind);
+  msg.textContent = text || "";
+  msg.hidden = !String(text || "").trim();
+  syncArchResult();
+}
+
+function clearArchDownload() {
+  const link = $("arch-dl");
+  if (!link) return;
+  link.hidden = true;
+  link.removeAttribute("href");
+  syncArchResult();
+}
+
+function showArchDownload(data) {
+  const link = $("arch-dl");
+  const name = data && data.name ? String(data.name) : "";
+  if (!link || !name) {
+    clearArchDownload();
+    return;
+  }
+  const path = data.download || ("/files/" + encodeURIComponent(name));
+  link.href = apiUrl(path);
+  link.textContent = tx("arch.download");
+  link.hidden = false;
+  syncArchResult();
+}
+
+// 原生文件框每次选择都会替换上一次，这里自己累积：一次选一个也能攒成一批。
+let archPicked = [];
+
+function archFiles() {
+  return archPicked.slice();
+}
+
+function addArchFiles(incoming) {
+  const seen = new Set(archPicked.map((f) => f.name + "\u0000" + f.size));
+  let added = 0;
+  Array.from(incoming || []).forEach((f) => {
+    const key = f.name + "\u0000" + f.size;
+    if (seen.has(key)) return;
+    seen.add(key);
+    archPicked.push(f);
+    added += 1;
+  });
+  return added;
+}
+
+function removeArchFile(index) {
+  archPicked.splice(index, 1);
+  clearArchDownload();
+  setArchMsg("");
+  renderArchFiles();
+}
+
+function renderArchFiles() {
+  const files = archFiles();
+  const nameEl = $("arch-files-name");
+  const list = $("arch-file-list");
+  if (nameEl) {
+    if (files.length) {
+      nameEl.removeAttribute("data-i18n");
+      nameEl.textContent = tx("arch.picked", { n: files.length });
+      nameEl.classList.add("is-set");
+    } else {
+      nameEl.setAttribute("data-i18n", "io.fileNone");
+      nameEl.textContent = tx("io.fileNone");
+      nameEl.classList.remove("is-set");
+    }
+  }
+  if (list) {
+    list.hidden = !files.length;
+    list.innerHTML = files.map((f, i) => "<li title='" + escText(f.name) + "'><span>" + escText(f.name) + "</span>"
+      + "<button type='button' class='arch-file-remove' data-index='" + i + "' aria-label='" + escText(tx("arch.remove")) + "' title='" + escText(tx("arch.remove")) + "'>&times;</button></li>").join("");
+    list.querySelectorAll(".arch-file-remove").forEach((btn) => {
+      btn.addEventListener("click", () => removeArchFile(Number(btn.getAttribute("data-index"))));
+    });
+  }
+  const btn = $("arch-build");
+  if (btn) btn.disabled = !files.length;
+  // 两份以上才给「清空」；单份直接点 × 就行
+  const clear = $("arch-clear");
+  if (clear) clear.hidden = files.length < 2;
+}
+
+function clearArchFiles() {
+  archPicked = [];
+  clearArchDownload();
+  setArchMsg("");
+  renderArchFiles();
+}
+
+$("arch-clear").addEventListener("click", (ev) => {
+  // 按钮在文件框的 label 里：拦住默认行为，别顺手弹出选择文件
+  ev.preventDefault();
+  ev.stopPropagation();
+  clearArchFiles();
+});
+
+$("arch-files").addEventListener("change", () => {
+  const input = $("arch-files");
+  addArchFiles(input.files);
+  // 清掉原生选择，同一个文件移除后还能再选
+  input.value = "";
+  clearArchDownload();
+  setArchMsg("");
+  renderArchFiles();
+});
+$("arch-back").onclick = () => setPanel("home");
+$("arch-build").onclick = async () => {
+  const files = archFiles();
+  clearArchDownload();
+  if (!files.length) {
+    setArchMsg(tx("arch.needFiles"));
+    return;
+  }
+  const body = new FormData();
+  files.forEach((f) => body.append("files", f));
+  setArchMsg(tx("arch.working"), "info");
+  $("arch-build").disabled = true;
+  try {
+    const resp = await fetch(apiUrl("/api/arch"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+      body,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = data.detail || data.error || resp.statusText;
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    let text = tx("arch.done", { name: data.name, files: data.files, rows: data.rows, tables: data.tables || 0 });
+    const skipped = Array.isArray(data.unreadable) ? data.unreadable : [];
+    if (skipped.length) {
+      text += " " + tx("arch.unreadable", { n: skipped.length, names: skipped.map((u) => u.name).join("、") });
+    }
+    setArchMsg(text, "ok");
+    showArchDownload(data);
+    loadJobs();
+  } catch (err) {
+    clearArchDownload();
+    setArchMsg(err.message || String(err));
+  } finally {
+    renderArchFiles();
+  }
+};
+$("arch-dl").addEventListener("click", async (ev) => {
+  const link = ev.currentTarget;
+  const api = desktopSave();
+  if (!api) return;
+  ev.preventDefault();
+  const href = link.getAttribute("href") || "";
+  const name = decodeURIComponent(href.split("/").pop() || "");
+  try {
+    const out = await api.save_sheet(name, "Excel (*.xlsx)");
+    if (out && out.canceled) return;
+    if (out && out.ok) return;
+    throw new Error((out && out.error) || tx("err.save"));
+  } catch (e) {
+    setArchMsg(e.message || String(e));
   }
 });
 // 工作台卡片只切页，不自动弹文件选择；选文件由页内拖放区/按钮触发

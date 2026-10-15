@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器智能体</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20261014l" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261015n" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -67,22 +67,34 @@
             <div class="brand-sub" id="rail-sub" data-i18n="brand.sub.client">本机工位</div>
           </div>
         </div>
-        <button type="button" id="rail-new" class="rail-new" data-i18n="rail.new">+ 新建出表</button>
         <nav class="rail-nav" aria-label="功能">
-          <button type="button" id="rail-home" class="rail-fn" data-i18n="rail.home">工作台</button>
-          <button type="button" id="rail-extract" class="rail-fn" data-i18n="rail.extract">SOR 参数提取</button>
-          <button type="button" id="rail-io" class="rail-fn" data-i18n="rail.io">IO口规划</button>
+          <button type="button" id="rail-home" class="rail-fn">
+            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9.5 10 4l7 5.5V16a1 1 0 0 1-1 1h-4v-5H8v5H4a1 1 0 0 1-1-1V9.5Z"/></svg><span data-i18n="rail.home">工作台</span></span>
+          </button>
+          <div class="rail-group" data-i18n="rail.groupWork">作业</div>
+          <button type="button" id="rail-extract" class="rail-fn">
+            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3h7l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M12 3v4h4" class="ico-line"/><path d="M7 11h6M7 14h6" class="ico-line"/></svg><span data-i18n="rail.extract">SOR 参数提取</span></span>
+          </button>
+          <button type="button" id="rail-io" class="rail-fn">
+            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5"/><path d="M8 3v3M12 3v3M8 14v3M12 14v3M3 8h3M3 12h3M14 8h3M14 12h3" class="ico-line"/></svg><span data-i18n="rail.io">IO口规划</span></span>
+          </button>
+          <button type="button" id="rail-arch" class="rail-fn">
+            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4h12v3H4zM4 8.5h12v3H4zM4 13h12v3H4z"/></svg><span data-i18n="rail.arch">电驱需求拆解</span></span>
+          </button>
+          <div class="rail-group" data-i18n="rail.groupRef">参考</div>
           <button type="button" id="rail-kb" class="rail-fn">
-            <span class="rail-fn-label"><i class="tool-dot" aria-hidden="true"></i><span data-i18n="rail.kbName">电机控制器知识库</span></span>
+            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H15v12H5.5A1.5 1.5 0 0 0 4 16.5v-12Z"/><path d="M4 16.5A1.5 1.5 0 0 1 5.5 15H15v2H5.5" class="ico-line"/></svg><span data-i18n="rail.kbName">电机控制器知识库</span><i class="tool-dot" aria-hidden="true"></i></span>
           </button>
         </nav>
         <div class="rail-block rail-jobs">
           <div class="rail-tabs" role="tablist">
             <button type="button" id="rail-tab-jobs" class="rail-tab is-on" role="tab" aria-selected="true" data-i18n="rail.jobs">出表记录</button>
             <button type="button" id="rail-tab-hsi" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.hsiJobs">规划记录</button>
+            <button type="button" id="rail-tab-arch" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.archJobs">拆解记录</button>
           </div>
           <div id="job-list" class="job-list" role="tabpanel"></div>
           <div id="hsi-list" class="job-list" role="tabpanel" hidden></div>
+          <div id="arch-list" class="job-list" role="tabpanel" hidden></div>
         </div>
         <div id="who-wrap" class="rail-user" hidden>
           <span id="who-avatar" class="who-avatar" aria-hidden="true">工</span>
@@ -153,7 +165,10 @@
             </div>
             <div class="home-grid">
               <button type="button" class="fn-card" data-go="extract">
-                <span class="fn-kicker" data-i18n="home.kicker">SOR 出表</span>
+                <span class="fn-head">
+                  <span class="fn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h8l5 5v12a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v5h5M8.5 13h7M8.5 16.5h7" class="ico-line"/></svg></span>
+                  <span class="fn-kicker" data-i18n="home.kicker">SOR 出表</span>
+                </span>
                 <strong data-i18n="home.cardTitle">自动从 SOR 抽取内容。</strong>
                 <span class="fn-chips">
                   <span data-i18n="home.chipDocs">文档</span>
@@ -162,7 +177,10 @@
                 <span class="fn-go" data-i18n="home.go">进入出表</span>
               </button>
               <button type="button" class="fn-card" data-go="io">
-                <span class="fn-kicker" data-i18n="home.io.kicker">IO口规划</span>
+                <span class="fn-head">
+                  <span class="fn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" class="ico-line"/></svg></span>
+                  <span class="fn-kicker" data-i18n="home.io.kicker">IO口规划</span>
+                </span>
                 <strong data-i18n="home.io.cardTitle">对照芯片手册生成初始配置表。</strong>
                 <span class="fn-chips">
                   <span data-i18n="home.io.chipManual">手册</span>
@@ -170,10 +188,55 @@
                 </span>
                 <span class="fn-go" data-i18n="home.io.go">进入规划</span>
               </button>
+              <button type="button" class="fn-card" data-go="arch">
+                <span class="fn-head">
+                  <span class="fn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16v4H4zM4 10h16v4H4zM4 16h16v4H4z"/><path d="M8 6h.01M8 12h.01M8 18h.01" class="ico-line ico-dot"/></svg></span>
+                  <span class="fn-kicker" data-i18n="home.arch.kicker">电驱需求拆解</span>
+                </span>
+                <strong data-i18n="home.arch.cardTitle">把电驱 SR 需求文件逐页拆成可回溯的条目。</strong>
+                <span class="fn-chips">
+                  <span data-i18n="home.arch.chipSr">电驱 SR</span>
+                  <span data-i18n="home.arch.chipPage">LDC</span>
+                </span>
+                <span class="fn-go" data-i18n="home.arch.go">进入拆解</span>
+              </button>
             </div>
           </div>
 
-          <div id="io-card" class="card" hidden>
+          <div id="arch-card" class="card tool-card" hidden>
+            <ol class="io-steps">
+              <li><span>1</span><em data-i18n="arch.step1">读取当份电驱需求文件（SR、LDC 等 PDF，可多选）</em></li>
+              <li><span>2</span><em data-i18n="arch.step2">按条款拆条，记下页码、章节、条款号、原文和带单位的数值</em></li>
+              <li><span>3</span><em data-i18n="arch.step3">数值表整页保留；没有文字层的文件单独列出</em></li>
+              <li><span>4</span><em data-i18n="arch.step4">状态一律待确认；责任人、客户反馈、能否满足留给人填</em></li>
+            </ol>
+            <form id="arch-form" class="io-form">
+              <div class="io-file">
+                <span class="io-file-label" data-i18n="arch.files">需求文件</span>
+                <div class="arch-pick">
+                  <label class="io-file-box">
+                    <input id="arch-files" type="file" accept=".pdf,application/pdf" multiple />
+                    <span class="io-file-name" id="arch-files-name" data-i18n="io.fileNone">未选择文件</span>
+                    <button type="button" id="arch-clear" class="ghost arch-clear" hidden data-i18n="arch.clear">清空</button>
+                    <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
+                  </label>
+                  <ul id="arch-file-list" class="arch-file-list" hidden></ul>
+                </div>
+              </div>
+            </form>
+            <div class="io-bar">
+              <button id="arch-back" type="button" class="ghost" data-i18n="io.back">返回</button>
+              <div class="io-bar-end">
+                <button id="arch-build" type="button" data-i18n="arch.generate" disabled>生成对照稿</button>
+              </div>
+            </div>
+            <div id="arch-result" class="io-result" hidden>
+              <p id="arch-msg" class="msg" hidden></p>
+              <a id="arch-dl" class="dl" hidden></a>
+            </div>
+          </div>
+
+          <div id="io-card" class="card tool-card" hidden>
             <ol class="io-steps">
               <li><span>1</span><em data-i18n="io.step1">读取芯片数据手册</em></li>
               <li><span>2</span><em data-i18n="io.step2">按所选封装把引脚写入 HSI 端口表</em></li>
@@ -307,15 +370,14 @@
               <div class="kb-meta">
                 <span id="kb-version" class="kb-chip" data-i18n="kb.version">版本</span>
                 <span class="kb-chip" data-i18n="kb.classInternal">密级 内部</span>
-                <span class="kb-chip" data-i18n="kb.onPrem">场所内</span>
-                <span class="kb-chip warn" data-i18n="kb.noFill">禁止用库填数</span>
+                <span class="kb-chip" data-i18n="kb.onPrem">不出公网</span>
               </div>
               <label class="kb-search"><span data-i18n="kb.search">检索</span>
                 <input id="kb-q" type="search" placeholder="条款号、名称、别名、公式、企标…" autocomplete="off" data-i18n-placeholder="kb.searchPh" />
               </label>
             </div>
             <div id="kb-stats" class="kb-stats"></div>
-            <p id="kb-banner" class="kb-banner" data-i18n="kb.banner">抽出值只来自当份规格书。知识库提供条目、互斥与公式关系，不提供取值。</p>
+            <p id="kb-banner" class="kb-banner" data-i18n="kb.banner">库只提供条目含义、出处和条目间关系，抽出值一律来自当份规格书。</p>
             <div class="kb-tabs" role="tablist">
               <button type="button" class="kb-tab is-on" data-tab="dir" role="tab" data-i18n="kb.tab.dir">条款目录</button>
               <button type="button" class="kb-tab" data-tab="graph" role="tab" data-i18n="kb.tab.graph">知识图谱</button>
@@ -524,8 +586,8 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261014l" defer></script>
-  <script src="/static/app.js?v=20261014l" defer></script>
-  <script src="/static/kb.js?v=20260918g" defer></script>
+  <script src="/static/i18n.js?v=20261015n" defer></script>
+  <script src="/static/app.js?v=20261015n" defer></script>
+  <script src="/static/kb.js?v=20261015n" defer></script>
 </body>
 </html>

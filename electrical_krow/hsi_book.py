@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -18,6 +19,18 @@ from openpyxl.styles import Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.workbook.workbook import Workbook
 
+from electrical_krow.hsi_qa import (
+    Ask,
+    SubSheetEntry,
+    _is_llm_candidate,
+    check_peripheral_capability,
+    check_template_row_anomalies,
+    extract_subsheet_entries,
+    norm_symbol,
+    pin_lookup_keys,
+    run_llm_pin_qa,
+    split_symbol_parts,
+)
 from electrical_krow.mcu_pins import (
     ChipPin,
     mcu_name,
@@ -94,6 +107,8 @@ class HsiResult:
     pins: int
     changes: int
     issued: str = ""
+    conflicts: int = 0
+    model_used: bool = False
 
 
 @dataclass(frozen=True)
@@ -232,10 +247,29 @@ def _dir_flags(text: str) -> frozenset[str]:
     return frozenset(flags)
 
 
+def _match_template_rows(pin: ChipPin, grouped: dict[str, list[_PortRow]]) -> list[_PortRow]:
+    """按精确符号优先、组合/别名符号（如 `AN17/P40_10`）次之的顺序查找模板候选行。"""
+    exact = grouped.get(pin.symbol)
+    if exact:
+        return exact
+    found: list[_PortRow] = []
+    seen_ids: set[int] = set()
+    pin_keys = set(pin_lookup_keys(pin))
+    if not pin_keys:
+        return []
+    for sym, rows in grouped.items():
+        if pin_keys & set(split_symbol_parts(sym)):
+            for row in rows:
+                if id(row) not in seen_ids:
+                    seen_ids.add(id(row))
+                    found.append(row)
+    return found
+
+
 def _shared_names(pins: tuple[ChipPin, ...], grouped: dict[str, list[_PortRow]]) -> dict[str, list[str]]:
     owners: dict[str, list[str]] = {}
     for pin in pins:
-        distinct = _distinct_rows(grouped.get(pin.symbol, []))
+        distinct = _distinct_rows(_match_template_rows(pin, grouped))
         if len(distinct) != 1:
             continue
         name = _project_name(distinct[0].project)
@@ -245,37 +279,92 @@ def _shared_names(pins: tuple[ChipPin, ...], grouped: dict[str, list[_PortRow]])
     return {name: symbols for name, symbols in owners.items() if len(symbols) > 1}
 
 
+def _sub_entries_for(pin: ChipPin, sub_map: dict[str, list[SubSheetEntry]]) -> list[SubSheetEntry]:
+    out: list[SubSheetEntry] = []
+    seen: set[tuple[str, str, str, str]] = set()
+    for key in pin_lookup_keys(pin):
+        for entry in sub_map.get(key, []):
+            sig_key = (entry.sheet, entry.symbol, entry.signal, entry.ball)
+            if sig_key not in seen:
+                seen.add(sig_key)
+                out.append(entry)
+    return out
+
+
 def _assess(
     pin: ChipPin,
     matches: list[_PortRow],
     shared: dict[str, list[str]],
+    sub_entries: list[SubSheetEntry] | None = None,
+    llm_findings: list[tuple[str, str]] | None = None,
 ) -> tuple[str, str, tuple[object, ...]]:
     distinct = _distinct_rows(matches)
     flags: list[str] = []
     notes: list[str] = []
     project: tuple[object, ...] = tuple()
+
+    def add_flag(flag: str) -> None:
+        if flag not in flags:
+            flags.append(flag)
+
+    def add_note(text: str) -> None:
+        if text and text not in notes:
+            notes.append(text)
+
     if not distinct:
-        flags.append(STATUS_GAP)
-        notes.append("吉利模板没有该引脚符号")
+        add_flag(STATUS_GAP)
+        add_note("吉利模板没有该引脚符号")
     else:
         if len(distinct) > 1:
-            flags.append(STATUS_MULTI)
+            add_flag(STATUS_MULTI)
             names = [_project_name(row.project) or "空" for row in distinct]
-            notes.append("吉利模板中该符号有多个端口名：" + "、".join(names))
+            add_note("吉利模板中该符号有多个端口名：" + "、".join(names))
         else:
-            project = distinct[0].project
+            row0 = distinct[0]
+            project = row0.project
+            if row0.symbol != pin.symbol:
+                add_note(f"按模板组合/别名符号 {row0.symbol} 对齐")
             name = _project_name(project)
             others = [item for item in shared.get(name, []) if item != pin.symbol]
             if others:
-                flags.append(STATUS_MULTI)
-                notes.append(f"模板端口名 {name} 还对应 " + "、".join(others))
+                add_flag(STATUS_MULTI)
+                add_note(f"模板端口名 {name} 还对应 " + "、".join(others))
         template_flags = [_dir_flags(row.direction) for row in distinct]
         nonempty = [item for item in template_flags if item]
         pin_flags = _dir_flags(pin.direction)
         if nonempty and pin_flags and all(item.isdisjoint(pin_flags) for item in nonempty):
-            flags.append(STATUS_CONFLICT)
+            add_flag(STATUS_CONFLICT)
             shown = "、".join(dict.fromkeys(row.direction for row in distinct if row.direction))
-            notes.append(f"手册方向为 {pin.direction}，吉利模板方向为 {shown}")
+            add_note(f"手册方向为 {pin.direction}，吉利模板方向为 {shown}")
+
+        if len(distinct) == 1:
+            row0 = distinct[0]
+            name = _project_name(row0.project)
+            for c_note in check_peripheral_capability(pin, row0.function, name, row0.direction):
+                add_flag(STATUS_CONFLICT)
+                add_note(c_note)
+            qa_finding = check_template_row_anomalies(
+                pin,
+                row0.direction,
+                row0.function,
+                row0.project,
+                sub_entries or [],
+                template_ball=row0.ball,
+            )
+            for c_note in qa_finding.conflict_notes:
+                add_flag(STATUS_CONFLICT)
+                add_note(c_note)
+            for w_note in qa_finding.warn_notes:
+                add_note(w_note)
+            if STATUS_MULTI in flags:
+                for hint in qa_finding.sub_hints:
+                    add_note(hint)
+
+        for level, reason in llm_findings or []:
+            if level == "conflict":
+                add_flag(STATUS_CONFLICT)
+            add_note(f"【工程质检】{reason}")
+
     status = "；".join(flags) if flags else STATUS_DRAFT
     return status, "；".join(notes), project
 
@@ -519,14 +608,26 @@ def _write_constraints(
     pins: tuple[ChipPin, ...],
     grouped: dict[str, list[_PortRow]],
     shared: dict[str, list[str]],
+    sub_map: dict[str, list[SubSheetEntry]] | None = None,
+    llm_by_sym: dict[str, list[tuple[str, str]]] | None = None,
 ) -> None:
     sheet = _fresh_sheet(workbook, SHEET_CONSTRAINT)
     body: list[list[object]] = [list(_CONSTRAINT_HEADERS)]
     seen: set[str] = set()
     for pin in pins:
         seen.add(pin.symbol)
-        distinct = _distinct_rows(grouped.get(pin.symbol, []))
-        status, note, _project = _assess(pin, distinct, shared)
+        matches = _match_template_rows(pin, grouped)
+        for row in matches:
+            seen.add(row.symbol)
+        distinct = _distinct_rows(matches)
+        subs = _sub_entries_for(pin, sub_map or {})
+        status, note, _project = _assess(
+            pin,
+            distinct,
+            shared,
+            sub_entries=subs,
+            llm_findings=(llm_by_sym or {}).get(pin.symbol),
+        )
         if not distinct:
             body.append([pin.symbol, "", "", "", "", "", "", "", "", "", "", "", status, note])
             continue
@@ -577,6 +678,7 @@ def write_hsi_workbook(
     package: str,
     pins: tuple[ChipPin, ...],
     previous: Path | None = None,
+    ask: Ask | None = None,
 ) -> HsiResult:
     if not pins:
         raise ValueError(f"手册中没有读到 {package} 的引脚表。")
@@ -600,10 +702,42 @@ def write_hsi_workbook(
     for row in _port_rows(template_book):
         grouped.setdefault(row.symbol, []).append(row)
     shared = _shared_names(pins, grouped)
+    sub_map = extract_subsheet_entries(template_book)
+    llm_candidates: list[tuple[ChipPin, str, str, tuple[object, ...], list[SubSheetEntry]]] = []
+    if ask is not None:
+        for pin in pins:
+            distinct = _distinct_rows(_match_template_rows(pin, grouped))
+            if len(distinct) != 1:
+                continue
+            row0 = distinct[0]
+            subs = _sub_entries_for(pin, sub_map)
+            finding = check_template_row_anomalies(
+                pin,
+                row0.direction,
+                row0.function,
+                row0.project,
+                subs,
+                template_ball=row0.ball,
+            )
+            if _is_llm_candidate(pin, row0.direction, row0.function, row0.project, finding):
+                llm_candidates.append((pin, row0.direction, row0.function, row0.project, subs))
+    llm_by_sym, model_used = run_llm_pin_qa(llm_candidates, ask)
+
     drafts: list[tuple[_PortRow, str, str]] = []
     current_rows: dict[str, _PortRow] = {}
+    conflict_count = 0
     for pin in pins:
-        status, note, project = _assess(pin, grouped.get(pin.symbol, []), shared)
+        matches = _match_template_rows(pin, grouped)
+        subs = _sub_entries_for(pin, sub_map)
+        status, note, project = _assess(
+            pin,
+            matches,
+            shared,
+            sub_entries=subs,
+            llm_findings=llm_by_sym.get(pin.symbol),
+        )
+        if STATUS_CONFLICT in status:
+            conflict_count += 1
         row = _pin_row(pin, project)
         drafts.append((row, status, note))
         current_rows[pin.symbol] = row
@@ -618,14 +752,14 @@ def write_hsi_workbook(
         "初始配置表的引脚、球号、方向、功能和复用来自当份手册。"
         "端口命名、电平、ASIL 和硬件逻辑按吉利模板对照填写，状态为待人工确认。"
         "模板没有该符号记缺项；同一符号多个端口名，或同一端口名对应多个符号，记多候选；"
-        "手册方向与模板方向相反记约束冲突。这些行都不写成已确认。"
+        "手册方向与模板方向相反，或硬件外设复用能力与模板定义不符记约束冲突。这些行都不写成已确认。"
         "人工修订记录和验收实测只保留表上已有内容。"
     )
     _write_cover(template_book[SHEET_COVER], today, summary, version, remark)
     _write_history(template_book[SHEET_HISTORY], today, changes)
     _write_ports(template_book[SHEET_PORT], mcu, package, drafts, pins, human)
     _write_evidence(template_book, pins)
-    _write_constraints(template_book, pins, grouped, shared)
+    _write_constraints(template_book, pins, grouped, shared, sub_map=sub_map, llm_by_sym=llm_by_sym)
     _write_kept_sheet(
         template_book,
         SHEET_REVISION,
@@ -643,7 +777,17 @@ def write_hsi_workbook(
     dest.parent.mkdir(parents=True, exist_ok=True)
     template_book.save(dest)
     template_book.close()
-    return HsiResult(dest, mcu, package, version, len(drafts), len(changes), today)
+    return HsiResult(
+        dest,
+        mcu,
+        package,
+        version,
+        len(drafts),
+        len(changes),
+        today,
+        conflicts=conflict_count,
+        model_used=model_used,
+    )
 
 
 def build_hsi(
@@ -653,9 +797,10 @@ def build_hsi(
     *,
     package: str = "",
     previous: Path | None = None,
+    ask: Ask | None = None,
 ) -> HsiResult:
-    mcu = mcu_name(datasheet.name)
     pages = read_pdf_pages(datasheet)
+    mcu = mcu_name(datasheet.name, pages)
     choices = parse_pin_pages(pages)
     if not choices:
         raise ValueError("手册中没有读到封装引脚表。")
@@ -677,4 +822,5 @@ def build_hsi(
         package=chosen,
         pins=pins,
         previous=previous,
+        ask=ask,
     )

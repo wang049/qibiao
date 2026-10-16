@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器智能体</title>
   <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20261015s" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261016a" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -205,7 +205,7 @@
 
           <div id="arch-card" class="card tool-card" hidden>
             <ol class="io-steps">
-              <li><span>1</span><em data-i18n="arch.step1">读取当份电驱需求文件（SR、LDC 等 PDF，可多选）</em></li>
+              <li><span>1</span><em data-i18n="arch.step1">读取前先做文件内容质检：拦下不可读文件，核对同文件参数冲突、中英数值与语义矛盾、算式与待定项</em></li>
               <li><span>2</span><em data-i18n="arch.step2">按条款拆条，记下页码、章节、条款号、原文和带单位的数值</em></li>
               <li><span>3</span><em data-i18n="arch.step3">数值表整页保留；没有文字层的文件单独列出</em></li>
               <li><span>4</span><em data-i18n="arch.step4">状态一律待确认；责任人、客户反馈、能否满足留给人填</em></li>
@@ -586,8 +586,8 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261015s" defer></script>
-  <script src="/static/app.js?v=20261015s" defer></script>
-  <script src="/static/kb.js?v=20261015s" defer></script>
+  <script src="/static/i18n.js?v=20261016a" defer></script>
+  <script src="/static/app.js?v=20261016a" defer></script>
+  <script src="/static/kb.js?v=20261016a" defer></script>
 </body>
 </html>

@@ -145,6 +145,11 @@ class ContrastResult:
     figures: int = 0  # 图表截图张数
     reqs: int = 0  # 需求清单条数
     shots: int = 0  # 需求清单里带原文截图的条数
+    quality_summary: str = ""  # 文件内容质检结论摘要
+    bilingual_conflicts: int = 0  # 同条中英数值/语义冲突处数
+    logic_conflicts: int = 0  # 内部逻辑/算式冲突处数
+    tbd_count: int = 0  # 含 TBD/TBC 待定项的条数
+    quality_issues: tuple[str, ...] = field(default_factory=tuple)  # 质检明细行
 
 
 def _text(value: object) -> str:
@@ -310,11 +315,16 @@ def read_pdf_tables(
 
 
 def is_grid(grid: Grid) -> bool:
-    """算得上表的：至少两行两列，且一半以上的行有两格以上有字。单行的页眉表、格里套出来的碎块不算。"""
+    """算得上表的：至少两行两列，且一半以上的行有两格以上有字（或左列纵向合并、末列有成句内容）。单行的页眉表、格里套出来的碎块不算。"""
     if len(grid) < 2 or not grid[0] or len(grid[0]) < 2:
         return False
-    filled = sum(1 for row in grid if sum(1 for cell in row if cell) >= 2)
-    return filled * 2 >= len(grid)
+    multi = sum(1 for row in grid if sum(1 for cell in row if cell) >= 2)
+    if multi * 2 >= len(grid):
+        return True
+    if multi >= 2 and len(grid) >= 4:
+        filled = sum(1 for row in grid if sum(1 for cell in row if cell) >= 2 or len(row[-1] or "") >= 15)
+        return filled * 2 >= len(grid)
+    return False
 
 
 def boilerplate_lines(pages: tuple[tuple[int, str], ...]) -> frozenset[str]:
@@ -327,7 +337,7 @@ def boilerplate_lines(pages: tuple[tuple[int, str], ...]) -> frozenset[str]:
         for line in text.splitlines():
             key = _compact(line)
             # 只有符号的行（「-」「•」「※」）是连字符或条款标记，不是页眉页脚
-            if not key or len(key) > 60 or key in seen or not re.search(r"[A-Za-z0-9\u4e00-\u9fff]", key):
+            if not key or len(key) > 60 or key in seen or not re.search(r"[A-Za-z0-9\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff]", key):
                 continue
             seen.add(key)
             counts[key] = counts.get(key, 0) + 1
@@ -336,11 +346,15 @@ def boilerplate_lines(pages: tuple[tuple[int, str], ...]) -> frozenset[str]:
 
 
 _HANGUL = re.compile(r"[\uac00-\ud7af\u3130-\u318f]")
-_LETTER = re.compile(r"[A-Za-z\u4e00-\u9fff\uac00-\ud7af\u3130-\u318f]")
+_LETTER = re.compile(r"[A-Za-z\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\u4e00-\u9fff\uac00-\ud7af\u3130-\u318f]")
+_HANGUL_NOTICE_WORDS = frozenset({
+    "본", "문서는", "현대자동차", "기아의", "정보자산으로", "관련", "법령에", "의해", "보호받습니다",
+    "사내한", "대외비", "보안해제", "영문화", "수정", "ESMS수정",
+})
 
 
 def hangul_is_minor(pages: tuple[tuple[int, str], ...]) -> bool:
-    """整份文件里韩文字母不到两成：英文或中文 SR 里夹的韩文只会是保密声明之类，不是需求。韩文为主的文件远超此数。"""
+    """整份文件里韩文字母不到两成：英文或中文 SR 里夹的韩文保密声明拆行词予以剔除。"""
     letters = sum(len(_LETTER.findall(text)) for _, text in pages)
     hangul = sum(len(_HANGUL.findall(text)) for _, text in pages)
     return letters > 0 and hangul / letters < 0.2
@@ -348,7 +362,10 @@ def hangul_is_minor(pages: tuple[tuple[int, str], ...]) -> bool:
 
 def _hangul_only(key: str) -> bool:
     letters = _LETTER.findall(key)
-    return bool(letters) and all(_HANGUL.match(ch) for ch in letters)
+    if not letters or not all(_HANGUL.match(ch) for ch in letters):
+        return False
+    words = [w.strip(".,()/[]") for w in key.split() if w.strip(".,()/[]")]
+    return bool(words) and all(w in _HANGUL_NOTICE_WORDS for w in words)
 
 
 def page_body(text: str, boilerplate: frozenset[str], page_no: str = "", *, drop_hangul: bool = False) -> str:
@@ -449,8 +466,8 @@ def toc_headings(pages: tuple[tuple[int, str], ...]) -> tuple[list[tuple[str, st
             if not matched:
                 continue
             number, title = matched.group(1), matched.group(2).strip(" .")
-            if len(title) < 3 or re.fullmatch(r"[\d\s./-]+", title) or number.startswith("0"):
-                continue  # 页眉里的「001 Date」（版本号）不是章节
+            if len(title) < 3 or re.fullmatch(r"[\d\s./-]+", title) or any(p.startswith("0") for p in number.split(".")):
+                continue  # 页眉里的「001 Date」「1.0 PAGE」（版本号）不是章节
             found.append((number, title))
         numbers = [number for number, _ in found]
         if len(found) >= 6 and len(set(numbers)) == len(numbers) and sum(1 for n in numbers if "." in n) >= 3:
@@ -485,7 +502,7 @@ def match_heading(body: str, heads: list[tuple[str, str]]) -> str:
 
 
 def _alnum(text: str) -> str:
-    return re.sub(r"[^a-z0-9\u4e00-\u9fff]", "", text.lower())
+    return re.sub(r"[^0-9a-z\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u3130-\u318f\u4e00-\u9fff]", "", text.lower())
 
 
 def page_headings(body: str, heads: list[tuple[str, str]]) -> list[str]:
@@ -560,7 +577,7 @@ def _heading_of(line: str, heads: list[tuple[str, str]]) -> str:
     if not matched:
         return ""
     number, title = matched.group(1), matched.group(2).strip(" .")
-    if number.count(".") < 2 or not re.match(r"[A-Za-z\u4e00-\u9fff]", title) or len(title) < 3:
+    if number.count(".") < 2 or not re.match(r"[A-Za-z\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff]", title) or len(title) < 3:
         return ""
     parent = number.rsplit(".", 1)[0]
     if not any(parent == head_no for head_no, _ in heads):
@@ -569,10 +586,10 @@ def _heading_of(line: str, heads: list[tuple[str, str]]) -> str:
 
 
 def _is_label(line: str) -> bool:
-    """像栏目标签的短行：不长、不以句末标点结尾、至少有一个字母或汉字。"""
+    """像栏目标签的短行：不长、不以句末标点结尾、至少有一个字母或文字。"""
     flat = _compact(line)
     return 0 < len(flat) <= 40 and not flat.endswith((".", "。", ":", "：", ";", "；")) and bool(
-        re.search(r"[A-Za-z\u4e00-\u9fff]", flat)
+        re.search(r"[A-Za-z\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff]", flat)
     )
 
 
@@ -706,9 +723,9 @@ def _lead_in(segment: str) -> str:
                 depth, drop = 0, pos + 1
     lead = lead[drop:].lstrip(_LEAD_STRIP).strip()
     lead = _ITEM_MARK.sub("", lead) if cut == 0 else lead
-    if not re.search(r"[A-Za-z0-9\u4e00-\u9fff@=<>≤≥±]", lead):
+    if not re.search(r"[A-Za-z0-9\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff@=<>≤≥±]", lead):
         return ""  # 只剩标点（如孤零零一个「(」）不算引导词；「@」「=」这类关系符保留
-    if re.search(r"[\u4e00-\u9fff]", lead):
+    if re.search(r"[\u3040-\u30ff\u4e00-\u9fff]", lead):
         return lead[-_LEAD_CJK:] if len(lead) > _LEAD_CJK else lead
     words = lead.split()
     return " ".join(words[-_LEAD_WORDS:])
@@ -756,7 +773,7 @@ def quantities(text: str) -> str:
         item = f"{lead}{qty}" if lead.endswith(("(", "（")) else _compact(f"{lead} {qty}")
         prev_end = end
         # 同一个数再次出现而前面没新的字（「15 years / 300,000 km (15 years / 300,000 km)」）不重复列；带了不同引导词的照列
-        if item in found or (qty in seen and not re.search(r"[A-Za-z\u4e00-\u9fff]", lead)):
+        if item in found or (qty in seen and not re.search(r"[A-Za-z\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff]", lead)):
             continue
         found.append(item)
         seen.add(qty)
@@ -779,18 +796,36 @@ def conditions(text: str) -> str:
             continue
         # 括号里只有数和单位（如「15 years / 300,000 km」）是数值不是条件，已在数值列
         rest = _QUANTITY.sub("", inner)
-        if has_qty and not re.search(r"[A-Za-z\u4e00-\u9fff]{2,}", rest):
+        if has_qty and not re.search(r"[A-Za-z\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff]{2,}", rest):
             continue
         if inner not in found:
             found.append(inner)
     return "；".join(found)
 
 
-# 表头词 → 栏目角色。只按表头认栏，不认格里的内容。
-_COL_KEY = re.compile(r"^(?:(?:major|sub)?classification|catego?ry|items?|parameters?|name|test(?:items?)?|analysis|项目|分类|参数|名称|试验项目|分析项)$")
-_COL_VALUE = re.compile(r"^(?:requirements?|(?:request)?specifications?|spec|targets?|values?|contents?|standard|criteria|(?:verification)?results?|要求|规格|目标|指标|标准|内容|结果)$")
-_COL_UNIT = re.compile(r"^(?:units?|单位)$")
-_COL_REMARK = re.compile(r"^(?:remarks?|notes?|comments?|conditions?|备注|说明|条件)$")
+# 表头词 → 栏目角色。只按表头认栏，不认格里的内容（支持英、中、韩、日、德表头）。
+_COL_KEY = re.compile(
+    r"^(?:(?:major|sub)?classification|catego?ry|items?|parameters?|name|test(?:items?)?|analysis|regions?|"
+    r"项目|分类|参数|名称|试验项目|分析项|区域|"
+    r"구분|항목|분류|시험항목|점검항목|검증항목|파라미터|명칭|"
+    r"項目|区分|分類|試験項目|"
+    r"kategorie|parameter|prüfpunkt)$"
+)
+_COL_VALUE = re.compile(
+    r"^(?:requirements?|(?:request)?specifications?|spec|targets?|values?|contents?|standard|criteria|(?:verification)?results?|status|details?|(?:warranty)?period|designchecklist|"
+    r"要求|规格|目标|指标|标准|内容|结果|状态|"
+    r"요구사항|요구사양|규격|사양|기준|목표|내용|결과|판정|"
+    r"要求仕様|基準|仕様|目標|結果|"
+    r"anforderung|anforderungen|spezifikation|zielwert|sollwert)$"
+)
+_COL_UNIT = re.compile(r"^(?:units?|单位|단위|単位|einheit)$")
+_COL_REMARK = re.compile(
+    r"^(?:remarks?|notes?|notestandard|comments?|conditions?|"
+    r"备注|说明|条件|"
+    r"비고|조건|시험조건|참고|"
+    r"備考|条件|試験条件|"
+    r"bemerkung|hinweis|bedingung|prüfbedingung)$"
+)
 
 
 def _col_role(header: str) -> str:
@@ -842,6 +877,19 @@ def _find_header(grid: Grid) -> tuple[int | None, list[str]]:
         roles = _header_roles(list(row))
         if "key" in roles and "value" in roles:
             return at, roles
+    # 首行是横跨全表的合并标题格（如「Mechanical part - Material」）、下方的行左列是短栏目名、末列是要求正文
+    if (
+        len(grid) >= 4
+        and 2 <= len(grid[0]) <= 3
+        and grid[0][0]
+        and len(grid[0][0]) <= 60
+        and all(not c for c in grid[0][1:])
+    ):
+        body = grid[1:]
+        long_right = sum(1 for r in body if len(r[-1] or "") >= 20)
+        short_left = all(len(c or "") <= 50 for r in body for c in r[:-1] if c)
+        if long_right * 2 >= len(body) and short_left:
+            return 0, ["key"] * (len(grid[0]) - 1) + ["value"]
     return None, []
 
 
@@ -854,9 +902,10 @@ def table_entries(grid: Grid) -> list[TableEntry]:
     if header_at is None:
         return []
     headers = grid[header_at]
+    banner = header_at == 0 and bool(headers[0]) and all(not c for c in headers[1:])
     labels: list[str] = []
-    for cell in headers:  # 合并表头下的空列用前一个表头名标注
-        labels.append(cell or (labels[-1] if labels else ""))
+    for cell in headers:  # 合并表头下的空列用前一个表头名标注；整行合并的总标题不重复贴到每一列
+        labels.append("" if banner else (cell or (labels[-1] if labels else "")))
     entries: list[TableEntry] = []
     carried = [""] * len(headers)
     for row_at, row in enumerate(grid[header_at + 1 :], start=header_at + 1):
@@ -920,7 +969,7 @@ def strip_table_lines(body: str, grids: list[Grid]) -> str:
     hits = []
     for line in lines:
         key = re.sub(r"\s+", "", line)
-        strong = len(re.findall(r"[A-Za-z0-9\u4e00-\u9fff]", key)) >= 4
+        strong = len(re.findall(r"[A-Za-z0-9\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff]", key)) >= 4
         hits.append((bool(key) and key in table_text, strong))
     # 连续命中的几行算一段：一段里有一行够长，或几行加起来够 4 个字母数字（「Vin=」「110」「~310V」），整段去掉
     kept: list[str] = []
@@ -968,31 +1017,102 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
         return plain(index, inner, section, mark, text, quantities(text), conditions(text), note, shot=located(index, text))
 
     def emit_tables(index: int, inner: str, section: str, grids: list[Grid]) -> None:
-        """按格线读出的表：认得出「项目／要求」表头的每行一条，key 进「项目」、要求格进「数值与单位」；认不出的整表留附件。
+        """按格线读出的表：认得出「项目／要求」表头的每行一条，key 进「项目」、要求格进「数值与单位」；
+        认不出表头的整表作为一条独立 REQ 并入「需求清单」（附整表截图与全文）。
         图片里 OCR 识读出的表同样处理，但备注标明是 OCR，字符要对照原图核对。
-        图表（坐标图、曲线、框图）只留一条索引，整图截在「图表附件」，不拆条、不取数。"""
+        图表（坐标图、曲线、框图）作为一条独立 REQ 并入「需求清单」（附整图截图与图中文字），不拆条、不取数。"""
         from electrical_krow.arch_shots import Shot
 
         for figure in doc.figures.get(index, []):
-            hint = f"：{figure.labels[:80]}" if figure.labels else ""
-            rows.append(plain(index, inner, section, "", f"本页图表（{figure.kind}）{hint}", "", "", f"图表，整图见「{SHEET_FIGURES}」，不拆成单条", shot=Shot(index, None, figure.png)))
+            hint = f"：{figure.labels}" if figure.labels else ""
+            rows.append(
+                plain(
+                    index,
+                    inner,
+                    section,
+                    "",
+                    f"本页图表（{figure.kind}）{hint}",
+                    "",
+                    "",
+                    "图表（整图截图，供对照原文；不拆条、不取数）",
+                    shot=Shot(index, None, figure.png),
+                )
+            )
         ocr_grids = doc.image_tables.get(index, [])
         row_boxes = doc.table_rows.get(index, [])
+        parsed = [table_entries(g) for g in grids]
+        spans: list[tuple[float, float, float, float] | None] = []
+        for g_at in range(len(grids)):
+            valid = [b for b in (row_boxes[g_at] if g_at < len(row_boxes) else []) if b is not None]
+            spans.append((min(b[0] for b in valid), min(b[1] for b in valid), max(b[2] for b in valid), max(b[3] for b in valid)) if valid else None)
         for grid_at, grid in enumerate([*grids, *ocr_grids]):
-            ocr = any(grid is g for g in ocr_grids)
+            ocr = grid_at >= len(grids)
             boxes = row_boxes[grid_at] if not ocr and grid_at < len(row_boxes) else []
             how = NOTE_OCR if ocr else "按格线读出的表格"
-            entries = table_entries(grid)
+            entries = table_entries(grid) if ocr else parsed[grid_at]
             if not entries:
-                # 拆成了行的表每行都在需求清单里，不再整表重复；只有没拆的表才整表进附件
+                tbox = spans[grid_at] if not ocr and grid_at < len(spans) else None
+                if tbox and any(
+                    other_at != grid_at
+                    and parsed[other_at]
+                    and spans[other_at] is not None
+                    and tbox[0] >= spans[other_at][0] - 4
+                    and tbox[2] <= spans[other_at][2] + 4
+                    and tbox[1] >= spans[other_at][1] - 4
+                    and tbox[3] <= spans[other_at][3] + 4
+                    for other_at in range(len(grids))
+                ):
+                    continue  # 嵌在已拆成行的外层表格单元格里的小附表，已在所在行内展示与截图，不再重复成条
                 tables.append([None, obj, doc.name, index, section, ATTACH_OCR if ocr else ATTACH_TABLE, grid_text(grid), f"{how}，表头认不出项目／要求栏，未拆成单条"])
                 shape = f"{len(grid)} 行 × {len(grid[0])} 列"
                 what = "本页图片表格" if ocr else "本页表格"
-                rows.append(plain(index, inner, section, "", f"{what}（{shape}），整表见「{SHEET_TABLES}」。", "", "", _join_notes(NOTE_OCR if ocr else "", "表头认不出项目／要求栏，未拆成单条")))
+                rows.append(
+                    plain(
+                        index,
+                        inner,
+                        section,
+                        "",
+                        f"{what}（{shape}）：\n{grid_text(grid)}",
+                        "",
+                        "",
+                        _join_notes(NOTE_OCR if ocr else "", "整表保留（表头认不出项目／要求栏，未拆成单条）"),
+                        shot=Shot(index, tbox) if tbox else None,
+                    )
+                )
                 continue
             for entry in entries:
                 box = boxes[entry.row] if 0 <= entry.row < len(boxes) else None
-                rows.append(plain(index, inner, section, "", entry.text, entry.value, entry.remark, _join_notes(NOTE_OCR if ocr else "", "表格行"), entry.item, shot=Shot(index, box) if box else None))
+                entry_text, entry_val = entry.text, entry.value
+                if box and not ocr:
+                    inner_split = [
+                        (other_at, spans[other_at])
+                        for other_at in range(len(grids))
+                        if other_at != grid_at
+                        and parsed[other_at]
+                        and spans[other_at] is not None
+                        and spans[other_at][0] >= box[0] - 4
+                        and spans[other_at][2] <= box[2] + 4
+                        and spans[other_at][1] >= box[1] - 4
+                        and spans[other_at][3] <= box[3] + 4
+                    ]
+                    if inner_split:
+                        inner_bottom = max(tb[3] for _, tb in inner_split if tb is not None)
+                        if box[3] - inner_bottom >= 24.0:
+                            box = (box[0], inner_bottom, box[2], box[3])
+                            inner_words = [
+                                w
+                                for other_at, _ in inner_split
+                                for r in grids[other_at][1:]
+                                for cell in r
+                                for w in (cell or "").split()
+                                if len(w) >= 8 and w in entry_val
+                            ]
+                            if inner_words:
+                                tail = entry_val[max(entry_val.find(w) + len(w) for w in inner_words) :].strip()
+                                if tail:
+                                    entry_val = tail
+                                    entry_text = f"{entry.item}：{tail}" if entry.item else tail
+                rows.append(plain(index, inner, section, "", entry_text, entry_val, entry.remark, _join_notes(NOTE_OCR if ocr else "", "表格行"), entry.item, shot=Shot(index, box) if box else None))
 
     carried = ""  # 上一页末尾所在的章节；本页没有标题时沿用
     for index, raw in doc.pages:
@@ -1017,11 +1137,13 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
         if figures:
             body = strip_table_lines(body, [[[f.labels]] for f in figures if f.labels])
         found = page_headings(body, heads)
+        if not found and not carried and toc_pages and index > max(toc_pages) and heads:
+            carried = f"{heads[0][0]} {heads[0][1]}"
         section = found[0] if found else carried
         carry_note = "" if found or not carried else "章节沿用上一页"
         if is_table_page(body):
             tables.append([None, obj, doc.name, index, section, ATTACH_PAGE, body, "整页保留，不拆成单条，不判断是否满足"])
-            rows.append(plain(index, inner, section, "", f"本页为数值表，整页见「{SHEET_TABLES}」。", "", "", "不拆成单条需求"))
+            rows.append(plain(index, inner, section, "", f"本页为数值表：\n{body}", "", "", "数值页（整页保留，不拆成单条）", shot=located(index, body)))
             emit_tables(index, inner, section, grids)
             carried = found[-1] if found else carried
             continue
@@ -1036,6 +1158,14 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
         clauses = split_clauses(body, heads, carried)
         if clauses:
             carried = clauses[-1][0] or carried
+        elif found:
+            carried = found[-1]
+        if any_table and (
+            not clauses
+            or (len(clauses) == 1 and re.fullmatch(r"[-–—_\s()（）]*(?:continued|cont'?d)[.:\s()（）]*", clauses[0][2], re.I))
+        ):
+            emit_tables(index, inner, carried or section, grids)
+            continue
         if len(clauses) <= 1:
             # 整页没有条款标记：整页一条，原文保留换行
             text, note = _excerpt(body, keep_short=True)
@@ -1045,10 +1175,9 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
         for sec, mark, text in clauses:
             sec = sec or section
             if is_table_block(text):
-                # 坐标轴刻度、反复出现的表头：整块进整表附件，条目里留一条索引，不取数
+                # 坐标轴刻度、反复出现的表头：整块作为一条保留，不取数
                 tables.append([None, obj, doc.name, index, sec, ATTACH_BLOCK, text, "条内表格块，整块保留，不拆成单条，不判断是否满足"])
-                hint = _compact(text)[:60]
-                rows.append(plain(index, inner, sec, mark, f"{hint}……（表格块，整块见「{SHEET_TABLES}」）", "", "", "表格块，不拆成单条需求"))
+                rows.append(plain(index, inner, sec, mark, f"本页表格块：\n{text}", "", "", "表格块（整块保留，不拆成单条）", shot=located(index, text)))
                 continue
             note = ""
             if len(text) > _EXCERPT_CAP:
@@ -1122,11 +1251,13 @@ def _style_sheet(sheet, header_row: int, widths: dict[str, int], *, body_height:
 
 def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Path, ask=None, now: datetime | None = None) -> ContrastResult:
     """ask：可选的模型调用（messages → 回包文本），只用于给正文参数起名和归并同义参数名；None 为纯规则。now：REQ-ID 里的日期。
-    三张表：确认说明、需求清单（主表，带截图、数值、备注）、附件（整表原文和图表截图）。"""
+    两张表：确认说明、需求清单（主表，按页码顺序含条款、表格行、整表及图表截图与原文）。"""
     from electrical_krow.arch_params import CONSIST_DIFF, collect_params
+    from electrical_krow.arch_qa import check_arch_quality
 
     if not docs:
-        raise ValueError("所选文件都读不出文字，无法拆条。")
+        reasons = "；".join(f"{u.name}（{u.reason.rstrip('。')}）" for u in unreadable)
+        raise ValueError(f"文件内容质检未通过：{reasons or '所选文件都读不出文字'}，无法拆条。")
     all_rows: list[list[object]] = []
     all_tables: list[list[object]] = []
     for doc in docs:
@@ -1137,29 +1268,35 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
         for row in tables:
             all_tables.append(row)
             row[0] = len(all_tables)
+    ts = now or datetime.now()
+    req_map = _req_row_map(docs, all_rows, ts)
     params = collect_params(all_rows, ask)
+    quality = check_arch_quality(docs, unreadable, all_rows, params, req_map)
     note_col = COLUMNS.index("备注")
-    conflict_seqs: set[int] = set()
     for row in all_rows:
-        extra = params.conflict_rows.get(int(row[0]))
+        extra = quality.row_notes.get(int(row[0]))
         if extra:
             row[note_col] = _join_notes(str(row[note_col] or ""), extra)
-            conflict_seqs.add(int(row[0]))
+    conflict_seqs = set(quality.flagged_seqs)
 
     book = Workbook()
     note = book.active
     note.title = SHEET_NOTE
+    reqs_sheet = book.create_sheet(SHEET_REQS)
+    req_count, shot_count, figure_count, trans_model_used = _write_reqs(reqs_sheet, docs, all_rows, ts, conflict_seqs, ask=ask)
+    used_model = params.model_used or trans_model_used
+
     sources = "；".join(f"{doc.name}（{len(doc.pages)} 页）" for doc in docs)
     lines = [
-        ("用途", "把需求文件按条款拆成条目，供人工逐条确认。本表只摘原文，不写能否满足。"),
+        ("用途", "把需求文件按条款拆成条目，供人工逐条确认。本表只摘原文（外文条款附同格中文直译对照），不写能否满足。"),
         ("来源文件", sources),
-        ("需求清单", f"「{SHEET_REQS}」一行一条需求，版式按偏差跟踪表：REQ-ID（REQ-日期-序号）、章节、该条在原文里的截图（表格行截那一行，正文截那一段；截图按列宽缩放，太长的段落缩小后仍是整段）、原文摘录；「类别」是按章节和条文关键词给的建议值，须人工改定；优先级、意见、提出人、客户反馈留给人填，状态一律为待确认。截图按文字位置定位，个别条目定位不到时该格留空，原文摘录仍在。"),
+        ("文件内容质检", "\n".join(quality.detail_lines)),
+        ("需求清单", f"「{SHEET_REQS}」一行一条需求，版式按偏差跟踪表：REQ-ID（REQ-日期-序号）、章节、该条在原文里的截图（表格行截那一行，正文截那一段，复杂整表与图表截整表／整图；截图按列宽缩放）、原文摘录（外文条目按「原文 / 中文译文」同格双语对照呈现，原文一字不改）；「类别」是按章节和条文关键词给的建议值，须人工改定；优先级、意见、提出人、客户反馈留给人填，状态一律为待确认。截图按文字位置定位，个别条目定位不到时该格留空，原文摘录仍在。"),
         ("拆分方式", "行首「1)」「•」「※」等标记各起一条；标记前的短引导句并入其后那条；整页没有标记的按整页一条。原文只来自该页可复制文字。章节按行首的目录章节号和标题词认；本页没有标题的沿用上一页末尾的章节并在备注注明，文件开头还没有章节的留空。"),
-        ("表格行", f"PDF 里有格线的表按格读：表头认得出「项目」栏（Category、Item、Classification 等）和「要求」栏（Requirement、Specification、Target 等）的，每行出一条，原文摘录是「项目格：整行」，「数值与单位」是要求格原文（要求格没单位时补上单位栏），「适用条件」是 Remark／Note 格原文，表头认不出角色的栏也带表头放在这里；纵向合并的格沿用上一行。表头认不出的表不拆，整表留在附件。以图片贴进 PDF 的表格，按图里的格线切格、OCR 识字后同样处理，备注标「{NOTE_OCR}」，字符可能识错，请对照原图；流程图、示意图不识读。"),
+        ("表格与图表", f"PDF 里有格线的表按格读：表头认得出「项目」栏（Category、Item、Classification 等）和「要求」栏（Requirement、Specification、Target 等）的，每行出一条，原文摘录是「项目格：整行」，「数值与单位」是要求格原文（要求格没单位时补上单位栏），「适用条件」是 Remark／Note 格原文，表头认不出角色的栏也带表头放在这里；纵向合并的格沿用上一行。表头未按单列「项目／要求」构造的表（如开发日程、多国法规矩阵、DR 评审表、标准清单等）以及坐标图、曲线图、框图，按所在页码和章节位置统一按「一表／一图一条 REQ（附整图截图与全文）」并入「{SHEET_REQS}」。以图片贴进 PDF 的表格，按图里的格线切格、OCR 识字后同样处理，备注标「{NOTE_OCR}」，字符可能识错，请对照原图。"),
         ("数值与条件", "正文条目的「数值与单位」是从该条原文里机械挑出的带单位的数，每个数前带原文里紧挨着的几个字（右对齐截短）以便对应，数后紧跟的「↑」「以上」「max」一起保留；「适用条件（原文括注）」是原文括号里带数或带条件词的话。两列都不是认条，不改写、不换算，须对照「原文摘录」核对。"),
-        ("附件", f"「{SHEET_ATTACH}」放整表原文和图表截图，只放需求清单里看不到整体的东西，「类型」列区分：{ATTACH_TABLE}（表头认不出项目／要求栏、没拆成单条的表，整表保留）、{ATTACH_OCR}（图片里识读、没拆成单条的表）、{ATTACH_PAGE}（数值占一半以上的页整页保留）、{ATTACH_BLOCK}（一条里全是刻度或反复表头的块）、矢量图／位图（坐标图、曲线、框图、示意图整块截图，旁边列出图里能读到的文字以便检索，不拆条、不取数）。这些在需求清单里不单独成条。页眉页脚、页码和保密声明行不算原文。"),
         ("取值一致性", f"程序把全文「参数 → 取值」归到一起比对：表格里一格一个数的取项目格和要求格；一格几个数的和正文条目由模型指出每个数是哪个参数的值，程序核对该字串确在原文里。同一参数、适用条件相同而取值不同的，在需求清单该条的备注里写明别处的页码和取值，并整行标红（「{CONSIST_DIFF}」）；取值不同但适用条件也不同（不同工况、不同标准）的不算冲突。归并是否恰当、不一致是笔误还是分段落条件不同，由确认人判断。"
-                     + ("本次已用模型起名和归并同义参数名。" if params.model_used else "本次未用模型，参数名是数前的引导词，归并按原名。")
+                     + ("本次已用模型起名、归并同义参数名并生成外文条款中文对照。" if used_model else "本次未用模型，参数名是数前的引导词，归并按原名，外文条款按内置工程词典生成中文对照。")
                      + ("；".join(params.notes) and ("本次说明：" + "；".join(params.notes)) or "")),
         ("留空栏目", "状态一律为待确认。优先级、意见、提出人、客户反馈由确认人填写。"),
     ]
@@ -1175,11 +1312,6 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
     note.page_setup.fitToHeight = 1
     note.auto_filter.ref = None
 
-    reqs_sheet = book.create_sheet(SHEET_REQS)
-    req_count, shot_count = _write_reqs(reqs_sheet, docs, all_rows, now or datetime.now(), conflict_seqs)
-    attach_sheet = book.create_sheet(SHEET_ATTACH)
-    figure_count = _write_attachments(attach_sheet, docs, all_rows, all_tables)
-
     book.active = book[SHEET_REQS]
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -1187,20 +1319,28 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
     book.close()
     return ContrastResult(
         dest, len(docs), len(all_rows), len(all_tables), tuple(unreadable),
-        params=len(params.params), conflicts=params.conflicts, model_used=params.model_used,
+        params=len(params.params),
+        conflicts=max(params.conflicts, quality.param_conflicts) + quality.bilingual_conflicts + quality.logic_conflicts,
+        model_used=used_model,
         image_tables=sum(len(grids) for doc in docs for grids in doc.image_tables.values()),
         figures=figure_count, reqs=req_count, shots=shot_count,
+        quality_summary=quality.summary,
+        bilingual_conflicts=quality.bilingual_conflicts,
+        logic_conflicts=quality.logic_conflicts,
+        tbd_count=quality.tbd_count,
+        quality_issues=tuple(quality.detail_lines[1:]),
     )
 
 
 _REQ_SHOT_COL_WIDTH = 96  # 截图列宽（字符），WPS/Excel 里约 580~670 像素
-_REQ_SHOT_MAX_PX = 460  # 截图宽度上限（留足右侧余量，macOS WPS 按 1px=1pt 画也不会越过 D 列）
-_REQ_SHOT_MAX_H_PX = 180  # 单条截图高度上限（像素）
+_REQ_SHOT_MAX_PX = 530  # 截图格内显示宽度上限（留足右侧余量，macOS WPS 按 1px=1pt 画也不会越过 D 列）
+_REQ_SHOT_MAX_H_PX = 360  # 单条截图格内显示高度上限（像素，加 _REQ_SHOT_ROW_PAD 后不超过 Excel 行高上限 409）
 _REQ_SHOT_ROW_PAD = 24  # 行高比截图像素高出的间距（磅）：兼顾 macOS WPS 1px≈1pt，避免上下两行图片贴在一起
+_BITMAP_OVERSAMPLE = 2.5  # PNG 位图实际像素相对格内显示尺寸的倍率：保证 Retina 屏与 WPS「图片预览」放大看依然清晰
 
 
 def _scaled_xl_image(png: bytes, max_width_px: int, max_height_px: int):
-    """按目标像素宽高把 PNG 重采样成 96 DPI，四周留白边和浅灰细框，再包成 openpyxl Image。"""
+    """按格内显示宽高设置 openpyxl Image 尺寸，同时保留高分辨率 PNG 位图（供 Retina 屏与 WPS 图片预览清晰查看）。"""
     from io import BytesIO
 
     from openpyxl.drawing.image import Image as XlImage
@@ -1208,20 +1348,26 @@ def _scaled_xl_image(png: bytes, max_width_px: int, max_height_px: int):
 
     with PilImage.open(BytesIO(png)) as raw:
         w, h = max(1, raw.width), max(1, raw.height)
-        # PyMuPDF 默认按 144 DPI 渲染（1 磅 = 2 像素），折算回标准阅读尺寸再按宽高上限缩放
-        natural_w, natural_h = w * 0.65, h * 0.65
+        # arch_shots 默认按 216 DPI（1 磅 = 3 像素）渲染，折算回约 100 DPI 的格内阅读尺寸再按宽高上限缩放
+        natural_w, natural_h = w * 0.46, h * 0.46
         scale = min(1.0, (max_width_px - 10) / max(natural_w, 1.0), (max_height_px - 10) / max(natural_h, 1.0))
-        target_w = max(1, int(round(natural_w * scale)))
-        target_h = max(1, int(round(natural_h * scale)))
-        resized = raw.convert("RGB").resize((target_w, target_h), PilImage.Resampling.LANCZOS)
-        framed = ImageOps.expand(resized, border=1, fill=(218, 222, 228))
-        padded = ImageOps.expand(framed, border=4, fill=(255, 255, 255))
+        disp_w = max(1, int(round(natural_w * scale)))
+        disp_h = max(1, int(round(natural_h * scale)))
+        # 位图本身保留 2.5 倍以上像素（若原图因高度被大幅缩小，位图至少保留可读宽度），配合对应 DPI 写入 PNG
+        bmp_ratio = max(_BITMAP_OVERSAMPLE, min(w / max(disp_w, 1), 1200.0 / max(disp_w, 1)))
+        bmp_w = max(disp_w, int(round(disp_w * bmp_ratio)))
+        bmp_h = max(disp_h, int(round(disp_h * bmp_ratio)))
+        border_px = max(1, int(round(bmp_ratio)))
+        pad_px = max(4, int(round(4 * bmp_ratio)))
+        resized = raw.convert("RGB").resize((bmp_w, bmp_h), PilImage.Resampling.LANCZOS)
+        framed = ImageOps.expand(resized, border=border_px, fill=(218, 222, 228))
+        padded = ImageOps.expand(framed, border=pad_px, fill=(255, 255, 255))
+        dpi_val = max(96, int(round(96 * bmp_ratio)))
         buf = BytesIO()
-        padded.save(buf, format="PNG", dpi=(96, 96))
+        padded.save(buf, format="PNG", dpi=(dpi_val, dpi_val))
         buf.seek(0)
-        final_w, final_h = padded.width, padded.height
     image = XlImage(buf)
-    image.width, image.height = final_w, final_h
+    image.width, image.height = disp_w + 10, disp_h + 10
     return image
 
 
@@ -1250,16 +1396,43 @@ def _is_requirement_row(row: list[object], *, has_sections: bool = False, has_li
         return False
     if has_sections and not section:
         return False  # 有目录章节的文件里，目录之前的扉页/修订履历还不属于任何章节，不进需求清单
-    if text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表")) or "（表格块，整块见" in text:
-        return False  # 只是索引，整表、整图在附件里另有行
-    if has_lines and shot is None and not item and not qty and len(_alnum(text)) < 35:
+    is_whole_block = text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表", "本页表格块"))
+    if has_lines and not is_whole_block and shot is None and not item and not qty and len(_alnum(text)) < 35:
         return False  # 表格上方的孤立小标题或续表头（「2)」「(1)」「5.1 ES/MS - Continued」），不是需求条
     return bool(_compact(text))
 
 
-def _write_reqs(sheet, docs: list[SourceDoc], all_rows: list[list[object]], now: datetime, conflict_seqs: set[int] = frozenset()) -> tuple[int, int]:
-    """「需求清单」：一行一条需求，带原文截图、数值、条件和程序备注；取值与别处不一致的行标红。返回 (条数, 带截图条数)。"""
+def _req_row_map(docs: list[SourceDoc], all_rows: list[list[object]], now: datetime) -> dict[int, tuple[int, str]]:
+    """计算将进入「需求清单」的每条序号对应的 (Excel行号, REQ-ID)，供「确认说明」质检明细直接标注行号。"""
+    sec_col, file_col, seq_col = COLUMNS.index("章节"), COLUMNS.index("文件"), COLUMNS.index("序号")
+    doc_has_sections = {
+        doc.name: any(str(r[sec_col] or "") not in {"", SECTION_COVER, SECTION_TOC} for r in all_rows if r[file_col] == doc.name)
+        for doc in docs
+    }
+    doc_has_lines = {doc.name: bool(doc.lines) for doc in docs}
+    picked = [
+        row for row in all_rows
+        if _is_requirement_row(
+            row,
+            has_sections=doc_has_sections.get(str(row[file_col]), False),
+            has_lines=doc_has_lines.get(str(row[file_col]), False),
+        )
+    ]
+    stamp = now.strftime("%Y%m%d")
+    return {int(row[seq_col]): (number + 1, f"REQ-{stamp}-{number:03d}") for number, row in enumerate(picked, start=1)}
+
+
+def _write_reqs(
+    sheet,
+    docs: list[SourceDoc],
+    all_rows: list[list[object]],
+    now: datetime,
+    conflict_seqs: set[int] = frozenset(),
+    ask: Callable[[str], str] | None = None,
+) -> tuple[int, int, int, bool]:
+    """「需求清单」：一行一条需求，带原文截图、双语原文摘录、数值、条件和程序备注；取值与别处不一致的行标红。返回 (条数, 带截图条数, 图表张数, 是否用到模型翻译)。"""
     from electrical_krow.arch_shots import render_shots
+    from electrical_krow.arch_translate import format_bilingual_excerpt, translate_excerpts
 
     sheet.append(list(REQ_COLUMNS))
     sec_col, item_col, text_col, page_col, file_col, seq_col, qty_col, cond_col, note_col = (
@@ -1279,24 +1452,32 @@ def _write_reqs(sheet, docs: list[SourceDoc], all_rows: list[list[object]], now:
         )
     ]
     stamp = now.strftime("%Y%m%d")
+    raw_excerpts: dict[int, str] = {}
+    for row in picked:
+        seq = int(row[seq_col])
+        item = str(row[item_col] or "")
+        text = str(row[text_col] or "")
+        raw_excerpts[seq] = f"{item}：{text}" if item and not text.startswith(item) else text
+    translations, trans_model_used = translate_excerpts(list(raw_excerpts.items()), ask)
     # 先按文件把截图批量渲染
     pngs: dict[int, bytes] = {}
     for doc in docs:
         pending = [(int(row[seq_col]), row[SHOT_SLOT]) for row in picked if row[file_col] == doc.name and len(row) > SHOT_SLOT and row[SHOT_SLOT] is not None]
         if not pending:
             continue
-        rendered = render_shots(Path(doc.path), [shot for _, shot in pending]) if doc.path or any(shot.png for _, shot in pending) else [shot.png for _, shot in pending]
+        rendered = render_shots(Path(doc.path), [shot for _, shot in pending]) if doc.path else [shot.png for _, shot in pending]
         for (seq, _), png in zip(pending, rendered):
             if png:
                 pngs[seq] = png
     shots = 0
+    figures = sum(1 for row in picked if str(row[text_col] or "").startswith("本页图表"))
     flagged: list[int] = []
     for number, row in enumerate(picked, start=1):
         seq = int(row[seq_col])
         section = str(row[sec_col] or "")
         item = str(row[item_col] or "")
         text = str(row[text_col] or "")
-        excerpt = f"{item}：{text}" if item and not text.startswith(item) else text
+        excerpt = format_bilingual_excerpt(raw_excerpts[seq], translations.get(seq, ""))
         sheet.append([
             f"REQ-{stamp}-{number:03d}", "", section, "", excerpt[:_EXCERPT_CAP], row[qty_col] or "", row[cond_col] or "",
             suggest_category(section, f"{item} {text}"), "", "", STATUS_PENDING, "", row[note_col] or "", row[page_col],
@@ -1323,7 +1504,7 @@ def _write_reqs(sheet, docs: list[SourceDoc], all_rows: list[list[object]], now:
     for r in flagged:
         for cell in sheet[r]:
             cell.fill = _DIFF_FILL
-    return len(picked), shots
+    return len(picked), shots, figures, trans_model_used
 
 
 _FIGURE_MAX_PX = 480  # 嵌进 Excel 的图最宽多少像素，再大按比例缩

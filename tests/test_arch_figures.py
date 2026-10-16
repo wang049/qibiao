@@ -79,7 +79,7 @@ class ArchFiguresTests(unittest.TestCase):
             self.assertFalse(any(t.strip() in {"7V", "16V", "2.72kW"} for t in texts))  # 标签不再单独成条
             index_row = next(r for r in rows if str(r[8]).startswith("本页图表"))
             self.assertEqual(index_row[9], "")  # 不取数
-            self.assertIn(SHEET_FIGURES, index_row[15])
+            self.assertIn("图表", index_row[15])
 
     def test_write_contrast_embeds_figures_and_skips_cover(self) -> None:
         from tests.test_arch_contrast import _PAGES  # 第 1 页是封面
@@ -96,10 +96,9 @@ class ArchFiguresTests(unittest.TestCase):
             self.assertEqual(result.figures, 1)  # 封面上的图不算
             book = load_workbook(dest)
             try:
-                sheet = book[SHEET_FIGURES]
-                self.assertEqual(sheet.max_row, 1 + result.tables + 1)  # 整表和图表同在一张附件
-                at = next(r for r in range(2, sheet.max_row + 1) if sheet.cell(r, 6).value == "矢量图")
-                self.assertEqual((sheet.cell(at, 4).value, sheet.cell(at, 7).value), (5, "Po (kW) 7V"))
+                sheet = book["需求清单"]
+                at = next(r for r in range(2, sheet.max_row + 1) if "本页图表（矢量图）" in str(sheet.cell(r, 5).value or ""))
+                self.assertEqual((sheet.cell(at, 14).value, sheet.cell(at, 5).value), (5, "本页图表（矢量图）：Po (kW) 7V"))
                 self.assertEqual(len(sheet._images), 1)
                 self.assertGreater(sheet.row_dimensions[at].height, 20)
             finally:

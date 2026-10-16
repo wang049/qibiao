@@ -49,7 +49,31 @@ class ArchShotsTests(unittest.TestCase):
     def test_row_box_skips_tall_merged_cells(self) -> None:
         cells = [(60.0, 300.0, 160.0, 420.0), (160.0, 330.0, 360.0, 360.0), None]  # 第一格纵向合并了四行
         self.assertEqual(row_box(cells, (60.0, 300.0, 460.0, 420.0)), (60.0, 330.0, 460.0, 360.0))
+        # 六列表里四列纵向合并、两列是本行单格时，仍只取本行高度
+        six_col = [
+            (40.0, 138.0, 100.0, 254.0),
+            (100.0, 138.0, 160.0, 208.0),
+            (160.0, 138.0, 220.0, 161.0),
+            (220.0, 138.0, 280.0, 161.0),
+            (280.0, 138.0, 400.0, 208.0),
+            (400.0, 138.0, 560.0, 254.0),
+        ]
+        self.assertEqual(row_box(six_col, (40.0, 100.0, 560.0, 254.0)), (40.0, 138.0, 560.0, 161.0))
         self.assertIsNone(row_box([None, None], (0.0, 0.0, 1.0, 1.0)))
+
+    def test_scaled_xl_image_keeps_hidpi_bitmap_for_preview(self) -> None:
+        from io import BytesIO
+        from PIL import Image as PilImage
+        from electrical_krow.arch_contrast import _scaled_xl_image
+
+        buf = BytesIO()
+        PilImage.new("RGB", (1500, 300), (255, 255, 255)).save(buf, format="PNG")
+        img = _scaled_xl_image(buf.getvalue(), 530, 360)
+        self.assertLessEqual(img.width, 530)
+        self.assertLessEqual(img.height, 360)
+        with PilImage.open(BytesIO(img._data())) as raw:
+            self.assertGreaterEqual(raw.width, img.width * 2)
+            self.assertGreaterEqual(raw.height, img.height * 2)
 
     def test_suggest_category_is_keyword_based(self) -> None:
         self.assertEqual(suggest_category("2.5.3 EMC", "CE (Conducted Emission)"), "Regulation")

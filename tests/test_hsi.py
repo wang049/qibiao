@@ -125,6 +125,16 @@ class PinParseTests(unittest.TestCase):
         self.assertEqual(mcu_name("infineon-tc38x-datasheet-en.pdf"), "TC38x")
         self.assertEqual(mcu_name("Infineon-TC39x-DataSheet-v01_02-EN.pdf"), "TC39x")
         self.assertEqual(mcu_name("infineon-sak-tc499pp-20mf400ms-ab-datasheet-en.pdf"), "TC499")
+        self.assertEqual(mcu_name("Infineon-SAK-TC377TP-96F300S-DataSheet-v01_02-EN.pdf"), "TC377")
+        self.assertEqual(mcu_name("Infineon-TC36x-DataSheet-v01_01-EN.pdf"), "TC36x")
+        self.assertEqual(mcu_name("NXP_S32K344_Datasheet_Rev4.pdf"), "S32K344")
+        self.assertEqual(mcu_name("Renesas_RH850_U2A_Datasheet.pdf"), "RH850-U2A")
+        self.assertEqual(mcu_name("SemiDrive_E3640_Datasheet_V1.0.pdf"), "E3640")
+        self.assertEqual(
+            mcu_name("mcu_datasheet_v1.0.pdf", [(1, "NXP S32K144 Data Sheet")]),
+            "S32K144",
+        )
+        self.assertEqual(mcu_name("ZX900M_Datasheet_V1.2_EN.pdf"), "ZX900M")
 
     def test_package_titles_skip_outline_and_keep_order(self) -> None:
         titles = (
@@ -134,8 +144,13 @@ class PinParseTests(unittest.TestCase):
             "3.34 Package Outline",
             "3.2 BGA436_STD package variant pin configuration",
             "3.2.1 BGA436_STD port 00",
+            "2.4 PG-LQFP-176 Package Variant Pin Configuration",
+            "2.5 TQFP-144 Pin Assignment",
         )
-        self.assertEqual(packages_in_titles(titles), ("LFBGA516", "LFBGA292", "BGA436"))
+        self.assertEqual(
+            packages_in_titles(titles),
+            ("LFBGA516", "LFBGA292", "BGA436", "LQFP176", "TQFP144"),
+        )
 
     def test_two_packages_stay_separate(self) -> None:
         pages = [(14, _PAGE), (180, _OTHER)]
@@ -244,6 +259,37 @@ P33.13 O0 General-purpose output
         self.assertIn("CAN10_TXD", pins["P33.13"].mux)
         self.assertNotIn("AD/AE-Step", pins["P33.13"].mux)
         self.assertNotIn("AD/AE-Step", pins["P33.13"].excerpt)
+
+    def test_lqfp_numeric_pins_and_system_io_and_inline_alias(self) -> None:
+        page = """
+Pin Definition and Functions PG-LQFP-176 Package Variant Pin Configuration
+1 PTA0 I FAST /
+PU1 /
+VDDEXT
+General-purpose input
+PTA0 O0 General-purpose output
+12 AN17/P40.10 I S / HighZ /
+VDDM
+Analog Input 17
+EVADC_G2CH1 Analog input channel 1
+144 ESR0 I/O FAST /
+OD /
+VDDEXT
+ESR0 Port Pin input
+PMS_ESR0WKP I ESR0 pin input
+Table 2-24 Supply
+176 VDD I — Digital Core Power Supply
+"""
+        self.assertEqual(parse_pin_pages([(10, page)]), ("LQFP176",))
+        pins = {pin.symbol: pin for pin in parse_pins([(10, page)], "LQFP176")}
+        self.assertEqual(set(pins), {"PTA0", "AN17", "ESR0"})
+        self.assertEqual(pins["PTA0"].ball, "1")
+        self.assertEqual(pins["PTA0"].direction, "Input/Output")
+        self.assertEqual(pins["AN17"].ball, "12")
+        self.assertIn("P40.10", pins["AN17"].mux)
+        self.assertEqual(pins["ESR0"].ball, "144")
+        self.assertEqual(pins["ESR0"].direction, "Input/Output")
+        self.assertNotIn("Digital Core Power Supply", pins["ESR0"].mux)
 
 
 class HsiBookTests(unittest.TestCase):
@@ -511,3 +557,135 @@ class HsiBookTests(unittest.TestCase):
                 self.assertEqual(accept.freeze_panes, "A3")
             finally:
                 book.close()
+
+    def test_combined_alias_symbol_matches_pin_and_mux(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            template = root / "template.xlsx"
+            dest = root / "out.xlsx"
+            _template(template)
+            book = load_workbook(template)
+            book[SHEET_PORT]["B7"] = "AN17/P40_10"
+            book[SHEET_PORT]["C7"] = "W8"
+            book[SHEET_PORT]["H7"] = "Input"
+            book[SHEET_PORT]["I7"] = "Analog"
+            book[SHEET_PORT]["J7"] = "ISS_S/M_SIG"
+            book[SHEET_PORT]["K7"] = "轴速故障识别"
+            book.save(template)
+            book.close()
+            write_hsi_workbook(
+                template,
+                dest,
+                mcu="TC499",
+                package="BGA436",
+                pins=(
+                    _pin(
+                        "AN17",
+                        "W8",
+                        "Analog Input 17",
+                        "P40.10 General-purpose input\nADC_TMADC1CH5 Analog Input",
+                        direction="Input",
+                    ),
+                ),
+            )
+            out = load_workbook(dest, data_only=True)
+            try:
+                port = out[SHEET_PORT]
+                self.assertEqual(port["B5"].value, "AN17")
+                self.assertEqual(port["J5"].value, "ISS_S/M_SIG")
+                self.assertEqual(port.cell(5, COL_STATUS).value, STATUS_DRAFT)
+                self.assertIn("AN17/P40_10", port.cell(5, COL_MARK).value)
+                constraints = _constraint_rows(out[SHEET_CONSTRAINT])
+                self.assertEqual(constraints["AN17/P40_10"][0][12], STATUS_DRAFT)
+            finally:
+                out.close()
+
+    def test_peripheral_mux_conflict_and_level_column_inversion_are_detected(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            template = root / "template.xlsx"
+            dest = root / "out.xlsx"
+            _template(template)
+            book = load_workbook(template)
+            # P00.0 template requires CAN TXD, but datasheet pin has only GTM mux (no CAN)
+            book[SHEET_PORT]["H6"] = "Output"
+            book[SHEET_PORT]["I6"] = "CAN"
+            book[SHEET_PORT]["J6"] = "CAN1N0-TXD-Chassis3"
+            # P00.1 template puts "High" inside the "Low or falling" column (col 17 / Q)
+            book[SHEET_PORT]["B7"] = "P00.1"
+            book[SHEET_PORT]["H7"] = "Input"
+            book[SHEET_PORT]["I7"] = "PWM"
+            book[SHEET_PORT]["J7"] = "GL_A1_MON"
+            book[SHEET_PORT]["Q7"] = "High"
+            book.save(template)
+            book.close()
+            res = write_hsi_workbook(
+                template,
+                dest,
+                mcu="TC38x",
+                package="BGA516",
+                pins=(
+                    _pin("P00.0", "M6", "General-purpose input", "GTM_TOUT9 O1 GTM muxed output"),
+                    _pin("P00.1", "K5", "General-purpose input", "GTM_TIM5_IN4 Mux input"),
+                ),
+            )
+            self.assertEqual(res.conflicts, 2)
+            out = load_workbook(dest, data_only=True)
+            try:
+                port = out[SHEET_PORT]
+                self.assertEqual(port.cell(5, COL_STATUS).value, STATUS_CONFLICT)
+                self.assertIn("无 CAN 复用功能", port.cell(5, COL_MARK).value)
+                self.assertEqual(port.cell(6, COL_STATUS).value, STATUS_CONFLICT)
+                self.assertIn("低电平或下降沿", port.cell(6, COL_MARK).value)
+            finally:
+                out.close()
+
+    def test_cross_subsheet_inconsistency_and_llm_ask_review(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            template = root / "template.xlsx"
+            dest = root / "out.xlsx"
+            _template(template)
+            book = load_workbook(template)
+            book[SHEET_PORT]["H5"] = "Input"
+            book[SHEET_PORT]["I5"] = "Analog"
+            book[SHEET_PORT]["J5"] = "Oil_M_TEMP"
+            book[SHEET_PORT]["K5"] = "油温检测"
+            adc = book.create_sheet("3_ADC Table")
+            adc.cell(5, 5, "AN0")
+            adc.cell(5, 6, "Y9")
+            adc.cell(5, 7, "TEM_S/M_OIL")
+            adc.cell(5, 8, "油温检测")
+            book.save(template)
+            book.close()
+
+            seen_messages: list[list[dict[str, str]]] = []
+
+            def fake_ask(messages: list[dict[str, str]]) -> str:
+                seen_messages.append(messages)
+                return '[{"symbol": "AN0", "level": "conflict", "reason": "主表端口名 Oil_M_TEMP 与 ADC 子表信号名 TEM_S/M_OIL 及球号不一致"}]'
+
+            res = write_hsi_workbook(
+                template,
+                dest,
+                mcu="TC499",
+                package="BGA436",
+                pins=(
+                    _pin("AN0", "W13", "Analog Input 0", "ADC_TMADC0CH0", direction="Input"),
+                ),
+                ask=fake_ask,
+            )
+            self.assertTrue(res.model_used)
+            self.assertEqual(res.conflicts, 1)
+            self.assertEqual(len(seen_messages), 1)
+            out = load_workbook(dest, data_only=True)
+            try:
+                port = out[SHEET_PORT]
+                self.assertEqual(port.cell(5, COL_STATUS).value, STATUS_CONFLICT)
+                mark = str(port.cell(5, COL_MARK).value or "")
+                self.assertIn("3_ADC Table", mark)
+                self.assertIn("TEM_S/M_OIL", mark)
+                self.assertIn("【工程质检】", mark)
+            finally:
+                out.close()
+

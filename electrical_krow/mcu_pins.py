@@ -6,37 +6,119 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+_SYM = (
+    r"(?:P\d{1,2}[._]\d{1,2}|AN\d+|ESR\d+|PORST(?:_N)?|TCK|TMS|TRST|TDI|TDO|TESTMODE|"
+    r"PT[A-Z]\d{1,2}|P[A-Z]\d{1,2}|GPIO[A-Z0-9_.\-]+|ADC\d*_(?:IN|CH)\d+)"
+)
+_BALL_BGA = re.compile(r"^[A-Z]{1,2}\d{1,2}$")
+_BALL_ANY = r"(?:[A-Z]{1,2}\d{1,2}|\d{1,3})"
+
 _PIN_START = re.compile(
-    r"^(?P<ball>[A-Z]{1,2}\d{1,2})\s+"
-    r"(?P<symbol>P\d{2}\.\d{1,2}|AN\d+)\s+"
-    r"(?P<ctrl>[IO])(?P<idx>\d+)?"
+    rf"^(?P<ball>{_BALL_ANY})\s+"
+    rf"(?P<symbol>{_SYM})(?:\s*/\s*(?P<alias>{_SYM}))?\s+"
+    r"(?P<ctrl>I/O|IO|[IO])(?P<idx>\d+)?"
     r"\s*(?P<rest>.*)$"
 )
 # 手册把方向拆到下一行：`T1 AN67 /` 换行后才是 `I S / PU1 /`。
 _PIN_BARE = re.compile(
-    r"^(?P<ball>[A-Z]{1,2}\d{1,2})\s+(?P<symbol>P\d{2}\.\d{1,2}|AN\d+)\s*/\s*$"
+    rf"^(?P<ball>{_BALL_ANY})\s+(?P<symbol>{_SYM})\s*/\s*$"
 )
-_PIN_ALIAS = re.compile(r"^(?P<symbol>P\d{2}\.\d{1,2}|AN\d+)$")
-_PIN_DIR = re.compile(r"^(?P<ctrl>[IO])(?P<idx>\d+)?\s*(?P<rest>.*)$")
+_PIN_ALIAS = re.compile(rf"^(?P<symbol>{_SYM})$")
+_PIN_DIR = re.compile(r"^(?P<ctrl>I/O|IO|[IO])(?P<idx>\d+)?\s*(?P<rest>.*)$")
 _BUFFER = re.compile(r"^(?P<tok>[A-Z][A-Z0-9]*)\s*/\s*$|^(?P<es>ES\d*)$")
 # 缓冲被拆成单独一行：`/ FAST /`、`X / FAST /`、`/ ES5`。不是功能描述。
 _BUFFER_LINE = re.compile(
     r"^/?(?:\s*(?:[A-Z][A-Z0-9]*|ES\d*))(?:\s*/\s*(?:[A-Z][A-Z0-9]*|ES\d*))*\s*/?\s*$"
 )
-_PAGE_BANNER = re.compile(r"^TC\d+[A-Za-z0-9]*\s+AD/AE-Step$", re.IGNORECASE)
+_PAGE_BANNER = re.compile(
+    r"^(?:TC\d+[A-Za-z0-9]*\s+[A-Z0-9/]+-Step|\d{4}-\d{2}-\d{2})$",
+    re.IGNORECASE,
+)
 _MUX = re.compile(
     r"^(?P<name>[—\-–A-Z][A-Z0-9_]*)\s+(?P<ctrl>[IO]\d+)\s*(?P<desc>.*)$"
 )
 _OUTPUT = re.compile(
-    r"^(?P<symbol>P\d{2}\.\d{1,2}|AN\d+)\s+O0\s*(?P<desc>.*)$"
+    rf"^(?P<symbol>{_SYM})\s+O0\s*(?P<desc>.*)$"
 )
-_PACKAGE = re.compile(r"(?P<kind>LFBGA|BGA)[\s\-_]*(?P<num>\d{3})", re.IGNORECASE)
+_OTHER_BALL = re.compile(
+    rf"^(?P<ball>{_BALL_ANY})\s+"
+    r"(?:VGATE\d+[NP]|XTAL\d+|DAPE\d+|THD\d+_[A-Z]|NC\d*(?:_[A-Z0-9]+)?|"
+    r"PHY\d*_[A-Z0-9_]+|V(?:DD|SS|EXT|FLEX|AREF|AGND)[A-Z0-9_]*)\s+"
+    r"(?:I/O|IO|[IO])\b"
+)
+_STOP_SECTION = re.compile(
+    r"^(?:Table\s+[\d\-]+\s+(?:\(continued\)\s+|\(cont.d\)\s+)?"
+    r"(?:Supply|Special\s+I/O|Pad\s+List|Pad\s+Sequence)|"
+    r"\d+\.\d+(?:\.\d+)?\s+\S+\s+(?:supply|special)|"
+    r"3\.4\.1\s+Sequence\s+of\s+pads)",
+    re.IGNORECASE,
+)
+_PACKAGE = re.compile(
+    r"(?:PG[\s\-_]*)?(?P<kind>LFBGA|TFBGA|FBGA|LBGA|PBGA|MAPBGA|F2BGA|BGA|"
+    r"HLQFP|HTQFP|LQFP|TQFP|VQFP|PQFP|QFP|"
+    r"HVQFN|VQFN|WQFN|QFN|TSSOP|SSOP|SOIC|SOP|DIP)"
+    r"[\s\-_]*(?P<num>\d{2,4})(?![0-9])",
+    re.IGNORECASE,
+)
 _MCU_FILE = (
     ("tc499", "TC499"),
     ("tc49", "TC499"),
     ("tc38", "TC38x"),
     ("tc39", "TC39x"),
 )
+_MCU_PATTERNS: tuple[tuple[re.Pattern[str], str | None], ...] = (
+    (re.compile(r"(?:sak[\s\-_]*)?(tc\d{2,3}x)(?![a-z0-9])", re.IGNORECASE), "tc_x"),
+    (re.compile(r"(?:sak[\s\-_]*)?(tc\d{3})(?![0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?:sak[\s\-_]*)?(tc4[a-z0-9]{2})(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(s32[a-z]\d{2,4}[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(mpc5\d{3}[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (
+        re.compile(
+            r"(?<![a-z0-9])(rh850(?:[\-_](?!datasheet|manual|user|um|ds)[a-z0-9]+)?)(?![a-z0-9])",
+            re.IGNORECASE,
+        ),
+        "rh850",
+    ),
+    (re.compile(r"(?<![a-z0-9])(r7f\d[a-z0-9]+)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(e3\d{3,4}[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(ytm32[a-z0-9]+)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(fc\d{4}[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(tha6\d+[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(ccfc\d+[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(gd32[a-z0-9]+)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(spc5\d+[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(stm32[a-z0-9]+)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(tms570[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(am263[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(cyt[a-z0-9]+)(?![a-z0-9])", re.IGNORECASE), "upper"),
+    (re.compile(r"(?<![a-z0-9])(ac78\d{2}[a-z0-9]*)(?![a-z0-9])", re.IGNORECASE), "upper"),
+)
+_NOISE_STEM_TOKENS = frozenset({
+    "infineon",
+    "sak",
+    "sal",
+    "nxp",
+    "renesas",
+    "st",
+    "ti",
+    "semidrive",
+    "gigadevice",
+    "datasheet",
+    "data",
+    "sheet",
+    "manual",
+    "user",
+    "users",
+    "reference",
+    "um",
+    "ds",
+    "en",
+    "cn",
+    "zh",
+    "ab",
+    "aa",
+    "std",
+})
 
 
 @dataclass(frozen=True)
@@ -52,12 +134,58 @@ class ChipPin:
     excerpt: str
 
 
-def mcu_name(filename: str) -> str:
+def _format_mcu_token(raw: str, mode: str | None) -> str:
+    if mode == "tc_x":
+        return f"TC{raw[2:-1].upper()}x"
+    if mode == "rh850":
+        return raw.upper().replace("_", "-")
+    return raw.upper()
+
+
+def _match_mcu_model(text: str) -> str:
+    for pattern, mode in _MCU_PATTERNS:
+        found = pattern.search(text)
+        if found:
+            return _format_mcu_token(found.group(1), mode)
+    return ""
+
+
+def mcu_name(filename: str, pages: list[tuple[int, str]] | None = None) -> str:
+    stem = Path(filename).stem
     low = Path(filename).name.lower().replace("_", "").replace("-", "")
     for needle, name in _MCU_FILE:
         if needle in low:
             return name
-    raise ValueError("文件名里看不出 MCU 型号。请使用含 TC499、TC38x 或 TC39x 的手册。")
+    matched = _match_mcu_model(stem)
+    if matched:
+        return matched
+    if pages:
+        for _, text in pages[:5]:
+            for needle, name in _MCU_FILE:
+                if needle in text.lower().replace("_", "").replace("-", ""):
+                    return name
+            matched = _match_mcu_model(text)
+            if matched:
+                return matched
+    tokens: list[str] = []
+    for tok in re.split(r"[\s\-_.]+", stem):
+        clean = tok.strip()
+        if not clean:
+            continue
+        tlow = clean.lower()
+        if tlow in _NOISE_STEM_TOKENS:
+            continue
+        if re.fullmatch(r"v?\d+(?:[._]\d+)*|rev\d*|\d{6,8}", tlow):
+            continue
+        if _PACKAGE.fullmatch(clean):
+            continue
+        tokens.append(clean)
+    for tok in tokens:
+        if any(ch.isalpha() for ch in tok) and any(ch.isdigit() for ch in tok):
+            return tok.upper()
+    if tokens:
+        return tokens[0].upper()
+    raise ValueError("文件名里看不出 MCU 型号。")
 
 
 def _package_name(line: str) -> str:
@@ -65,18 +193,24 @@ def _package_name(line: str) -> str:
     if not found:
         return ""
     kind = found.group("kind").upper()
-    if kind == "LFBGA":
-        return f"LFBGA{found.group('num')}"
-    return f"BGA{found.group('num')}"
+    if kind == "F2BGA":
+        kind = "BGA"
+    return f"{kind}{found.group('num')}"
 
 
 def _looks_like_pin_page(text: str) -> bool:
-    head = text[:500].lower()
+    head = text[:600].lower()
+    low = text.lower()
     return (
         "pin configuration" in head
         or "port " in head
         or "pin definition" in head
-        or "ball symbol" in text.lower()
+        or "pin assignment" in head
+        or "pinout" in head
+        or "pin description" in head
+        or "ball symbol" in low
+        or "pin symbol" in low
+        or "pin name" in low
     )
 
 
@@ -224,11 +358,42 @@ def parse_pin_pages(pages: list[tuple[int, str]]) -> tuple[str, ...]:
 
 def _package_on_section(line: str) -> str:
     low = line.lower()
-    if "on page" in low:
+    if "on page" in low or re.search(r"\.\s*\.\s*\.\s*\d+$", line):
         return ""
-    if not any(mark in low for mark in ("package", "pin configuration", "port ")):
+    if low.startswith(("figure ", "packages type")):
+        return ""
+    if not any(
+        mark in low
+        for mark in (
+            "package variant",
+            "pin configuration",
+            "pin assignment",
+            "pin definition",
+            "pinout",
+            "port ",
+            "analog",
+            "system",
+        )
+    ):
         return ""
     return _package_name(line)
+
+
+def _ball_matches_package(ball: str, package: str) -> bool:
+    if "BGA" in package.upper():
+        return _BALL_BGA.match(ball) is not None
+    return True
+
+
+def _apply_ctrl(open_pin: _OpenPin, ctrl: str) -> None:
+    norm = ctrl.upper()
+    if norm in {"I/O", "IO"}:
+        open_pin.has_input = True
+        open_pin.has_output = True
+    elif norm == "I":
+        open_pin.has_input = True
+    else:
+        open_pin.has_output = True
 
 
 def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...]:
@@ -268,8 +433,11 @@ def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...
                 continue
             if current.upper().replace("-", "").replace(" ", "") != want:
                 continue
+            if _STOP_SECTION.match(line) or _OTHER_BALL.match(line):
+                close()
+                continue
             bare = _PIN_BARE.match(line)
-            if bare:
+            if bare and _ball_matches_package(bare.group("ball"), current):
                 close()
                 open_pin = _OpenPin(
                     current,
@@ -289,16 +457,13 @@ def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...
                 direction = _PIN_DIR.match(line)
                 if direction:
                     open_pin.await_io = False
-                    if direction.group("ctrl") == "I":
-                        open_pin.has_input = True
-                    else:
-                        open_pin.has_output = True
+                    _apply_ctrl(open_pin, direction.group("ctrl"))
                     open_pin.lines.append(line)
                     open_pin.add_buffer_rest(direction.group("rest") or "")
                     continue
                 open_pin.await_io = False
             started = _PIN_START.match(line)
-            if started:
+            if started and _ball_matches_package(started.group("ball"), current):
                 close()
                 open_pin = _OpenPin(
                     current,
@@ -307,11 +472,10 @@ def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...
                     number,
                     line,
                 )
-                ctrl = started.group("ctrl")
-                if ctrl == "I":
-                    open_pin.has_input = True
-                else:
-                    open_pin.has_output = True
+                alias = started.group("alias")
+                if alias and alias != open_pin.symbol:
+                    open_pin.mux.append(alias)
+                _apply_ctrl(open_pin, started.group("ctrl"))
                 open_pin.add_buffer_rest(started.group("rest") or "")
                 continue
             if open_pin is not None:
@@ -335,7 +499,16 @@ def packages_in_titles(titles: tuple[str, ...] | list[str]) -> tuple[str, ...]:
     found: list[str] = []
     for title in titles:
         low = title.lower()
-        if "pin configuration" not in low and "package variant" not in low:
+        if not any(
+            mark in low
+            for mark in (
+                "pin configuration",
+                "package variant",
+                "pin assignment",
+                "pinout",
+                "pin definition",
+            )
+        ):
             continue
         name = _package_name(title)
         if name and name not in found:

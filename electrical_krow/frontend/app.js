@@ -1318,6 +1318,12 @@ $("arch-build").onclick = async () => {
     if (typeof data.params === "number") {
       text += " " + tx(data.conflicts ? "arch.paramsDiff" : "arch.params", { params: data.params, conflicts: data.conflicts || 0 });
     }
+    if (data.tbd_count) {
+      text += " " + tx("arch.tbd", { n: data.tbd_count });
+    }
+    if (data.quality_summary && (data.bilingual_conflicts || data.logic_conflicts)) {
+      text += " " + data.quality_summary;
+    }
     const skipped = Array.isArray(data.unreadable) ? data.unreadable : [];
     if (skipped.length) {
       text += " " + tx("arch.unreadable", { n: skipped.length, names: skipped.map((u) => u.name).join("、") });

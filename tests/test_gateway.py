@@ -29,7 +29,7 @@ class GatewayTests(unittest.TestCase):
     def test_index(self) -> None:
         resp = self.client.get("/")
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("SOR填表", resp.text)
+        self.assertIn("SOR 出表", resp.text)
         self.assertIn("开始出表", resp.text)
         self.assertIn("识别模型", resp.text)
         self.assertIn("规则先填，模型只补空缺项", resp.text)
@@ -44,9 +44,9 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20261015s", resp.text)
-        self.assertIn("i18n.js?v=20261015s", resp.text)
-        self.assertIn("app.js?v=20261015s", resp.text)
+        self.assertIn("styles.css?v=20261016a", resp.text)
+        self.assertIn("i18n.js?v=20261016a", resp.text)
+        self.assertIn("app.js?v=20261016a", resp.text)
         self.assertIn('id="rail-tab-hsi"', resp.text)
         self.assertIn('id="hsi-list"', resp.text)
         self.assertIn('id="io-dl"', resp.text)
@@ -267,7 +267,7 @@ class GatewayTests(unittest.TestCase):
     def test_embed_contract_for_electron_host(self) -> None:
         html = self.client.get("/?embed=1")
         self.assertEqual(html.status_code, 200)
-        self.assertIn("SOR填表", html.text)
+        self.assertIn("SOR 出表", html.text)
         js = self.client.get("/static/app.js").text
         css = self.client.get("/static/styles.css").text
         i18n = self.client.get("/static/i18n.js").text
@@ -744,9 +744,8 @@ class GatewayTests(unittest.TestCase):
         self.assertNotIn(".flow-step", css)
         self.assertNotIn(".home-foot", css)
         self.assertIn(".job-copy", css)
-        self.assertIn("height: max-content", css)
-        self.assertIn("-webkit-line-clamp: 2", css)
-        self.assertIn("max-height: calc(1.35em * 2)", css)
+        self.assertIn(".job-meta-text", css)
+        self.assertIn("line-height: 1.35", css)
         self.assertIn("class='job-copy'", js)
 
     def test_io_sheet_opens_blank_workbook(self) -> None:
@@ -775,8 +774,9 @@ class GatewayTests(unittest.TestCase):
         self._login()
         seen = {}
 
-        def fake_build(template, datasheet, dest, package="", previous=None):
+        def fake_build(template, datasheet, dest, package="", previous=None, ask=None):
             seen["template"] = Path(template)
+            seen["ask"] = ask
             dest = Path(dest)
             dest.write_bytes(b"hsi-bytes")
             return HsiResult(dest, "TC38x", "BGA516", "TC38x-BGA516-1", 2, 0)

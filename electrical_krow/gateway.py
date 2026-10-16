@@ -736,6 +736,20 @@ def create_app(
             if Path(previous_name).suffix.lower() not in {".xlsx", ".xlsm"}:
                 raise HTTPException(400, "上一版 HSI 请用 Excel。")
             previous_bytes = await read_capped_upload(previous)
+        model = (item.extract_model or _active_model(item)).strip() or cfg.chat_model
+
+        def ask(messages: list[dict[str, str]]) -> str:
+            """HSI 工程质检用：模型只对已对齐行的模板定义做矛盾与硬件复用核查，不生成引脚事实。"""
+            extra = {"thinking": {"type": "disabled"}}
+            try:
+                return complete(cfg.server_url, item.auth, messages, model=model, temperature=0.0, timeout=cfg.timeout_sec, extra=extra).content
+            except LLMError as exc:
+                if not _looks_like_auth_error(exc):
+                    raise
+                with _AUTH_REFRESH:
+                    item.auth = refresh_sdk_key(cfg.server_url, item.auth)
+                return complete(cfg.server_url, item.auth, messages, model=model, temperature=0.0, timeout=cfg.timeout_sec, extra=extra).content
+
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)
             manual_path = folder / manual_name
@@ -750,12 +764,14 @@ def create_app(
                 previous_path = folder / previous_name
                 previous_path.write_bytes(previous_bytes)
             try:
-                result = build_hsi(
+                result = await asyncio.to_thread(
+                    build_hsi,
                     template_path,
                     manual_path,
                     folder / "hsi.xlsx",
                     package=package,
                     previous=previous_path,
+                    ask=ask,
                 )
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
@@ -785,6 +801,8 @@ def create_app(
             "version": result.version,
             "pins": result.pins,
             "changes": result.changes,
+            "conflicts": result.conflicts,
+            "model_used": result.model_used,
             "previous": bool(previous_bytes),
         }
 
@@ -871,6 +889,11 @@ def create_app(
             "figures": result.figures,
             "reqs": result.reqs,
             "shots": result.shots,
+            "quality_summary": result.quality_summary,
+            "bilingual_conflicts": result.bilingual_conflicts,
+            "logic_conflicts": result.logic_conflicts,
+            "tbd_count": result.tbd_count,
+            "quality_issues": list(result.quality_issues),
             "unreadable": unreadable,
         }
 

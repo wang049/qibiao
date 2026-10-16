@@ -13,10 +13,11 @@ from pathlib import Path
 
 Box = tuple[float, float, float, float]
 
-_RENDER_DPI = 144
-_RENDER_DPI_TALL = 220  # 很长的段落进表格时要缩小，渲染得精细些，放大看仍清楚
-_TALL_PT = 300.0
-_MARGIN = 3.0
+_RENDER_DPI = 216
+_RENDER_DPI_TALL = 240  # 很长的段落进表格时要缩小，渲染得精细些，放大看仍清楚
+_TALL_PT = 260.0
+_MARGIN_X = 2.5
+_MARGIN_Y = 1.0  # 纵向只留 1pt，紧贴本行上下格线，免得切进相邻行的字
 _MIN_LINE_ALNUM = 3  # 太短的行（「-」「5」）不参与定位，免得误并到别处
 _MAX_GAP = 28.0  # 正文条目里相邻两行相距超过这个距离就不是同一段，不并
 _HEADER_RATIO = 0.105  # 多页文件的顶部页眉表区域，不参与正文定位
@@ -35,7 +36,7 @@ def _no_space(text: str) -> str:
 
 
 def _alnum(text: str) -> str:
-    return re.sub(r"[^0-9A-Za-z\u4e00-\u9fff]", "", text or "")
+    return re.sub(r"[^0-9A-Za-z\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u3130-\u318f\u4e00-\u9fff]", "", text or "")
 
 
 def _union(a: Box, b: Box) -> Box:
@@ -110,9 +111,8 @@ def row_box(cells: list[Box | None], table_box: Box) -> Box | None:
     own = [c for c in cells if c is not None]
     if not own:
         return None
-    heights = sorted(c[3] - c[1] for c in own)
-    median = heights[(len(heights) - 1) // 2]  # 取偏矮的中位数：两格里一格是合并大格时，以矮的为准
-    normal = [c for c in own if c[3] - c[1] <= 1.5 * median] or own
+    min_h = min(c[3] - c[1] for c in own)
+    normal = [c for c in own if c[3] - c[1] <= 1.25 * min_h] or own
     top = min(c[1] for c in normal)
     bottom = max(c[3] for c in normal)
     return (table_box[0], top, table_box[2], bottom)
@@ -132,7 +132,7 @@ def render_shots(path: Path, shots: list[Shot]) -> list[bytes]:
             box = shot.box
             if box[2] - box[0] < 4 or box[3] - box[1] < 4:
                 continue  # 定位到的范围小得不像一条内容
-            clip = pymupdf.Rect(box[0] - _MARGIN, box[1] - _MARGIN, box[2] + _MARGIN, box[3] + _MARGIN) & page.rect
+            clip = pymupdf.Rect(box[0] - _MARGIN_X, box[1] - _MARGIN_Y, box[2] + _MARGIN_X, box[3] + _MARGIN_Y) & page.rect
             if clip.is_empty:
                 continue
             try:

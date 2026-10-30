@@ -301,7 +301,12 @@ def _check_row_logic(file: str, page: int, seq: int, text: str, item_name: str =
     # 3. 同一「最大输出」条目内同时写两个不同的最大功率（如主项写 2.5kW，同格又写 Max. output = 2.72kW）
     if re.search(r"max\.?\s*output|maximum\s*output|最大输出", f"{item_name} {text}", re.I):
         # 取 Specification 字段或整段文本里的双功率表述
-        spec_tail = text.split("Specification：", 1)[-1] if "Specification：" in text else text
+        if "Specification：" in text:
+            spec_tail = text.split("Specification：", 1)[-1]
+        elif "：" in text:
+            spec_tail = text.split("：", 1)[-1]
+        else:
+            spec_tail = text
         dual = _MAX_OUTPUT_DUAL_KW.search(spec_tail)
         if dual:
             p1, p2 = float(dual.group("p1")), float(dual.group("p2"))
@@ -313,7 +318,7 @@ def _check_row_logic(file: str, page: int, seq: int, text: str, item_name: str =
                         file,
                         page,
                         seq,
-                        f"同条最大输出功率口径不一：既写 {_fmt_num(p1)}kW，又写 Max. output = {_fmt_num(p2)}kW，须向客户确认",
+                        f"同条最大输出功率口径不一：既写 {_fmt_num(p1)}kW，又写 Max. output = {_fmt_num(p2)}kW",
                     )
                 )
     # 4. 显式 Min > Max 颠倒
@@ -596,8 +601,8 @@ def check_arch_quality(
             if (file, page) not in tbd_pages:
                 tbd_pages.append((file, page))
             label = f"「{item_name}」" if item_name else ""
-            issues.append(ArchIssue("warn", "待定项", file, page, seq, f"{label}原文含待定项（TBD/TBC），须向客户确认"))
-            add_row_note(seq, "【内容质检】原文含待定项（TBD/TBC），须向客户确认", flag=True)
+            issues.append(ArchIssue("warn", "待定项", file, page, seq, f"{label}原文含待定项（TBD/TBC）"))
+            add_row_note(seq, "【内容质检】原文含待定项（TBD/TBC）", flag=True)
 
     # 3. 同文件重量限值冲突
     for issue in _check_doc_weight_conflicts(all_rows):

@@ -450,6 +450,113 @@ class JobTests(unittest.TestCase):
                     break
                 time.sleep(0.05)
 
+    def test_records_can_be_filed_into_a_folder(self) -> None:
+        path = Path(self._tmp.name) / "jobs.jsonl"
+        rows = [
+            {
+                "id": "j1",
+                "status": "done",
+                "source": "DHTS160 DPR.docx",
+                "username": DEMO_USER,
+                "created_at": 1,
+                "download": "/files/a.xlsx",
+            },
+            {
+                "id": "j2",
+                "status": "done",
+                "source": "DHTS160 DPR.docx",
+                "username": DEMO_USER,
+                "created_at": 2,
+                "download": "/files/b.xlsx",
+            },
+        ]
+        path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
+        listed = self.client.get("/api/jobs")
+        self.assertEqual(listed.status_code, 200, listed.text)
+        body = listed.json()
+        self.assertEqual([row["id"] for row in body["jobs"]], ["j2", "j1"])
+        self.assertTrue(all("folder_id" not in row for row in body["jobs"]))
+        self.assertEqual(body["folders"], [])
+        made = self.client.post("/api/records/folders", json={"kind": "jobs", "name": "本周复核"})
+        self.assertEqual(made.status_code, 200, made.text)
+        folder_id = made.json()["folder"]["id"]
+        placed = self.client.post(
+            "/api/records/place",
+            json={"kind": "jobs", "record_id": "j1", "folder_id": folder_id},
+        )
+        self.assertEqual(placed.status_code, 200, placed.text)
+        again = self.client.get("/api/jobs").json()
+        by_id = {row["id"]: row for row in again["jobs"]}
+        self.assertEqual(by_id["j1"]["folder_id"], folder_id)
+        self.assertNotIn("folder_id", by_id["j2"])
+        self.assertEqual(again["folders"][0]["name"], "本周复核")
+        self.assertEqual(self.client.get("/api/hsi/history").json()["folders"], [])
+        dup = self.client.post("/api/records/folders", json={"kind": "jobs", "name": "本周复核"})
+        self.assertEqual(dup.status_code, 400)
+        self.assertIn("同名", dup.json()["detail"])
+        missing = self.client.post(
+            "/api/records/place",
+            json={"kind": "jobs", "record_id": "nope", "folder_id": folder_id},
+        )
+        self.assertEqual(missing.status_code, 400)
+        cleared = self.client.post(
+            "/api/records/place",
+            json={"kind": "jobs", "record_id": "j1", "folder_id": ""},
+        )
+        self.assertEqual(cleared.status_code, 200, cleared.text)
+        back = {row["id"]: row for row in self.client.get("/api/jobs").json()["jobs"]}
+        self.assertNotIn("folder_id", back["j1"])
+        page = self.client.get("/static/app.js").text
+        self.assertIn("/api/records/folders", page)
+        self.assertIn("/api/records/place", page)
+        self.assertIn("新建文件夹", self.client.get("/static/i18n.js").text)
+
+    def test_detection_file_can_sit_in_a_folder_with_the_output(self) -> None:
+        path = Path(self._tmp.name) / "jobs.jsonl"
+        path.write_text(
+            json.dumps(
+                {
+                    "id": "j1",
+                    "status": "done",
+                    "source": "DHTS160 DPR.docx",
+                    "username": DEMO_USER,
+                    "created_at": 10,
+                    "download": "/files/a.xlsx",
+                },
+                ensure_ascii=False,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        kept = self.client.app.state.jobs.keep_source(
+            username=DEMO_USER,
+            kind="jobs",
+            filename="DHTS160 DPR.docx",
+            data=b"spec-bytes",
+            run_id="j1",
+            group_title="DHTS160 DPR.docx",
+        )
+        listed = self.client.get("/api/jobs").json()["jobs"]
+        by_id = {row["id"]: row for row in listed}
+        self.assertEqual(by_id["j1"]["group_title"], "DHTS160 DPR.docx")
+        self.assertEqual(by_id[kept["id"]]["role"], "source")
+        self.assertEqual(by_id[kept["id"]]["source"], "DHTS160 DPR.docx")
+        made = self.client.post("/api/records/folders", json={"kind": "jobs", "name": "项目甲"})
+        folder_id = made.json()["folder"]["id"]
+        added = self.client.post(
+            "/api/records/sources",
+            data={"kind": "jobs", "folder_id": folder_id},
+            files={"file": ("手册.pdf", b"%PDF-1.4", "application/pdf")},
+        )
+        self.assertEqual(added.status_code, 200, added.text)
+        source_id = added.json()["source"]["id"]
+        again = {row["id"]: row for row in self.client.get("/api/jobs").json()["jobs"]}
+        self.assertEqual(again[source_id]["folder_id"], folder_id)
+        self.assertEqual(again[source_id]["role"], "source")
+        downloaded = self.client.get(f"/api/records/sources/{source_id}/file")
+        self.assertEqual(downloaded.status_code, 200, downloaded.text)
+        self.assertEqual(downloaded.content, b"%PDF-1.4")
+
 
 class JobOwnerListTests(unittest.TestCase):
     def test_list_only_current_login(self) -> None:

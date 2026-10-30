@@ -118,26 +118,86 @@ def row_box(cells: list[Box | None], table_box: Box) -> Box | None:
     return (table_box[0], top, table_box[2], bottom)
 
 
-def render_shots(path: Path, shots: list[Shot]) -> list[bytes]:
-    """按页批量渲染。已经带 png 的（图表）原样返回。"""
+def _peach_ratio(samples: bytes, channels: int) -> float:
+    """浅橙色斜章的像素占比。章是高亮、偏红、蓝更低的浅色，不是表格黑字。"""
+    if channels < 3 or not samples:
+        return 0.0
+    total = peach = 0
+    step = channels * 3
+    for index in range(0, len(samples) - channels, step):
+        red, green, blue = samples[index], samples[index + 1], samples[index + 2]
+        total += 1
+        if red >= 236 and green >= 210 and blue >= 190 and red - blue >= 18 and red + 2 >= green:
+            peach += 1
+    return peach / total if total else 0.0
+
+
+def stamp_bands(page) -> list[tuple[float, float]]:
+    """找出这一页斜章盖住的纵向范围。没有这种浅色章时返回空。"""
+    height = float(page.rect.height)
+    step = 24.0
+    hot: list[tuple[float, float]] = []
+    top = 0.0
+    while top < height:
+        bottom = min(height, top + step)
+        clip = page.rect
+        pix = page.get_pixmap(
+            clip=type(clip)(clip.x0, top, clip.x1, bottom),
+            dpi=36,
+            alpha=False,
+        )
+        if _peach_ratio(pix.samples, pix.n) >= 0.012:
+            hot.append((top, bottom))
+        top = bottom
+    bands: list[tuple[float, float]] = []
+    for start, end in hot:
+        if bands and start <= bands[-1][1] + 1:
+            bands[-1] = (bands[-1][0], end)
+        else:
+            bands.append((start, end))
+    # 斜章会连着盖住一大段。单独一条色带多半是图里的浅色，不当章。
+    return [band for band in bands if band[1] - band[0] >= 48]
+
+
+def covered_by_stamp(box: Box, bands: list[tuple[float, float]]) -> bool:
+    """截图区域有两成以上落在斜章范围内，就不放进表。"""
+    height = box[3] - box[1]
+    if height <= 0 or not bands:
+        return False
+    overlap = 0.0
+    for start, end in bands:
+        overlap += max(0.0, min(box[3], end) - max(box[1], start))
+    return overlap / height >= 0.2
+
+
+def render_shots(path: Path, shots: list[Shot], on_progress=None) -> list[bytes]:
+    """按页批量渲染。已经带 png 的（图表）原样返回。on_progress(done, total) 按条回报。"""
     import pymupdf
 
     out: list[bytes] = [shot.png for shot in shots]
     pending = [(i, shot) for i, shot in enumerate(shots) if shot.box is not None and not shot.png]
     if not pending:
         return out
+    total = len(pending)
+    bands_by_page: dict[int, list[tuple[float, float]]] = {}
     with pymupdf.open(str(path)) as doc:
-        for i, shot in pending:
-            page = doc[shot.page - 1]
-            box = shot.box
-            if box[2] - box[0] < 4 or box[3] - box[1] < 4:
-                continue  # 定位到的范围小得不像一条内容
-            clip = pymupdf.Rect(box[0] - _MARGIN_X, box[1] - _MARGIN_Y, box[2] + _MARGIN_X, box[3] + _MARGIN_Y) & page.rect
-            if clip.is_empty:
-                continue
+        for n, (i, shot) in enumerate(pending, start=1):
             try:
-                dpi = _RENDER_DPI_TALL if clip.height > _TALL_PT else _RENDER_DPI
-                out[i] = page.get_pixmap(clip=clip, dpi=dpi, alpha=False).tobytes("png")
+                page = doc[shot.page - 1]
+                box = shot.box
+                if box[2] - box[0] >= 4 and box[3] - box[1] >= 4:
+                    if shot.page not in bands_by_page:
+                        bands_by_page[shot.page] = stamp_bands(page)
+                    if not covered_by_stamp(box, bands_by_page[shot.page]):
+                        clip = pymupdf.Rect(box[0] - _MARGIN_X, box[1] - _MARGIN_Y, box[2] + _MARGIN_X, box[3] + _MARGIN_Y) & page.rect
+                        if not clip.is_empty:
+                            dpi = _RENDER_DPI_TALL if clip.height > _TALL_PT else _RENDER_DPI
+                            out[i] = page.get_pixmap(clip=clip, dpi=dpi, alpha=False).tobytes("png")
             except Exception:  # noqa: BLE001
-                continue
+                pass
+            if on_progress is not None:
+                try:
+                    on_progress(n, total)
+                except Exception:  # noqa: BLE001
+                    pass
     return out

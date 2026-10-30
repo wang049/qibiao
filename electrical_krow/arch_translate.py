@@ -844,6 +844,7 @@ _WORD_MAP: dict[str, str] = {
     "patent": "专利",
     "recycle": "回收利用",
     "development": "开发",
+    "plan": "计划",
     "schedule": "日程",
     "submission": "提交",
     "submit": "提交",
@@ -1386,13 +1387,142 @@ def needs_translation(text: str) -> bool:
     raw = (text or "").strip()
     if not raw:
         return False
-    # 整页数值表、图表和表格块只含坐标轴刻度与表头符号，不改写前缀格式
-    if raw.startswith(("本页为数值表", "本页图表", "本页表格块")):
+    # 整页数值表、图表、表格块，以及按行抄录的整表（译文已写在各格后面），不再整段重译
+    if raw.startswith(("本页为数值表", "本页图表", "本页表格块", "本页表格", "本页图片表格")):
         return False
-    if raw.startswith(("本页表格", "本页图片表格")):
-        body = raw.split("：\n", 1)[1] if "：\n" in raw else raw
-        return _needs_trans_body(body)
+    # 已经按「列名：内容」拆成多行的表格行，保留换行，不再压成一段
+    labeled = [line.strip() for line in raw.splitlines() if line.strip()]
+    if len(labeled) >= 2 and sum(1 for line in labeled if re.match(r"^[^：]{1,40}：", line)) >= 2:
+        return False
     return _needs_trans_body(raw)
+
+
+def _cell_bilingual(cell: str) -> str:
+    """一格对照：原文保留；整格能译成中文时写成「原文 / 中文」。译不完整的只留原文。"""
+    raw = cell.strip()
+    if not raw or not _needs_trans_body(raw):
+        return raw
+    zh = _translate_segment(raw)
+    if not zh or zh == raw or not _CJK.search(zh):
+        return raw
+    leftover = [word for word in re.findall(r"[A-Za-z]{2,}", zh) if word.lower() in raw.lower()]
+    if leftover:
+        return raw
+    return f"{raw} / {zh}"
+
+
+def _split_grid_row(line: str) -> list[str]:
+    return [part.strip() for part in line.split("|")]
+
+
+_RPM_HEADER = re.compile(
+    r"(?:转速\s*/\s*rpm|rpm)\s+(?:\d+\s*V\s*){2,}(?:(?:转速\s*/\s*rpm|rpm)\s+(?:\d+\s*V\s*){2,})*",
+    re.IGNORECASE,
+)
+_TORQUE_HEADER = re.compile(r"(?:Torque\s+Nm\s+Power\s+kW\s*){2,}", re.IGNORECASE)
+
+
+def strip_column_headers(text: str) -> str:
+    """去掉外特性表里单独成行的列表头。转速、电压档和反复出现的 Torque/Nm/Power/kW 不是数据。"""
+    kept: list[str] = []
+    for line in (text or "").splitlines():
+        cleaned = _TORQUE_HEADER.sub("", line)
+        cleaned = _RPM_HEADER.sub("", cleaned).strip(" \t/")
+        if cleaned:
+            kept.append(cleaned)
+    return "\n".join(kept).strip()
+
+
+def _is_column_header(rows: list[list[str]]) -> bool:
+    """首行多数格子是短列名（Item、Korea、China）时，按列名抄，避免空列把后面的标准挤错位。"""
+    if not rows:
+        return False
+    first = rows[0]
+    filled = [cell for cell in first if cell]
+    if len(filled) < 3 or len(filled) * 2 < len(first):
+        return False
+    for cell in filled:
+        if len(cell) > 40 or len(cell.split()) > 6 or re.search(r"\d", cell):
+            return False
+    return True
+
+
+def _zh_only(bilingual: str, original: str) -> str:
+    mark = " / "
+    if bilingual.startswith(original + mark):
+        return bilingual[len(original) + len(mark) :]
+    return ""
+
+
+_ROW_LINE = "─" * 42
+
+
+def _join_table_blocks(blocks: list[str]) -> str:
+    return f"\n{_ROW_LINE}\n".join(blocks)
+
+
+def _phrase(english: str, chinese: str) -> str:
+    """一句原文接译文。短句同一行「原文 / 中文」；较长的英文换行后再写「/ 中文」。"""
+    if not chinese or chinese == english:
+        return english
+    if len(english) <= 48:
+        return f"{english} / {chinese}"
+    return f"{english}\n/ {chinese}"
+
+
+def _template_block(cells: list[str], headers: list[str]) -> str:
+    """一行表格：每个有字的格写成「原文 / 中文」。空列不写。"""
+    shown = [(col, (headers[col].strip() if col < len(headers) else ""), cell) for col, cell in enumerate(cells) if cell]
+    if not shown:
+        return ""
+    lines: list[str] = []
+    for col, label, text in shown:
+        if col == 0 and not label:
+            lines.append(_phrase(text, _zh_only(_cell_bilingual(text), text)))
+            continue
+        english = f"{label}: {text}" if label else text
+        label_zh = _zh_only(_cell_bilingual(label), label) if label else ""
+        value_zh = _zh_only(_cell_bilingual(text), text)
+        chinese = ""
+        if label_zh or value_zh:
+            chinese = f"{label_zh or label}：{value_zh or text}"
+        lines.append(_phrase(english, chinese))
+    return "\n".join(lines)
+
+
+def table_excerpt_blocks(text: str) -> list[str]:
+    """整表摘录按表行拆开。每一块是表里的一行，后面写进 Excel 时各占一行，边框就是横线。"""
+    raw = (text or "").strip()
+    if "：\n" not in raw:
+        return [raw] if raw else []
+    _, body = raw.split("：\n", 1)
+    parsed = [_split_grid_row(line) for line in body.splitlines()]
+    if not any(any(cell for cell in row) for row in parsed):
+        return []
+    if _is_column_header(parsed):
+        headers = parsed[0]
+        return [block for cells in parsed[1:] if (block := _template_block(cells, headers))]
+    blocks: list[str] = []
+    for row in parsed:
+        if len(row) == 1:
+            cleaned = strip_column_headers(row[0])
+            if not cleaned:
+                continue
+            row = [cleaned]
+        cells = [_phrase(cell, _zh_only(_cell_bilingual(cell), cell)) for cell in row if cell]
+        if cells:
+            blocks.append("\n".join(cells))
+    return blocks
+
+
+def present_table_excerpt(text: str) -> str:
+    """认不出栏目的整表。每行里的非空格写成「原文 / 中文」，行与行之间加横线。"""
+    raw = (text or "").strip()
+    blocks = table_excerpt_blocks(raw)
+    if not blocks:
+        return raw
+    head = raw.split("：\n", 1)[0] if "：\n" in raw else raw
+    return f"{head}：\n" + _join_table_blocks(blocks)
 
 
 def rule_translate_text(text: str) -> str:
@@ -1401,9 +1531,7 @@ def rule_translate_text(text: str) -> str:
     if not raw:
         return ""
     if raw.startswith(("本页表格", "本页图片表格")) and "：\n" in raw:
-        head, body = raw.split("：\n", 1)
-        lines = [_translate_segment(line) for line in body.splitlines() if line.strip()]
-        return f"{head}（中文译文）：\n" + "\n".join(lines)
+        return present_table_excerpt(raw)
     flat = " ".join(line.strip() for line in raw.splitlines() if line.strip())
     # 表格行：「项目名：栏目：值 | 栏目：值」
     if " | " in flat:
@@ -1492,7 +1620,11 @@ def _parse_json_list(blob: str) -> list[dict]:
         return []
 
 
-def translate_excerpts(items: list[tuple[int, str]], ask: Ask | None = None) -> tuple[dict[int, str], bool]:
+def translate_excerpts(
+    items: list[tuple[int, str]],
+    ask: Ask | None = None,
+    on_progress=None,
+) -> tuple[dict[int, str], bool]:
     """对 (seq, excerpt) 列表生成中文译文，返回 ({seq: 中文译文}, 是否使用了模型)。"""
     pending = [(seq, text) for seq, text in items if needs_translation(text)]
     if not pending:
@@ -1500,7 +1632,17 @@ def translate_excerpts(items: list[tuple[int, str]], ask: Ask | None = None) -> 
 
     translations: dict[int, str] = {}
     model_used = False
+    total = len(pending)
 
+    def _tick(done: int) -> None:
+        if on_progress is None:
+            return
+        try:
+            on_progress(done, total)
+        except Exception:  # noqa: BLE001
+            return
+
+    _tick(0)
     if ask is not None:
         for i in range(0, len(pending), _BATCH_SIZE):
             batch = pending[i : i + _BATCH_SIZE]
@@ -1525,6 +1667,7 @@ def translate_excerpts(items: list[tuple[int, str]], ask: Ask | None = None) -> 
                         model_used = True
             except Exception:  # noqa: BLE001
                 pass
+            _tick(min(i + len(batch), total))
 
     # 对未命中或离线情况使用规则词典兜底，确保每条外文需求都有中文对照
     for seq, text in pending:
@@ -1532,6 +1675,7 @@ def translate_excerpts(items: list[tuple[int, str]], ask: Ask | None = None) -> 
             zh = rule_translate_text(text)
             if zh and zh != text and _CJK.search(zh):
                 translations[seq] = zh
+    _tick(total)
 
     return translations, model_used
 

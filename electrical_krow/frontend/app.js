@@ -423,28 +423,419 @@ const EMPTY_JOBS_SVG = "<svg viewBox='0 0 64 48' width='64' height='48' fill='no
   + "<path d='M48 30v8M44 34h8' stroke='currentColor' stroke-width='1.5' stroke-linecap='round'/></svg>";
 
 let hsiRows = [];
+let jobSources = [];
+let hsiSources = [];
+let archSources = [];
+let recordFolders = { jobs: [], hsi: [], arch: [] };
+let recordNote = null;
+let recordOpen = {};
+let recordDraft = null;
+
+function recordFolderTitle(row, kind) {
+  const grouped = String((row && row.group_title) || "").trim();
+  if (grouped) return grouped;
+  if (kind === "hsi") {
+    const chip = [row.mcu, row.package].filter(Boolean).join(" ");
+    if (chip) return chip;
+    const name = fileNameOf(row.download) || String(row.source || "");
+    const base = name.replace(/\.xlsx$/i, "");
+    const matched = base.match(/^HSI-(.+?)(?:-\d+)?(?:-\d{8})?$/i);
+    return matched ? matched[1] : recordTitle(name);
+  }
+  if (kind === "arch") return recordTitle(fileNameOf(row.download) || row.source || "");
+  return String(row.source || tx("spec"));
+}
+
+function recordAutoKey(row, kind) {
+  return "auto:" + recordFolderTitle(row, kind).trim().toLowerCase();
+}
+
+function layoutRecords(rows, kind) {
+  const folders = recordFolders[kind] || [];
+  const known = new Set(folders.map((folder) => folder.id));
+  const placed = new Map();
+  rows.forEach((row) => {
+    const fid = String(row.folder_id || "");
+    if (!fid || !known.has(fid)) return;
+    if (!placed.has(fid)) placed.set(fid, []);
+    placed.get(fid).push(row);
+  });
+  const autoCount = new Map();
+  rows.forEach((row) => {
+    const fid = String(row.folder_id || "");
+    if (fid && known.has(fid)) return;
+    const key = recordAutoKey(row, kind);
+    autoCount.set(key, (autoCount.get(key) || 0) + 1);
+  });
+  const blocks = [];
+  const seenUser = new Set();
+  const seenAuto = new Set();
+  folders.forEach((folder) => {
+    if ((placed.get(folder.id) || []).length) return;
+    seenUser.add(folder.id);
+    blocks.push({ type: "user", id: folder.id, title: folder.name, rows: [] });
+  });
+  rows.forEach((row) => {
+    const fid = String(row.folder_id || "");
+    if (fid && known.has(fid)) {
+      if (seenUser.has(fid)) return;
+      seenUser.add(fid);
+      const folder = folders.find((item) => item.id === fid);
+      blocks.push({ type: "user", id: fid, title: folder ? folder.name : fid, rows: placed.get(fid) || [] });
+      return;
+    }
+    const key = recordAutoKey(row, kind);
+    if ((autoCount.get(key) || 0) >= 2) {
+      if (seenAuto.has(key)) return;
+      seenAuto.add(key);
+      const group = rows.filter((item) => {
+        const id = String(item.folder_id || "");
+        return !(id && known.has(id)) && recordAutoKey(item, kind) === key;
+      });
+      blocks.push({ type: "auto", id: key, title: recordFolderTitle(group[0], kind), rows: group });
+      return;
+    }
+    blocks.push({ type: "single", row });
+  });
+  return blocks;
+}
+
+function folderIsOpen(kind, id, rows) {
+  const key = kind + ":" + id;
+  if (Object.prototype.hasOwnProperty.call(recordOpen, key)) return !!recordOpen[key];
+  const active = viewingJob || currentJob || "";
+  return kind === "jobs" && rows.some((row) => String(row.id || "") === active);
+}
+
+function recordCard(kind, row, openAttr, openValue, title, inner) {
+  const id = String(row.id || "");
+  const on = kind === "jobs" && id && id === (viewingJob || currentJob || "");
+  const block = kind === "jobs" && !!currentJob && id !== currentJob;
+  const move = id && !block
+    ? "<button type='button' class='job-move' data-kind='" + escText(kind) + "' data-move='" + escText(id) + "'>" + tx("record.move") + "</button>"
+    : "";
+  return "<div class='job-row" + (on ? " is-on" : "") + "'>"
+    + "<button type='button' class='job-open' " + openAttr + "='" + escText(openValue) + "' title='" + escText(title) + "'"
+    + (block ? " disabled" : "") + ">" + inner + "</button>"
+    + move + "</div>";
+}
+
+function mergedRecords(outputs, sources) {
+  return outputs.concat(sources).sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0));
+}
+
+function sourceCard(kind, row) {
+  const name = String(row.source || "");
+  const when = fmtWhen(row.created_at);
+  const inner = "<span class='job-copy'>"
+    + "<span class='job-name'>" + escText(name) + "</span>"
+    + "<span class='job-meta'>"
+    + "<span class='job-status file'>" + tx("record.sourceTag") + "</span>"
+    + "<span class='job-meta-text'>" + escText(when) + "</span>"
+    + "</span></span>";
+  return recordCard(kind, row, "data-source", row.id || "", name, inner);
+}
+
+function recordToolbar(kind) {
+  const note = recordNote && recordNote.kind === kind
+    ? "<p class='job-folder-error'>" + escText(recordNote.text) + "</p>" : "";
+  if (recordDraft && recordDraft.kind === kind) {
+    return "<form class='job-folder-form' data-kind='" + escText(kind) + "'>"
+      + "<input name='folder' maxlength='40' placeholder='" + escText(tx("record.folderName")) + "' value='" + escText(recordDraft.name || "") + "' />"
+      + "<button type='submit'>" + tx("record.create") + "</button>"
+      + "<button type='button' data-cancel='1'>" + tx("record.cancel") + "</button>"
+      + (recordDraft.error ? "<p class='job-folder-error'>" + escText(recordDraft.error) + "</p>" : "")
+      + "</form>";
+  }
+  return "<div class='job-folder-bar'>"
+    + "<button type='button' class='job-new-folder' data-kind='" + escText(kind) + "'>" + tx("record.newFolder") + "</button>"
+    + "<button type='button' class='job-add-source' data-kind='" + escText(kind) + "'>" + tx("record.addSource") + "</button>"
+    + "<input class='job-source-input' type='file' hidden accept='.pdf,.docx,.xlsx,.xlsm,application/pdf' />"
+    + "</div>" + note;
+}
+
+function fillRecordHost(host, kind, rows, cardHtml, onEmpty) {
+  const folders = recordFolders[kind] || [];
+  let html = recordToolbar(kind);
+  if (!rows.length && !folders.length) {
+    host.innerHTML = html + onEmpty();
+    bindRecordChrome(host, kind);
+    return;
+  }
+  html += layoutRecords(rows, kind).map((block) => {
+    if (block.type === "single") return cardHtml(block.row);
+    const open = folderIsOpen(kind, block.id, block.rows);
+    const body = block.rows.length
+      ? block.rows.map(cardHtml).join("")
+      : "<p class='job-folder-empty'>" + tx("record.folderEmpty") + "</p>";
+    return "<section class='job-folder" + (open ? " is-open" : "") + "'>"
+      + "<button type='button' class='job-folder-head' data-folder='" + escText(kind + ":" + block.id) + "'>"
+      + "<span class='job-folder-chev' aria-hidden='true'></span>"
+      + "<span class='job-folder-name'>" + escText(block.title) + "</span>"
+      + "<span class='job-folder-count'>" + block.rows.length + "</span>"
+      + "</button><div class='job-folder-body'>" + body + "</div></section>";
+  }).join("");
+  host.innerHTML = html;
+  bindRecordChrome(host, kind);
+}
+
+function bindRecordChrome(host, kind) {
+  host.querySelectorAll(".job-new-folder").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      recordDraft = { kind, recordId: "", name: "", error: "" };
+      if (kind === "hsi") renderHsi();
+      else if (kind === "arch") renderArch();
+      else renderJobs();
+      const input = host.querySelector(".job-folder-form input");
+      if (input) input.focus();
+    });
+  });
+  host.querySelectorAll(".job-folder-form").forEach((form) => {
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const input = form.querySelector("input");
+      const name = input ? input.value : "";
+      const draft = recordDraft || { kind, recordId: "" };
+      recordDraft = { kind: draft.kind, recordId: draft.recordId, name, error: "" };
+      try {
+        const made = await json("/api/records/folders", {
+          method: "POST",
+          body: JSON.stringify({ kind, name }),
+        });
+        const folder = made.folder || {};
+        if (draft.recordId && folder.id) {
+          await json("/api/records/place", {
+            method: "POST",
+            body: JSON.stringify({ kind, record_id: draft.recordId, folder_id: folder.id }),
+          });
+        }
+        recordOpen[kind + ":" + folder.id] = true;
+        recordDraft = null;
+        await loadJobs();
+      } catch (err) {
+        recordDraft = { kind, recordId: draft.recordId, name, error: err.message || String(err) };
+        if (kind === "hsi") renderHsi();
+        else if (kind === "arch") renderArch();
+        else renderJobs();
+      }
+    });
+    const cancel = form.querySelector("[data-cancel]");
+    if (cancel) {
+      cancel.addEventListener("click", () => {
+        recordDraft = null;
+        if (kind === "hsi") renderHsi();
+        else if (kind === "arch") renderArch();
+        else renderJobs();
+      });
+    }
+  });
+  host.querySelectorAll(".job-folder-head").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.getAttribute("data-folder") || "";
+      recordOpen[key] = !folderHeadOpen(btn);
+      if (kind === "hsi") renderHsi();
+      else if (kind === "arch") renderArch();
+      else renderJobs();
+    });
+  });
+  host.querySelectorAll(".job-move").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      openRecordMenu(btn, kind, btn.getAttribute("data-move") || "");
+    });
+  });
+  host.querySelectorAll(".job-add-source").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const input = host.querySelector(".job-source-input");
+      if (!input) return;
+      input._anchor = btn;
+      input.click();
+    });
+  });
+  host.querySelectorAll(".job-source-input").forEach((input) => {
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      input.value = "";
+      if (!file) return;
+      const folders = recordFolders[kind] || [];
+      if (!folders.length) {
+        uploadSource(kind, file, "");
+        return;
+      }
+      openFolderPick(input._anchor || input, kind, (folderId) => uploadSource(kind, file, folderId));
+    });
+  });
+  host.querySelectorAll("[data-source]").forEach((btn) => {
+    btn.addEventListener("click", () => openSource(btn.getAttribute("data-source") || ""));
+  });
+}
+
+async function uploadSource(kind, file, folderId) {
+  const body = new FormData();
+  body.append("kind", kind);
+  body.append("folder_id", folderId || "");
+  body.append("file", file);
+  recordNote = null;
+  try {
+    const resp = await fetch(apiUrl("/api/records/sources"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+      body,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const msg = data.detail || data.error || resp.statusText;
+      throw new Error(typeof msg === "string" ? msg : JSON.stringify(msg));
+    }
+    if (folderId) recordOpen[kind + ":" + folderId] = true;
+    await loadJobs();
+  } catch (err) {
+    recordNote = { kind, text: err.message || String(err) };
+    if (kind === "hsi") renderHsi();
+    else if (kind === "arch") renderArch();
+    else renderJobs();
+  }
+}
+
+async function openSource(id) {
+  if (!id) return;
+  try {
+    await json("/api/records/sources/" + encodeURIComponent(id) + "/open", { method: "POST", body: "{}" });
+  } catch (err) {
+    window.location.href = apiUrl("/api/records/sources/" + encodeURIComponent(id) + "/file");
+  }
+}
+
+function openFolderPick(anchor, kind, onPick) {
+  const menu = recordMenuEl();
+  const folders = recordFolders[kind] || [];
+  let html = "<p class='record-menu-title'>" + tx("record.addSource") + "</p>";
+  folders.forEach((folder) => {
+    html += "<button type='button' data-pick='" + escText(folder.id) + "'>" + escText(folder.name) + "</button>";
+  });
+  html += "<button type='button' data-pick=''>" + tx("record.byFile") + "</button>";
+  menu.innerHTML = html;
+  menu.hidden = false;
+  const box = anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : { right: 200, bottom: 80, top: 40 };
+  menu.style.left = Math.max(8, Math.min(box.right - 180, window.innerWidth - 188)) + "px";
+  menu.style.top = (box.bottom + 4) + "px";
+  menu.querySelectorAll("[data-pick]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      menu.hidden = true;
+      onPick(btn.getAttribute("data-pick") || "");
+    });
+  });
+}
+
+function folderHeadOpen(btn) {
+  const section = btn.closest(".job-folder");
+  return !!(section && section.classList.contains("is-open"));
+}
+
+function recordById(kind, id) {
+  const rows = kind === "hsi" ? hsiRows : kind === "arch" ? archRows : jobRows;
+  return rows.find((row) => String(row.id || "") === id) || null;
+}
+
+function recordMenuEl() {
+  let menu = document.getElementById("record-menu");
+  if (menu) return menu;
+  menu = document.createElement("div");
+  menu.id = "record-menu";
+  menu.className = "record-menu";
+  menu.hidden = true;
+  document.body.appendChild(menu);
+  document.addEventListener("click", (ev) => {
+    if (menu.hidden) return;
+    if (menu.contains(ev.target) || (ev.target.closest && ev.target.closest(".job-move, .io-file-box, #pick, #drop"))) return;
+    menu.hidden = true;
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape") menu.hidden = true;
+  });
+  return menu;
+}
+
+function openRecordMenu(anchor, kind, recordId) {
+  const menu = recordMenuEl();
+  const row = recordById(kind, recordId);
+  const folders = recordFolders[kind] || [];
+  let html = "<p class='record-menu-title'>" + tx("record.moveTo") + "</p>";
+  if (!folders.length) html += "<p class='record-menu-empty'>" + tx("record.noFolders") + "</p>";
+  folders.forEach((folder) => {
+    const on = !!(row && row.folder_id === folder.id);
+    html += "<button type='button' data-pick='" + escText(folder.id) + "'" + (on ? " disabled" : "") + ">"
+      + escText(folder.name) + "</button>";
+  });
+  if (row && row.folder_id) {
+    html += "<button type='button' data-pick=''>" + tx("record.byFile") + "</button>";
+  }
+  html += "<button type='button' data-new='1'>" + tx("record.newFolder") + "</button>";
+  menu.innerHTML = html;
+  menu.hidden = false;
+  const box = anchor.getBoundingClientRect();
+  const width = 180;
+  let left = Math.min(box.right - width, window.innerWidth - width - 8);
+  if (left < 8) left = 8;
+  let top = box.bottom + 4;
+  menu.style.left = left + "px";
+  menu.style.top = top + "px";
+  const height = menu.offsetHeight;
+  if (top + height > window.innerHeight - 8) {
+    menu.style.top = Math.max(8, box.top - height - 4) + "px";
+  }
+  menu.querySelectorAll("[data-pick]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      menu.hidden = true;
+      try {
+        await json("/api/records/place", {
+          method: "POST",
+          body: JSON.stringify({ kind, record_id: recordId, folder_id: btn.getAttribute("data-pick") || "" }),
+        });
+        const picked = btn.getAttribute("data-pick") || "";
+        if (picked) recordOpen[kind + ":" + picked] = true;
+        await loadJobs();
+      } catch (err) {
+        recordDraft = { kind, recordId: "", name: "", error: err.message || String(err) };
+        if (kind === "hsi") renderHsi();
+        else if (kind === "arch") renderArch();
+        else renderJobs();
+      }
+    });
+  });
+  const newer = menu.querySelector("[data-new]");
+  if (newer) {
+    newer.addEventListener("click", () => {
+      menu.hidden = true;
+      recordDraft = { kind, recordId, name: "", error: "" };
+      if (kind === "hsi") renderHsi();
+      else if (kind === "arch") renderArch();
+      else renderJobs();
+      const input = document.querySelector("#" + (kind === "hsi" ? "hsi-list" : kind === "arch" ? "arch-list" : "job-list") + " .job-folder-form input");
+      if (input) input.focus();
+    });
+  }
+}
 
 function renderHsi() {
   const host = $("hsi-list");
   if (!host) return;
-  if (!hsiRows.length) {
-    host.innerHTML = "<p class='job-empty'>" + tx("empty.hsi") + "</p>";
-    return;
-  }
-  host.innerHTML = hsiRows.map((row) => {
+  fillRecordHost(host, "hsi", mergedRecords(hsiRows, hsiSources), (row) => {
+    if (row.role === "source") return sourceCard("hsi", row);
     const name = fileNameOf(row.download) || String(row.source || "");
     const bits = [];
     const when = fmtWhen(row.created_at);
     if (when) bits.push(when);
     if (row.pins) bits.push(tx("io.pins", { n: row.pins }));
-    return "<button type='button' class='job-row' data-hsi='" + escText(row.download || "") + "' title='" + escText(name) + "'>"
-      + "<span class='job-copy'>"
+    const inner = "<span class='job-copy'>"
       + "<span class='job-name'>" + escText(recordTitle(name)) + "</span>"
       + "<span class='job-meta'>"
       + "<span class='job-status done'>" + tx("job.done") + "</span>"
       + "<span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span>"
-      + "</span></span></button>";
-  }).join("");
+      + "</span></span>";
+    return recordCard("hsi", row, "data-hsi", row.download || "", name, inner);
+  }, () => "<p class='job-empty'>" + tx("empty.hsi") + "</p>");
   host.querySelectorAll("[data-hsi]").forEach((btn) => {
     btn.addEventListener("click", () => openHsiRecord(btn.getAttribute("data-hsi") || ""));
   });
@@ -455,24 +846,21 @@ let archRows = [];
 function renderArch() {
   const host = $("arch-list");
   if (!host) return;
-  if (!archRows.length) {
-    host.innerHTML = "<p class='job-empty'>" + tx("empty.arch") + "</p>";
-    return;
-  }
-  host.innerHTML = archRows.map((row) => {
+  fillRecordHost(host, "arch", mergedRecords(archRows, archSources), (row) => {
+    if (row.role === "source") return sourceCard("arch", row);
     const name = fileNameOf(row.download) || String(row.source || "");
     const bits = [];
     const when = fmtWhen(row.created_at);
     if (when) bits.push(when);
     if (row.rows) bits.push(tx("arch.rows", { n: row.rows }));
-    return "<button type='button' class='job-row' data-arch='" + escText(row.download || "") + "' title='" + escText(name) + "'>"
-      + "<span class='job-copy'>"
+    const inner = "<span class='job-copy'>"
       + "<span class='job-name'>" + escText(recordTitle(name)) + "</span>"
       + "<span class='job-meta'>"
       + "<span class='job-status done'>" + tx("job.done") + "</span>"
       + "<span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span>"
-      + "</span></span></button>";
-  }).join("");
+      + "</span></span>";
+    return recordCard("arch", row, "data-arch", row.download || "", name, inner);
+  }, () => "<p class='job-empty'>" + tx("empty.arch") + "</p>");
   host.querySelectorAll("[data-arch]").forEach((btn) => {
     btn.addEventListener("click", () => openArchRecord(btn.getAttribute("data-arch") || ""));
   });
@@ -511,15 +899,8 @@ function openHsiRecord(download) {
 function renderJobs() {
   const host = $("job-list");
   if (!host) return;
-  if (!jobRows.length) {
-    host.innerHTML = "<div class='job-empty'>" + EMPTY_JOBS_SVG
-      + "<p>" + tx("empty.jobs") + "</p><small>" + tx("empty.jobsHint") + "</small></div>";
-    renderHome();
-    return;
-  }
-  const active = viewingJob || currentJob || "";
-  const busy = !!currentJob;
-  host.innerHTML = jobRows.map((row) => {
+  fillRecordHost(host, "jobs", mergedRecords(jobRows, jobSources), (row) => {
+    if (row.role === "source") return sourceCard("jobs", row);
     const id = String(row.id || "");
     const st = jobStatusLabel(row.status || "");
     const name = String(row.source || tx("spec"));
@@ -530,22 +911,17 @@ function renderJobs() {
     if (row.status === "done" && Number(row.pending_note || 0) > 0) bits.push(tx("meta.pending", { n: Number(row.pending_note) }));
     if (row.status === "error" && row.detail) bits.push(String(row.detail).slice(0, 24));
     const tag = kindTag(row);
-    const on = id && id === active;
-    const block = busy && id !== currentJob;
-    return "<button type='button' class='job-row" + (on ? " is-on" : "") + "'"
-      + " data-id='" + escText(id) + "'"
-      + " title='" + escText(name) + "'"
-      + (block ? " disabled" : "") + ">"
-      + "<span class='job-copy'>"
+    const inner = "<span class='job-copy'>"
       + "<span class='job-name'>" + escText(name) + "</span>"
       + "<span class='job-meta'>"
       + "<span class='job-status " + st.cls + "'>" + st.text + "</span>"
       + (tag ? "<i class='job-tag'>" + escText(tag) + "</i>" : "")
       + "<span class='job-meta-text'>" + escText(bits.join(" · ") || (row.message || "")) + "</span>"
-      + "</span></span>"
-      + "</button>";
-  }).join("");
-  host.querySelectorAll(".job-row").forEach((btn) => {
+      + "</span></span>";
+    return recordCard("jobs", row, "data-id", id, name, inner);
+  }, () => "<div class='job-empty'>" + EMPTY_JOBS_SVG
+    + "<p>" + tx("empty.jobs") + "</p><small>" + tx("empty.jobsHint") + "</small></div>");
+  host.querySelectorAll(".job-open[data-id]").forEach((btn) => {
     btn.addEventListener("click", () => openHistory(btn.getAttribute("data-id") || ""));
   });
   renderHome();
@@ -645,9 +1021,23 @@ async function loadJobs() {
       json("/api/hsi/history").catch(() => ({ records: [] })),
       json("/api/arch/history").catch(() => ({ records: [] })),
     ]);
-    jobRows = data.jobs || [];
-    hsiRows = hsi.records || [];
-    archRows = arch.records || [];
+    const split = (rows) => {
+      const outputs = [];
+      const sources = [];
+      (rows || []).forEach((row) => {
+        if (row && row.role === "source") sources.push(row);
+        else outputs.push(row);
+      });
+      return [outputs, sources];
+    };
+    [jobRows, jobSources] = split(data.jobs);
+    [hsiRows, hsiSources] = split(hsi.records);
+    [archRows, archSources] = split(arch.records);
+    recordFolders = {
+      jobs: data.folders || [],
+      hsi: hsi.folders || [],
+      arch: arch.folders || [],
+    };
     renderJobs();
     renderHsi();
     renderArch();
@@ -954,10 +1344,37 @@ function selectedIoPackage() {
   return picked ? String(picked.value || "") : "";
 }
 
+function ioMode() {
+  const picked = document.querySelector("input[name=io-mode]:checked");
+  return picked ? picked.value : "schematic";
+}
+
+function applyIoMode() {
+  const mode = ioMode();
+  document.querySelectorAll("[data-io-mode]").forEach((el) => {
+    const want = el.getAttribute("data-io-mode");
+    if (el.id === "io-package-field") {
+      el.hidden = mode !== "mcu" || !el.querySelector("input");
+      return;
+    }
+    el.hidden = want !== "both" && want !== mode;
+  });
+  refreshIoGenerate();
+}
+
 function refreshIoGenerate() {
   const btn = $("io-hsi");
   if (!btn) return;
-  btn.disabled = ioPackagesLoading || !selectedIoPackage();
+  if (ioMode() === "schematic") {
+    const file = $("io-schematic") && $("io-schematic").files && $("io-schematic").files[0];
+    const name = file ? file.name.toLowerCase() : "";
+    btn.disabled = !name.endsWith(".edf");
+    btn.textContent = tx("io.revise");
+    return;
+  }
+  const mcu = $("io-mcu") ? $("io-mcu").value.trim() : "";
+  btn.disabled = ioPackagesLoading || !selectedIoPackage() || !mcu;
+  btn.textContent = tx("io.generate");
 }
 
 function setPackageStatus(text, kind) {
@@ -1072,10 +1489,174 @@ function syncIoFileName(input, nameEl) {
   nameEl.classList.remove("is-set");
 }
 
+function storedSources(accept, kind) {
+  const rows = kind === "hsi" ? hsiSources : kind === "arch" ? archSources : jobSources;
+  const seen = new Set();
+  return rows.filter((row) => {
+    const id = String(row.id || "");
+    const name = String(row.source || "").toLowerCase();
+    if (!id || seen.has(id)) return false;
+    const ok = accept === "pdf" ? name.endsWith(".pdf")
+      : accept === "sheet" ? (name.endsWith(".xlsx") || name.endsWith(".xlsm"))
+      : accept === "schematic" ? (name.endsWith(".pdf") || name.endsWith(".edf") || name.endsWith(".xlsx") || name.endsWith(".xlsm"))
+      : (name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xlsm"));
+    if (!ok) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+async function fileFromSource(row) {
+  const resp = await fetch(apiUrl(row.download), { credentials: "same-origin", headers: authHeaders() });
+  const data = await resp.blob().catch(() => null);
+  if (!resp.ok || !data) throw new Error(tx("io.noSource"));
+  const name = String(row.source || "file");
+  return new File([data], name, { type: data.type || "application/octet-stream" });
+}
+
+function assignPickedFile(target, file) {
+  if (target === "spec") {
+    setFile(file);
+    return;
+  }
+  if (target === "arch-files") {
+    addArchFiles([file]);
+    clearArchDownload();
+    setArchMsg("");
+    renderArchFiles();
+    return;
+  }
+  const input = $(target);
+  if (!input || typeof DataTransfer === "undefined") return;
+  const bag = new DataTransfer();
+  bag.items.add(file);
+  input.files = bag.files;
+  input.dispatchEvent(new Event("change"));
+}
+
+async function useStoredSource(target, row) {
+  const file = await fileFromSource(row);
+  assignPickedFile(target, file);
+}
+
+function sourceFolderName(row) {
+  const id = String(row.folder_id || "");
+  const folders = (recordFolders.jobs || []).concat(recordFolders.hsi || [], recordFolders.arch || []);
+  const folder = id ? folders.find((item) => item.id === id) : null;
+  return folder ? folder.name : "";
+}
+
+function placeChoiceMenu(menu, anchor) {
+  const box = anchor.getBoundingClientRect();
+  menu.hidden = false;
+  menu.style.left = Math.max(8, Math.min(box.left, window.innerWidth - 336)) + "px";
+  menu.style.top = (box.bottom + 4) + "px";
+  const height = menu.offsetHeight;
+  if (box.bottom + 8 + height > window.innerHeight) {
+    menu.style.top = Math.max(8, box.top - height - 4) + "px";
+  }
+}
+
+function reportPickError(target, err) {
+  const msg = err.message || String(err);
+  if (target === "io-manual" || target === "io-previous" || target === "io-schematic") setIoMsg(msg);
+  else if (target === "arch-files") setArchMsg(msg);
+  else {
+    const host = $("file-info");
+    if (host) {
+      host.hidden = false;
+      host.className = "file-info";
+      host.innerHTML = "<p class='fi-est'>" + escText(msg) + "</p>";
+    }
+  }
+}
+
+function openFileChoice(anchor, target, accept, kind) {
+  const menu = recordMenuEl();
+  const inputId = target === "spec" ? "file" : target;
+  const paint = (mode) => {
+    if (mode === "root") {
+      menu.innerHTML = "<label class='record-menu-choice' for='" + escText(inputId) + "'>" + tx("io.pickLocal") + "</label>"
+        + "<button type='button' data-app='1'>" + tx("io.pickApp") + "</button>";
+    } else {
+      const rows = storedSources(accept, kind);
+      const groups = new Map();
+      rows.forEach((row) => {
+        const title = sourceFolderName(row);
+        const key = title || "";
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(row);
+      });
+      let html = "<button type='button' data-back='1'>" + tx("io.pickBack") + "</button>";
+      if (!rows.length) html += "<p class='record-menu-empty'>" + tx("io.noSource") + "</p>";
+      groups.forEach((items, title) => {
+        if (title && groups.size > 1) html += "<p class='record-menu-title'>" + escText(title) + "</p>";
+        items.forEach((row) => {
+          const name = String(row.source || "");
+          html += "<button type='button' data-source-id='" + escText(row.id) + "' title='" + escText(name) + "'>" + escText(name) + "</button>";
+        });
+      });
+      menu.innerHTML = html;
+      menu._sourceRows = rows;
+    }
+    placeChoiceMenu(menu, anchor);
+  };
+  menu.onclick = (ev) => {
+    if (ev.target.closest(".record-menu-choice")) {
+      ev.stopPropagation();
+      menu.hidden = true;
+      return;
+    }
+    const btn = ev.target.closest("button");
+    if (!btn || !menu.contains(btn)) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (btn.hasAttribute("data-app")) {
+      paint("app");
+      return;
+    }
+    if (btn.hasAttribute("data-back")) {
+      paint("root");
+      return;
+    }
+    const sourceId = btn.getAttribute("data-source-id");
+    if (!sourceId) return;
+    menu.hidden = true;
+    const row = (menu._sourceRows || []).find((entry) => String(entry.id) === sourceId);
+    if (!row) return;
+    useStoredSource(target, row).catch((err) => reportPickError(target, err));
+  };
+  paint("root");
+}
+
+document.querySelectorAll(".io-file-box[data-target]").forEach((box) => {
+  box.addEventListener("click", (ev) => {
+    if (ev.target.closest("button, input")) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    openFileChoice(box, box.getAttribute("data-target") || "", box.getAttribute("data-accept") || "pdf", box.getAttribute("data-kind") || "jobs");
+  });
+});
+
 $("io-manual").addEventListener("change", () => {
   syncIoFileName($("io-manual"), $("io-manual-name"));
   const manual = $("io-manual").files && $("io-manual").files[0];
   loadIoPackages(manual || null);
+});
+$("io-schematic").addEventListener("change", () => {
+  const file = $("io-schematic").files && $("io-schematic").files[0];
+  const name = file ? file.name.toLowerCase() : "";
+  const ok = !file || name.endsWith(".edf") || name.endsWith(".pdf") || name.endsWith(".xlsx") || name.endsWith(".xlsm");
+  if (!ok) {
+    $("io-schematic").value = "";
+    syncIoFileName($("io-schematic"), $("io-schematic-name"));
+    setIoMsg(tx("io.schematicType"));
+    return;
+  }
+  syncIoFileName($("io-schematic"), $("io-schematic-name"));
+  clearIoDownload();
+  setIoMsg("");
+  refreshIoGenerate();
 });
 $("io-previous").addEventListener("change", () => {
   syncIoFileName($("io-previous"), $("io-previous-name"));
@@ -1091,6 +1672,65 @@ $("io-package-choices").addEventListener("change", () => {
   if (msg && msg.classList.contains("is-ok")) setIoMsg("");
   refreshIoGenerate();
 });
+document.querySelectorAll("input[name=io-mode]").forEach((input) => {
+  input.addEventListener("change", () => {
+    clearIoDownload();
+    setIoMsg("");
+    applyIoMode();
+  });
+});
+function setMcuMenu(open) {
+  const menu = $("io-mcu-menu");
+  const input = $("io-mcu");
+  if (!menu || !input) return;
+  menu.hidden = !open;
+  input.setAttribute("aria-expanded", open ? "true" : "false");
+  const current = input.value.trim().toUpperCase();
+  menu.querySelectorAll("[data-mcu]").forEach((choice) => {
+    const picked = (choice.getAttribute("data-mcu") || "").toUpperCase() === current;
+    choice.setAttribute("aria-selected", picked ? "true" : "false");
+  });
+}
+
+if ($("io-mcu")) {
+  $("io-mcu").addEventListener("input", () => {
+    clearIoDownload();
+    refreshIoGenerate();
+  });
+  $("io-mcu").addEventListener("keydown", (event) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setMcuMenu(true);
+    } else if (event.key === "Escape") {
+      setMcuMenu(false);
+    }
+  });
+}
+if ($("io-mcu-pick")) {
+  $("io-mcu-pick").addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const menu = $("io-mcu-menu");
+    setMcuMenu(menu ? menu.hidden : false);
+  });
+}
+if ($("io-mcu-menu")) {
+  $("io-mcu-menu").addEventListener("click", (event) => {
+    const choice = event.target.closest("[data-mcu]");
+    if (!choice || !$("io-mcu")) return;
+    $("io-mcu").value = choice.getAttribute("data-mcu") || "";
+    $("io-mcu").dispatchEvent(new Event("input", { bubbles: true }));
+    setMcuMenu(false);
+    $("io-mcu").focus();
+  });
+}
+document.addEventListener("click", (event) => {
+  const menu = $("io-mcu-menu");
+  if (!menu || menu.hidden) return;
+  if (event.target.closest(".io-mcu-combo")) return;
+  setMcuMenu(false);
+});
+applyIoMode();
 $("io-back").onclick = () => setPanel("home");
 $("io-blank").onclick = async () => {
   clearIoDownload();
@@ -1104,29 +1744,73 @@ $("io-blank").onclick = async () => {
   }
 };
 $("io-hsi").onclick = async () => {
+  const mode = ioMode();
   const manual = $("io-manual").files && $("io-manual").files[0];
+  const schematic = $("io-schematic").files && $("io-schematic").files[0];
   clearIoDownload();
-  if (!manual) {
-    setIoMsg(tx("io.needManual"));
-    return;
-  }
-  const packageName = selectedIoPackage();
-  if (!packageName) {
-    setIoMsg(tx("io.needPackage"));
-    return;
-  }
   const body = new FormData();
-  body.append("datasheet", manual);
+  body.append("mode", mode);
   const previous = $("io-previous").files && $("io-previous").files[0];
   if (previous) body.append("previous", previous);
-  body.append("package", packageName);
-  setIoMsg(tx("io.working"), "info");
+  if (mode === "schematic") {
+    if (!schematic || !schematic.name.toLowerCase().endsWith(".edf")) {
+      setIoMsg(tx("io.needSchematic"));
+      return;
+    }
+    body.append("schematic", schematic);
+  } else {
+    const mcu = $("io-mcu") ? $("io-mcu").value.trim() : "";
+    if (!mcu) {
+      setIoMsg(tx("io.needMcu"));
+      return;
+    }
+    if (!manual) {
+      setIoMsg(tx("io.needManual"));
+      return;
+    }
+    const packageName = selectedIoPackage();
+    if (!packageName) {
+      setIoMsg(tx("io.needPackage"));
+      return;
+    }
+    body.append("mcu", mcu);
+    body.append("datasheet", manual);
+    body.append("package", packageName);
+  }
+  const progressId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+  setIoMsg("");
+  showIoProgress(1, ioProgressLabel({ stage: "read", detail: "" }));
   $("io-hsi").disabled = true;
+  const blank = $("io-blank");
+  if (blank) blank.disabled = true;
+  let poll = 0;
+  let closed = false;
+  const tick = async () => {
+    if (closed) return;
+    try {
+      const resp = await fetch(apiUrl("/api/hsi/progress/" + encodeURIComponent(progressId)), {
+        credentials: "same-origin",
+        headers: authHeaders(),
+      });
+      if (!resp.ok || closed) return;
+      const payload = await resp.json();
+      if (closed || payload.done) {
+        closed = true;
+        window.clearInterval(poll);
+        hideIoProgress();
+        return;
+      }
+      // 手册还在上传时，服务端还没有这条进度，先留着本地的「正在读取手册」
+      if (!(Number(payload.percent) > 0)) return;
+      showIoProgress(payload.percent, ioProgressLabel(payload));
+    } catch (e) { /* 进度读不到不影响出表 */ }
+  };
+  poll = window.setInterval(tick, 400);
   try {
     const resp = await fetch(apiUrl("/api/hsi"), {
       method: "POST",
       credentials: "same-origin",
-      headers: authHeaders(),
+      headers: Object.assign({ "X-Hsi-Progress": progressId }, authHeaders()),
       body,
     });
     const data = await resp.json().catch(() => ({}));
@@ -1134,20 +1818,50 @@ $("io-hsi").onclick = async () => {
       const detail = data.detail || data.error || resp.statusText;
       throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
     }
-    setIoMsg(tx(hsiDoneKey(data), {
-      name: data.name,
-      pins: data.pins,
-      changes: data.changes,
-    }), "ok");
+    let done = data.mode === "schematic"
+      ? tx("io.schematicDone", { name: data.name, n: data.schematic_updates })
+      : tx(hsiDoneKey(data), {
+        name: data.name,
+        pins: data.pins,
+        changes: data.changes,
+      });
+    setIoMsg(done, "ok");
     showIoDownload(data);
     loadJobs();
   } catch (err) {
     clearIoDownload();
     setIoMsg(err.message || String(err));
   } finally {
+    closed = true;
+    window.clearInterval(poll);
+    hideIoProgress();
+    if (blank) blank.disabled = false;
     refreshIoGenerate();
   }
 };
+
+function showIoProgress(percent, label) {
+  const box = $("io-progress");
+  const bar = $("io-progress-bar");
+  const text = $("io-progress-label");
+  if (!box || !bar || !text) return;
+  box.hidden = false;
+  const track = box.querySelector("[role=progressbar]");
+  const value = Math.max(0, Math.min(100, Number(percent) || 0));
+  bar.style.width = value + "%";
+  if (track) track.setAttribute("aria-valuenow", String(value));
+  text.textContent = label || "";
+}
+
+function hideIoProgress() {
+  const box = $("io-progress");
+  if (box) box.hidden = true;
+}
+
+function ioProgressLabel(payload) {
+  const stage = payload && payload.stage ? payload.stage : "read";
+  return tx("io.progress." + stage, { detail: (payload && payload.detail) || "" }).replace(/\s+$/, "");
+}
 $("io-dl").addEventListener("click", async (ev) => {
   const link = ev.currentTarget;
   const api = desktopSave();
@@ -1288,6 +2002,29 @@ $("arch-files").addEventListener("change", () => {
   renderArchFiles();
 });
 $("arch-back").onclick = () => setPanel("home");
+function showArchProgress(percent, label) {
+  const box = $("arch-progress");
+  const bar = $("arch-progress-bar");
+  const text = $("arch-progress-label");
+  if (!box || !bar || !text) return;
+  box.hidden = false;
+  const track = box.querySelector("[role=progressbar]");
+  const value = Math.max(0, Math.min(100, Number(percent) || 0));
+  bar.style.width = value + "%";
+  if (track) track.setAttribute("aria-valuenow", String(value));
+  text.textContent = label || "";
+}
+
+function hideArchProgress() {
+  const box = $("arch-progress");
+  if (box) box.hidden = true;
+}
+
+function archProgressLabel(payload) {
+  const stage = payload && payload.stage ? payload.stage : "text";
+  return tx("arch.progress." + stage, { detail: (payload && payload.detail) || "" }).replace(/\s+$/, "");
+}
+
 $("arch-build").onclick = async () => {
   const files = archFiles();
   clearArchDownload();
@@ -1297,13 +2034,36 @@ $("arch-build").onclick = async () => {
   }
   const body = new FormData();
   files.forEach((f) => body.append("files", f));
-  setArchMsg(tx("arch.working"), "info");
+  const progressId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now());
+  setArchMsg("");
+  showArchProgress(1, tx("arch.progress.text", { detail: "" }));
   $("arch-build").disabled = true;
+  let poll = 0;
+  let closed = false;
+  const tick = async () => {
+    if (closed) return;
+    try {
+      const resp = await fetch(apiUrl("/api/arch/progress/" + encodeURIComponent(progressId)), {
+        credentials: "same-origin",
+        headers: authHeaders(),
+      });
+      if (!resp.ok || closed) return;
+      const payload = await resp.json();
+      if (closed || payload.done) {
+        closed = true;
+        window.clearInterval(poll);
+        hideArchProgress();
+        return;
+      }
+      showArchProgress(payload.percent, archProgressLabel(payload));
+    } catch (e) { /* 进度读不到不影响出表 */ }
+  };
+  poll = window.setInterval(tick, 400);
   try {
     const resp = await fetch(apiUrl("/api/arch"), {
       method: "POST",
       credentials: "same-origin",
-      headers: authHeaders(),
+      headers: Object.assign({ "X-Arch-Progress": progressId }, authHeaders()),
       body,
     });
     const data = await resp.json().catch(() => ({}));
@@ -1335,6 +2095,9 @@ $("arch-build").onclick = async () => {
     clearArchDownload();
     setArchMsg(err.message || String(err));
   } finally {
+    closed = true;
+    window.clearInterval(poll);
+    hideArchProgress();
     renderArchFiles();
   }
 };
@@ -1488,11 +2251,20 @@ function liveLine(data) {
   el.hidden = !bits.length;
   el.textContent = bits.join(" · ");
 }
-function openPicker() { fileInput.click(); }
-pick.addEventListener("click", openPicker);
-drop.addEventListener("click", openPicker);
+function openPicker(anchor) {
+  openFileChoice(anchor || pick, "spec", "spec", "jobs");
+}
+pick.addEventListener("click", (ev) => {
+  ev.stopPropagation();
+  openPicker(pick);
+});
+drop.addEventListener("click", (ev) => {
+  if (ev.target.closest("button, a, input, select")) return;
+  ev.stopPropagation();
+  openPicker(drop);
+});
 drop.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(); }
+  if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openPicker(drop); }
 });
 fileInput.addEventListener("change", () => setFile(fileInput.files[0] || null));
 ["dragenter", "dragover"].forEach((ev) => {

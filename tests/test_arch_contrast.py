@@ -15,6 +15,7 @@ from electrical_krow.arch_contrast import (
     SHEET_NOTE,
     SHEET_REQS,
     SHEET_TABLES,
+    STATUS_CURRENT,
     STATUS_PENDING,
     SourceDoc,
     Unreadable,
@@ -206,10 +207,10 @@ class ArchContrastTests(unittest.TestCase):
         # 表格块整块保留在对应条目中、不取数
         pages = ((1, "1) Rated duration : 3min / 10min / 30min\n2) " + "Torque Nm Power kW " * 12 + "\n3) Coolant temp : 65°C"),)
         rows, tables = split_document(SourceDoc("perf.pdf", pages))
-        self.assertEqual(len(tables), 1)
-        self.assertEqual([r[6] for r in rows], ["1)", "2)", "3)"])
-        self.assertIn("本页表格块", rows[1][8])
-        self.assertEqual((rows[1][9], rows[1][10]), ("", ""))
+        self.assertEqual(len(tables), 0)
+        self.assertEqual([r[6] for r in rows], ["1)", "3)"])
+        self.assertNotIn("Torque", rows[0][8])
+        self.assertIn("65", rows[1][8])
         self.assertEqual(rows[0][9], "3min / 10min / 30min")
 
     def test_split_document_breaks_pages_into_clauses_and_marks_pending(self) -> None:
@@ -253,6 +254,45 @@ class ArchContrastTests(unittest.TestCase):
             self.assertNotIn("PAGE", str(row[8]))
             self.assertNotIn("Requirements Met", str(row[8]))
 
+    def test_role_marks_keep_named_column_and_drop_stamp(self) -> None:
+        from electrical_krow.arch_contrast import NOTE_MARK_COL, page_body, table_entries
+
+        named = [
+            ["Item", "Details", "Role sharing", "", "Notes"],
+            ["", "", "HMC", "Supplier", ""],
+            ["SYSTEM Design", "Check vehicle system specifications", "○", "", "LDC ASSY Product drawing"],
+            ["Hardware Design", "Power circuit design", "", "○", "Power/Control Board"],
+        ]
+        entries = table_entries(named)
+        self.assertEqual(len(entries), 2)
+        self.assertIn("HMC：○", entries[0].text)
+        self.assertNotIn("Supplier：○", entries[0].text)
+        self.assertNotIn("Role sharing：○", entries[0].text)
+        self.assertEqual(entries[0].note, "")
+        self.assertIn("Supplier：○", entries[1].text)
+        self.assertNotIn("HMC：○", entries[1].text)
+        unnamed = [
+            ["Item", "Details", "Role sharing", "Notes"],
+            ["Hardware Design", "Power circuit design", "○", "Power board"],
+        ]
+        lost = table_entries(unnamed)
+        self.assertEqual(len(lost), 1)
+        self.assertNotIn("○", lost[0].text)
+        self.assertNotIn("○", lost[0].remark)
+        self.assertIn("Power circuit design", lost[0].value)
+        self.assertEqual(lost[0].note, NOTE_MARK_COL)
+        body = page_body(
+            "1) Keep this requirement about the approved drawing.\n"
+            "Corresponding to the Assy Product drawing\n"
+            "Together We can!\n"
+            "※ Provide sample to HMC after basic verification by supplier.",
+            frozenset(),
+        )
+        self.assertIn("Keep this requirement", body)
+        self.assertIn("Provide sample to HMC", body)
+        self.assertNotIn("Corresponding", body)
+        self.assertNotIn("Together", body)
+
     def test_tables_read_by_grid_become_key_value_rows(self) -> None:
         from electrical_krow.arch_contrast import is_grid, strip_table_lines, table_entries
 
@@ -274,7 +314,7 @@ class ArchContrastTests(unittest.TestCase):
                 ("Output current limit control / Current ripple", "5 A ↓ pk_to_pk", ""),
             ],
         )
-        self.assertEqual(entries[0].text, "Catego ry：Output voltage control | Item：Output voltage command range | Requirement：7V ~ 15.1V | Remark：-")
+        self.assertEqual(entries[0].text, "Output voltage control / Output voltage command range：7V ~ 15.1V")
         # 横向合并的表头（Classification 跨三列）后面的空列也是项目栏；值格没单位时补单位栏；上一级换了，下一级不沿用
         grid2 = [
             ["Classification", "", "", "Unit", "Specification"],
@@ -349,7 +389,9 @@ class ArchContrastTests(unittest.TestCase):
                 self.assertEqual(rows.freeze_panes, "A2")
                 status_col = REQ_COLUMNS.index("Currently status\n状态") + 1
                 statuses = {rows.cell(r, status_col).value for r in range(2, rows.max_row + 1)}
-                self.assertEqual(statuses, {STATUS_PENDING})
+                self.assertEqual(statuses, {STATUS_CURRENT})
+                lists = [dv.formula1 for dv in rows.data_validations.dataValidation]
+                self.assertTrue(any("Requirement Met" in (formula or "") and "Require Customer Clarified" in (formula or "") and "Closed" in (formula or "") for formula in lists))
                 for name in ("Priority\n优先级", "Comments\n意见", "From whom\n提出人", "HMC feedback\n客户反馈"):
                     col = REQ_COLUMNS.index(name) + 1
                     self.assertEqual([rows.cell(r, col).value for r in range(2, rows.max_row + 1) if rows.cell(r, col).value], [], name)
@@ -530,6 +572,108 @@ class ArchContrastTests(unittest.TestCase):
                 self.assertIn("工作电压", de_clause_row)
             finally:
                 book.close()
+
+    def test_whole_table_excerpt_is_one_line_per_row(self) -> None:
+        from electrical_krow.arch_translate import present_table_excerpt
+
+        shown = present_table_excerpt(
+            "本页表格（4 行 × 4 列）：\n"
+            "Development plan |  |  | \n"
+            "Vehicle schedule |  | Development schedule | \n"
+            " |  | Proto sample for Verification | '26.4.1\n"
+            "SOP | '27.10.15 |  | "
+        )
+        body = shown.split("：\n", 1)[1]
+        self.assertEqual(
+            [line for line in body.splitlines() if line and not set(line) <= set("─")][:3],
+            [
+                "Development plan / 开发计划",
+                "Vehicle schedule / 整车日程",
+                "Development schedule / 开发日程",
+            ],
+        )
+        self.assertIn("开发计划\n" + "─" * 42 + "\nVehicle schedule / 整车日程\nDevelopment schedule / 开发日程", body)
+        self.assertIn("Proto sample for Verification", body)
+        self.assertIn("'26.4.1", body)
+        self.assertNotIn("|", body)
+        self.assertEqual(shown.count("开发计划"), 1)
+        matrix = present_table_excerpt(
+            "本页表格（3 行 × 6 列）：\n"
+            "Item | Other | Korea | USA | China | Related SPEC\n"
+            "Material marking | EU ELV Directive 2000/53/EC | Act on Resource Circulation |  |  | MS201-02\n"
+            "Four Heavy Metals |  |  |  |  | MS201-01"
+        )
+        self.assertIn("Item: Material marking\nOther: EU ELV Directive 2000/53/EC\nKorea: Act on Resource Circulation\nRelated SPEC: MS201-02 / 相关规范：MS201-02", matrix)
+        self.assertIn("\n" + "─" * 42 + "\nItem: Four Heavy Metals\nRelated SPEC: MS201-01 / 相关规范：MS201-01", matrix)
+        self.assertNotIn("USA:", matrix)
+        schedule = (
+            "本页表格（3 行 × 4 列）：\n"
+            "Vehicle Schedule | Title | Due Date | Work Products\n"
+            "Tcar | Receive HMC requirements & Report format | Tcar - 6M | (HMC provided)\n"
+            " | Submit Design Specification | Tcar - 3.5M | 1. Design Specification"
+        )
+        shown_schedule = present_table_excerpt(schedule)
+        self.assertIn("Vehicle Schedule: Tcar / 整车日程：Tcar\nTitle: Receive HMC requirements & Report format\nDue Date: Tcar - 6M\nWork Products: (HMC provided) / 工作产物：(HMC provided)", shown_schedule)
+        self.assertIn("\n" + "─" * 42 + "\nTitle: Submit Design Specification / Title：提交设计规格\nDue Date: Tcar - 3.5M", shown_schedule)
+        grid = [
+            ["Development plan", "", "", ""],
+            ["Vehicle schedule", "", "Development schedule", ""],
+            ["", "", "Proto sample for Verification", "'26.4.1"],
+            ["SOP", "'27.10.15", "", ""],
+        ]
+        with tempfile.TemporaryDirectory() as raw:
+            dest = Path(raw) / "schedule.xlsx"
+            write_contrast([SourceDoc("schedule.pdf", ((1, "1. Overview\nThe development plan for this vehicle is in the table.\n"),), {1: [grid]})], [], dest)
+            book = load_workbook(dest, data_only=True)
+            try:
+                rows = book[SHEET_REQS]
+                excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
+                excerpts = [str(rows.cell(r, excerpt_col).value or "") for r in range(2, rows.max_row + 1)]
+                plan_at = next(r for r in range(2, rows.max_row + 1) if rows.cell(r, excerpt_col).value == "Development plan / 开发计划")
+                self.assertIsNotNone(rows.cell(plan_at, 1).value)
+                self.assertIsNone(rows.cell(plan_at + 1, 1).value)
+                self.assertIn("Vehicle schedule / 整车日程", str(rows.cell(plan_at + 1, excerpt_col).value))
+                self.assertTrue(any("'27.10.15" in e for e in excerpts))
+                self.assertFalse(any(e.startswith("本页表格") for e in excerpts))
+                self.assertTrue(any(str(m).startswith("A") for m in rows.merged_cells.ranges))
+            finally:
+                book.close()
+        from electrical_krow.arch_contrast import SHOT_SLOT
+
+        row_boxes = [[(10.0, float(i * 12), 400.0, float(i * 12 + 10)) for i in range(4)]]
+        split_rows, _ = split_document(
+            SourceDoc(
+                "schedule.pdf",
+                ((1, "1. Overview\nThe development plan for this vehicle is in the table.\n"),),
+                {1: [grid]},
+                table_rows={1: row_boxes},
+            )
+        )
+        table_rows = [r for r in split_rows if str(r[8]).startswith("本页表格")]
+        self.assertEqual(len(table_rows), 1)
+        self.assertEqual(table_rows[0][SHOT_SLOT].box, (10.0, 0.0, 400.0, 46.0))
+
+    def test_characteristic_table_header_is_not_its_own_row(self) -> None:
+        from electrical_krow.arch_translate import strip_column_headers, table_excerpt_blocks
+
+        self.assertEqual(strip_column_headers("转速/rpm 200V 250V 300V 340V 400V 450V"), "")
+        self.assertEqual(strip_column_headers("Torque Nm Power kW Torque Nm Power kW Torque Nm Power kW"), "")
+        self.assertEqual(
+            strip_column_headers("3) 30min Torque Nm Power kW Torque Nm Power kW"),
+            "3) 30min",
+        )
+        self.assertEqual(
+            strip_column_headers("※ Coolant temp. (PE system inlet) : 65°C 转速/ rpm 120V 180V 250V 300V"),
+            "※ Coolant temp. (PE system inlet) : 65°C",
+        )
+        blocks = table_excerpt_blocks(
+            "本页表格（4 行 × 1 列）：\n"
+            "转速/rpm 200V 250V 300V\n"
+            "Torque Nm Power kW Torque Nm Power kW\n"
+            "500 210.00 10.99\n"
+            "1000 210.00 21.99"
+        )
+        self.assertEqual(blocks, ["500 210.00 10.99", "1000 210.00 21.99"])
 
 
 if __name__ == "__main__":

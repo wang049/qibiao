@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -26,9 +27,11 @@ from pydantic import BaseModel, Field
 
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
 from electrical_krow.arch_contrast import build_contrast, contrast_file_name
-from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, build_hsi
+from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, build_hsi, revise_hsi_from_schematic
 from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
 from electrical_krow.io_plan import write_io_sheet
+
+_MCU_MODEL = re.compile(r"^[A-Za-z][A-Za-z0-9-]{1,31}$")
 from electrical_krow.bridge import wire_extract_endpoint
 from electrical_krow.config import (
     SERVER_ENV_BY_ID,
@@ -46,7 +49,7 @@ from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.jobs import JobStore
 from electrical_krow import paths as path_limits
 from electrical_krow.inspect_doc import document_needs_ocr, inspect_upload
-from electrical_krow.knowledge import browse_catalog, knowledge_summary, pending_rulings_count
+from electrical_krow.knowledge import browse_catalog, feature_library, knowledge_summary, pending_rulings_count
 from electrical_krow.llm import (
     chat_model_candidates,
     complete,
@@ -62,6 +65,30 @@ from electrical_krow.vision import is_text_chat_model, message_has_image, pick_v
 COOKIE = "electrical_krow_sid"
 FRONTEND = FRONTEND_DIR
 _AUTH_REFRESH = threading.Lock()
+_ARCH_PROGRESS: dict[str, dict[str, object]] = {}
+_ARCH_PROGRESS_LOCK = threading.Lock()
+_HSI_PROGRESS: dict[str, dict[str, object]] = {}
+_HSI_PROGRESS_LOCK = threading.Lock()
+
+
+def _arch_progress_set(job_id: str, percent: int, stage: str, detail: str = "", *, done: bool = False) -> None:
+    if not job_id:
+        return
+    with _ARCH_PROGRESS_LOCK:
+        _ARCH_PROGRESS[job_id] = {"percent": percent, "stage": stage, "detail": detail, "done": done}
+        if len(_ARCH_PROGRESS) > 40:
+            for key in list(_ARCH_PROGRESS)[:-20]:
+                _ARCH_PROGRESS.pop(key, None)
+
+
+def _hsi_progress_set(job_id: str, percent: int, stage: str, detail: str = "", *, done: bool = False) -> None:
+    if not job_id:
+        return
+    with _HSI_PROGRESS_LOCK:
+        _HSI_PROGRESS[job_id] = {"percent": percent, "stage": stage, "detail": detail, "done": done}
+        if len(_HSI_PROGRESS) > 40:
+            for key in list(_HSI_PROGRESS)[:-20]:
+                _HSI_PROGRESS.pop(key, None)
 
 
 async def read_capped_upload(file: UploadFile) -> bytes:
@@ -171,6 +198,17 @@ THINKING_MODES = frozenset({"", "on", "off"})
 class OcrIn(BaseModel):
     image: str = ""
     task: str = "table"
+
+
+class RecordFolderIn(BaseModel):
+    kind: str = ""
+    name: str = ""
+
+
+class RecordPlaceIn(BaseModel):
+    kind: str = ""
+    record_id: str = ""
+    folder_id: str = ""
 
 
 def create_app(
@@ -290,12 +328,12 @@ def create_app(
     @app.post("/api/login")
     def login(body: LoginIn, request: Request, response: Response) -> dict[str, object]:
         try:
-            auth = login_with_password(
-                cfg.server_url,
-                body.username,
-                body.password,
-                timeout=min(cfg.timeout_sec, 30.0),
-            )
+                auth = login_with_password(
+                    cfg.server_url,
+                    body.username,
+                    body.password,
+                    timeout=min(cfg.timeout_sec, 30.0),
+                )
         except (LoginError, ConfigError) as exc:
             raise HTTPException(401, str(exc)) from exc
         stored = request.app.state.store.put(auth, chat_model=cfg.chat_model)
@@ -338,8 +376,17 @@ def create_app(
     def knowledge_view(
         request: Request,
         authorization: str | None = Header(default=None),
+        library: str = "",
     ) -> dict[str, object]:
         _require_session(request, authorization)
+        chosen = (library or "sor").strip().lower()
+        if chosen in {"arch", "hsi"}:
+            data = feature_library(chosen)
+            if not data.get("version"):
+                raise HTTPException(404, "没有这份知识库")
+            return data
+        if chosen not in {"", "sor"}:
+            raise HTTPException(404, "没有这份知识库")
         data = browse_catalog()
         if not data.get("version"):
             raise HTTPException(503, "知识库尚未发布")
@@ -582,11 +629,101 @@ def create_app(
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
         item = _require_session(request, authorization)
+        user = item.auth.username
+        rows = request.app.state.jobs.list_recent(username=user)
         return {
-            "jobs": request.app.state.jobs.list_recent(
-                username=item.auth.username
-            )
+            "jobs": request.app.state.jobs.with_sources(rows, user, "jobs"),
+            "folders": request.app.state.jobs.list_record_folders(user, "jobs"),
         }
+
+    @app.post("/api/records/folders")
+    def create_record_folder(
+        body: RecordFolderIn,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        try:
+            folder = request.app.state.jobs.create_record_folder(
+                username=item.auth.username,
+                kind=body.kind,
+                name=body.name,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"ok": True, "folder": folder}
+
+    @app.post("/api/records/place")
+    def place_record(
+        body: RecordPlaceIn,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        try:
+            request.app.state.jobs.place_record(
+                username=item.auth.username,
+                kind=body.kind,
+                record_id=body.record_id,
+                folder_id=body.folder_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"ok": True}
+
+    @app.post("/api/records/sources")
+    async def add_record_source(
+        request: Request,
+        file: UploadFile = File(...),
+        kind: str = Form(default=""),
+        folder_id: str = Form(default=""),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """把检测原件放进某一类记录。指定文件夹时归到该文件夹，否则按文件名和同名输出放一起。"""
+        item = _require_session(request, authorization)
+        data = await read_capped_upload(file)
+        try:
+            row = request.app.state.jobs.keep_source(
+                username=item.auth.username,
+                kind=kind,
+                filename=file.filename or "",
+                data=data,
+                folder_id=folder_id,
+                group_title=Path(file.filename or "").name,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"ok": True, "source": row}
+
+    @app.get("/api/records/sources/{source_id}/file")
+    def download_source(
+        source_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> FileResponse:
+        item = _require_session(request, authorization)
+        try:
+            path, name = request.app.state.jobs.source_file(item.auth.username, source_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        return FileResponse(path, filename=name)
+
+    @app.post("/api/records/sources/{source_id}/open")
+    def open_source(
+        source_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        try:
+            path, name = request.app.state.jobs.source_file(item.auth.username, source_id)
+        except ValueError as exc:
+            raise HTTPException(404, str(exc)) from exc
+        try:
+            open_locally(path)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        return {"ok": True, "name": name}
 
     @app.get("/api/jobs/{job_id}")
     def job_status(
@@ -703,25 +840,55 @@ def create_app(
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
         item = _require_session(request, authorization)
+        user = item.auth.username
+        rows = request.app.state.jobs.list_hsi(username=user)
         return {
-            "records": request.app.state.jobs.list_hsi(username=item.auth.username)
+            "records": request.app.state.jobs.with_sources(rows, user, "hsi"),
+            "folders": request.app.state.jobs.list_record_folders(user, "hsi"),
         }
+
+    @app.get("/api/hsi/progress/{job_id}")
+    def hsi_progress(
+        request: Request,
+        job_id: str,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        with _HSI_PROGRESS_LOCK:
+            found = _HSI_PROGRESS.get(job_id)
+        if not found:
+            return {"percent": 0, "stage": "read", "detail": "", "done": False}
+        return found
 
     @app.post("/api/hsi")
     async def create_hsi(
         request: Request,
-        datasheet: UploadFile = File(...),
+        datasheet: UploadFile | None = File(default=None),
         template: UploadFile | None = File(default=None),
         previous: UploadFile | None = File(default=None),
+        schematic: UploadFile | None = File(default=None),
         package: str = Form(default=""),
+        mode: str = Form(default="mcu"),
+        mcu: str = Form(default=""),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        """按当份手册生成 HSI。未另选模板时用当前吉利模板。上一版用来写变更记录。"""
+        """按原理图修改已有 HSI，或按 MCU 型号和手册新建。"""
         item = _require_session(request, authorization)
-        manual_name = Path(datasheet.filename or "").name
-        if Path(manual_name).suffix.lower() != ".pdf":
-            raise HTTPException(400, "芯片手册请用 PDF。")
-        manual_bytes = await read_capped_upload(datasheet)
+        progress_id = (request.headers.get("x-hsi-progress") or "").strip()[:80]
+        chosen = (mode or "mcu").strip().lower()
+        if chosen not in {"mcu", "schematic"}:
+            raise HTTPException(400, "请选择按原理图修改，或按 MCU 型号新建。")
+        manual_name = Path(datasheet.filename or "").name if datasheet is not None else ""
+        manual_bytes = b""
+        typed_mcu = mcu.strip()
+        if chosen == "mcu":
+            if Path(manual_name).suffix.lower() != ".pdf":
+                raise HTTPException(400, "芯片手册请用 PDF。")
+            manual_bytes = await read_capped_upload(datasheet)
+            if typed_mcu and (_MCU_MODEL.match(typed_mcu) is None or not any(ch.isdigit() for ch in typed_mcu)):
+                raise HTTPException(400, "MCU 型号请写成如 TC399、TC387、TC324。")
+        elif not schematic or not Path(schematic.filename or "").name:
+            raise HTTPException(400, "请选择原理图网表（.edf）。")
         template_name = Path(template.filename or "").name if template is not None else ""
         template_bytes = b""
         if template_name:
@@ -736,6 +903,12 @@ def create_app(
             if Path(previous_name).suffix.lower() not in {".xlsx", ".xlsm"}:
                 raise HTTPException(400, "上一版 HSI 请用 Excel。")
             previous_bytes = await read_capped_upload(previous)
+        schematic_name = Path(schematic.filename or "").name if schematic is not None else ""
+        schematic_bytes = b""
+        if schematic_name:
+            if Path(schematic_name).suffix.lower() not in {".pdf", ".xlsx", ".xlsm", ".edf"}:
+                raise HTTPException(400, "原理图请用 EDIF、PDF 或 Excel。")
+            schematic_bytes = await read_capped_upload(schematic)
         model = (item.extract_model or _active_model(item)).strip() or cfg.chat_model
 
         def ask(messages: list[dict[str, str]]) -> str:
@@ -752,8 +925,10 @@ def create_app(
 
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)
-            manual_path = folder / manual_name
-            manual_path.write_bytes(manual_bytes)
+            manual_path = None
+            if manual_bytes:
+                manual_path = folder / manual_name
+                manual_path.write_bytes(manual_bytes)
             if template_bytes:
                 template_path = folder / template_name
                 template_path.write_bytes(template_bytes)
@@ -763,18 +938,44 @@ def create_app(
             if previous_bytes:
                 previous_path = folder / previous_name
                 previous_path.write_bytes(previous_bytes)
+            schematic_path = None
+            if schematic_bytes:
+                schematic_path = folder / schematic_name
+                schematic_path.write_bytes(schematic_bytes)
+            def on_progress(percent: int, stage: str, detail: str = "") -> None:
+                _hsi_progress_set(progress_id, percent, stage, detail)
+
+            _hsi_progress_set(progress_id, 1, "read", "")
             try:
-                result = await asyncio.to_thread(
-                    build_hsi,
-                    template_path,
-                    manual_path,
-                    folder / "hsi.xlsx",
-                    package=package,
-                    previous=previous_path,
-                    ask=ask,
-                )
+                if chosen == "schematic":
+                    if schematic_path is None or schematic_path.suffix.lower() != ".edf":
+                        raise ValueError("按原理图修改请用 EDIF（.edf）网表。")
+                    result = await asyncio.to_thread(
+                        revise_hsi_from_schematic,
+                        previous_path or template_path,
+                        folder / "hsi.xlsx",
+                        schematic_path,
+                        on_progress=on_progress,
+                    )
+                else:
+                    result = await asyncio.to_thread(
+                        build_hsi,
+                        template_path,
+                        manual_path,
+                        folder / "hsi.xlsx",
+                        package=package,
+                        previous=previous_path,
+                        ask=ask,
+                        on_progress=on_progress,
+                        mcu=typed_mcu,
+                    )
             except ValueError as exc:
+                _hsi_progress_set(progress_id, 0, "write", "", done=True)
                 raise HTTPException(400, str(exc)) from exc
+            except Exception:
+                _hsi_progress_set(progress_id, 0, "write", "", done=True)
+                raise
+            _hsi_progress_set(progress_id, 100, "write", "", done=True)
             stamp = result.issued or date.today().strftime("%Y%m%d")
             dest = request.app.state.jobs.output_dir / f"HSI-{result.version}-{stamp}.xlsx"
             dest.write_bytes(result.path.read_bytes())
@@ -782,7 +983,7 @@ def create_app(
             open_locally(dest)
         except OpenError as exc:
             raise HTTPException(500, str(exc)) from exc
-        request.app.state.jobs.remember_hsi(
+        saved = request.app.state.jobs.remember_hsi(
             name=dest.name,
             username=item.auth.username,
             mcu=result.mcu,
@@ -792,6 +993,28 @@ def create_app(
             version=result.version,
             previous=bool(previous_bytes),
         )
+        group = " ".join(part for part in (result.mcu, result.package) if part).strip() or manual_name
+        try:
+            if manual_bytes:
+                request.app.state.jobs.keep_source(
+                    username=item.auth.username,
+                    kind="hsi",
+                    filename=manual_name,
+                    data=manual_bytes,
+                    run_id=str(saved.get("id") or ""),
+                    group_title=group,
+                )
+            if schematic_bytes:
+                request.app.state.jobs.keep_source(
+                    username=item.auth.username,
+                    kind="hsi",
+                    filename=schematic_name,
+                    data=schematic_bytes,
+                    run_id=str(saved.get("id") or ""),
+                    group_title=group,
+                )
+        except ValueError:
+            pass
         return {
             "ok": True,
             "name": dest.name,
@@ -804,6 +1027,9 @@ def create_app(
             "conflicts": result.conflicts,
             "model_used": result.model_used,
             "previous": bool(previous_bytes),
+            "schematic": bool(schematic_bytes),
+            "schematic_updates": result.schematic_updates,
+            "mode": chosen,
         }
 
     @app.get("/api/arch/history")
@@ -812,9 +1038,25 @@ def create_app(
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
         item = _require_session(request, authorization)
+        user = item.auth.username
+        rows = request.app.state.jobs.list_arch(username=user)
         return {
-            "records": request.app.state.jobs.list_arch(username=item.auth.username)
+            "records": request.app.state.jobs.with_sources(rows, user, "arch"),
+            "folders": request.app.state.jobs.list_record_folders(user, "arch"),
         }
+
+    @app.get("/api/arch/progress/{job_id}")
+    def arch_progress(
+        request: Request,
+        job_id: str,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        _require_session(request, authorization)
+        with _ARCH_PROGRESS_LOCK:
+            found = _ARCH_PROGRESS.get(job_id)
+        if not found:
+            return {"percent": 0, "stage": "text", "detail": "", "done": False}
+        return found
 
     @app.post("/api/arch")
     async def create_arch(
@@ -824,6 +1066,7 @@ def create_app(
     ) -> dict[str, object]:
         """架构填报：把当份需求 PDF 拆成材料对照稿。只摘原文，不写满足结论。"""
         item = _require_session(request, authorization)
+        progress_id = (request.headers.get("x-arch-progress") or "").strip()[:80]
         if not files:
             raise HTTPException(400, "请选择需求文件 PDF。")
         payloads: list[tuple[str, bytes]] = []
@@ -855,10 +1098,16 @@ def create_app(
                 target.parent.mkdir()
                 target.write_bytes(data)
                 sources.append(target)
+            def on_progress(percent: int, stage: str, detail: str = "") -> None:
+                _arch_progress_set(progress_id, percent, stage, detail)
+
+            _arch_progress_set(progress_id, 1, "text", "")
             try:
-                result = await asyncio.to_thread(build_contrast, sources, folder / "arch.xlsx", ask)
+                result = await asyncio.to_thread(build_contrast, sources, folder / "arch.xlsx", ask, on_progress)
             except ValueError as exc:
+                _arch_progress_set(progress_id, 0, "write", "", done=True)
                 raise HTTPException(400, str(exc)) from exc
+            _arch_progress_set(progress_id, 100, "write", "", done=True)
             dest = request.app.state.jobs.output_dir / contrast_file_name()
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(result.path.read_bytes())
@@ -867,7 +1116,7 @@ def create_app(
         except OpenError as exc:
             raise HTTPException(500, str(exc)) from exc
         unreadable = [{"name": u.name, "pages": u.pages, "reason": u.reason} for u in result.unreadable]
-        request.app.state.jobs.remember_arch(
+        saved = request.app.state.jobs.remember_arch(
             name=dest.name,
             username=item.auth.username,
             files=result.files,
@@ -875,6 +1124,24 @@ def create_app(
             tables=result.tables,
             unreadable=len(unreadable),
         )
+        names = [name for name, _data in payloads]
+        if len(names) == 1:
+            group = names[0]
+        else:
+            shown = "、".join(names[:3])
+            group = shown + ("等" if len(names) > 3 else "")
+        for name, data in payloads:
+            try:
+                request.app.state.jobs.keep_source(
+                    username=item.auth.username,
+                    kind="arch",
+                    filename=name,
+                    data=data,
+                    run_id=str(saved.get("id") or ""),
+                    group_title=group or name,
+                )
+            except ValueError:
+                continue
         return {
             "ok": True,
             "name": dest.name,

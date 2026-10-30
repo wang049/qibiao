@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器智能体</title>
-  <link rel="icon" type="image/png" href="/static/app-icon.png" />
-  <link rel="stylesheet" href="/static/styles.css?v=20261016a" />
+  <link rel="icon" type="image/png" href="/static/app-icon.png?v=20261030e" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261030g" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -76,7 +76,7 @@
             <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3h7l4 4v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M12 3v4h4" class="ico-line"/><path d="M7 11h6M7 14h6" class="ico-line"/></svg><span data-i18n="rail.extract">SOR 参数提取</span></span>
           </button>
           <button type="button" id="rail-io" class="rail-fn">
-            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5"/><path d="M8 3v3M12 3v3M8 14v3M12 14v3M3 8h3M3 12h3M14 8h3M14 12h3" class="ico-line"/></svg><span data-i18n="rail.io">IO口规划</span></span>
+            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><rect x="6" y="6" width="8" height="8" rx="1.5"/><path d="M8 3v3M12 3v3M8 14v3M12 14v3M3 8h3M3 12h3M14 8h3M14 12h3" class="ico-line"/></svg><span data-i18n="rail.io">HSI生成</span></span>
           </button>
           <button type="button" id="rail-arch" class="rail-fn">
             <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4h12v3H4zM4 8.5h12v3H4zM4 13h12v3H4z"/></svg><span data-i18n="rail.arch">电驱需求拆解</span></span>
@@ -89,7 +89,7 @@
         <div class="rail-block rail-jobs">
           <div class="rail-tabs" role="tablist">
             <button type="button" id="rail-tab-jobs" class="rail-tab is-on" role="tab" aria-selected="true" data-i18n="rail.jobs">出表记录</button>
-            <button type="button" id="rail-tab-hsi" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.hsiJobs">规划记录</button>
+            <button type="button" id="rail-tab-hsi" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.hsiJobs">HSI记录</button>
             <button type="button" id="rail-tab-arch" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.archJobs">拆解记录</button>
           </div>
           <div id="job-list" class="job-list" role="tabpanel"></div>
@@ -179,14 +179,14 @@
               <button type="button" class="fn-card" data-go="io">
                 <span class="fn-head">
                   <span class="fn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" class="ico-line"/></svg></span>
-                  <span class="fn-kicker" data-i18n="home.io.kicker">IO口规划</span>
+                  <span class="fn-kicker" data-i18n="home.io.kicker">HSI生成</span>
                 </span>
                 <strong data-i18n="home.io.cardTitle">对照芯片手册生成初始配置表。</strong>
                 <span class="fn-chips">
                   <span data-i18n="home.io.chipManual">手册</span>
                   <span data-i18n="home.io.chipPins">引脚</span>
                 </span>
-                <span class="fn-go" data-i18n="home.io.go">进入规划</span>
+                <span class="fn-go" data-i18n="home.io.go">进入生成</span>
               </button>
               <button type="button" class="fn-card" data-go="arch">
                 <span class="fn-head">
@@ -214,7 +214,7 @@
               <div class="io-file">
                 <span class="io-file-label" data-i18n="arch.files">需求文件</span>
                 <div class="arch-pick">
-                  <label class="io-file-box">
+                  <label class="io-file-box" data-target="arch-files" data-accept="pdf" data-kind="arch">
                     <input id="arch-files" type="file" accept=".pdf,application/pdf" multiple />
                     <span class="io-file-name" id="arch-files-name" data-i18n="io.fileNone">未选择文件</span>
                     <button type="button" id="arch-clear" class="ghost arch-clear" hidden data-i18n="arch.clear">清空</button>
@@ -230,6 +230,12 @@
                 <button id="arch-build" type="button" data-i18n="arch.generate" disabled>生成对照稿</button>
               </div>
             </div>
+            <div id="arch-progress" class="arch-progress" hidden>
+              <div class="arch-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div id="arch-progress-bar" class="arch-progress-bar"></div>
+              </div>
+              <p id="arch-progress-label" class="arch-progress-label"></p>
+            </div>
             <div id="arch-result" class="io-result" hidden>
               <p id="arch-msg" class="msg" hidden></p>
               <a id="arch-dl" class="dl" hidden></a>
@@ -237,30 +243,62 @@
           </div>
 
           <div id="io-card" class="card tool-card" hidden>
-            <ol class="io-steps">
+            <div class="io-modes" role="radiogroup" aria-label="生成方式">
+              <label><input type="radio" name="io-mode" value="schematic" checked /><span data-i18n="io.modeSchematic">按原理图修改</span></label>
+              <label><input type="radio" name="io-mode" value="mcu" /><span data-i18n="io.modeMcu">按MCU型号新建</span></label>
+            </div>
+            <ol class="io-steps" id="io-steps-schematic" data-io-mode="schematic">
+              <li><span>1</span><em data-i18n="io.sch.step1">选择原理图网表</em></li>
+              <li><span>2</span><em data-i18n="io.sch.step2">按网表里的接插件脚写入</em></li>
+              <li><span>3</span><em data-i18n="io.sch.step3">写入网络名和外部上拉、下拉</em></li>
+              <li><span>4</span><em data-i18n="io.sch.step4">标成待人工复核</em></li>
+            </ol>
+            <ol class="io-steps" id="io-steps-mcu" data-io-mode="mcu" hidden>
               <li><span>1</span><em data-i18n="io.step1">读取芯片数据手册</em></li>
               <li><span>2</span><em data-i18n="io.step2">按所选封装把引脚写入 HSI 端口表</em></li>
-              <li><span>3</span><em data-i18n="io.step3">命名和约束按吉利模板对照填写，并标出缺项、多候选和约束冲突</em></li>
-              <li><span>4</span><em data-i18n="io.step4">有上一版才写变更记录；没有则变更表留空</em></li>
+              <li><span>3</span><em data-i18n="io.step3">命名和约束按 HSI 模板对照填写，并标出缺项、多候选和约束冲突</em></li>
+              <li><span>4</span><em data-i18n="io.step4">有上一版才追加本次变更；带版本号的模板记录保留</em></li>
             </ol>
             <form id="io-form" class="io-form">
-              <div class="io-file">
+              <div class="io-file" data-io-mode="mcu" hidden>
+                <span class="io-file-label" data-i18n="io.mcu">MCU型号</span>
+                <div class="io-mcu-combo">
+                  <input id="io-mcu" class="io-mcu-input" type="text" role="combobox" aria-expanded="false" aria-controls="io-mcu-menu" data-i18n-placeholder="io.mcuPh" placeholder="选择或输入，如 TC399" autocomplete="off" />
+                  <button type="button" class="io-mcu-pick" id="io-mcu-pick" data-i18n="io.mcuPick" data-i18n-attr="aria-label" aria-label="选择常见型号" aria-haspopup="listbox" aria-controls="io-mcu-menu">
+                    <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6.2 8 10.2 12 6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  </button>
+                  <ul id="io-mcu-menu" class="io-mcu-menu" role="listbox" hidden>
+                    <li role="none"><button type="button" role="option" data-mcu="TC399">TC399</button></li>
+                    <li role="none"><button type="button" role="option" data-mcu="TC387">TC387</button></li>
+                    <li role="none"><button type="button" role="option" data-mcu="TC324">TC324</button></li>
+                  </ul>
+                </div>
+              </div>
+              <div class="io-file" data-io-mode="mcu" hidden>
                 <span class="io-file-label" data-i18n="io.manual">芯片手册</span>
-                <label class="io-file-box">
+                <label class="io-file-box" data-target="io-manual" data-accept="pdf" data-kind="hsi">
                   <input id="io-manual" type="file" accept=".pdf,application/pdf" />
                   <span class="io-file-name" id="io-manual-name" data-i18n="io.fileNone">未选择文件</span>
                   <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
                 </label>
               </div>
-              <div class="io-file">
+              <div class="io-file" data-io-mode="schematic">
+                <span class="io-file-label" data-i18n="io.schematic">原理图网表</span>
+                <label class="io-file-box" data-target="io-schematic" data-accept="schematic" data-kind="hsi">
+                  <input id="io-schematic" type="file" />
+                  <span class="io-file-name" id="io-schematic-name" data-i18n="io.fileNone">未选择文件</span>
+                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
+                </label>
+              </div>
+              <div class="io-file" data-io-mode="both">
                 <span class="io-file-label" data-i18n="io.previous">上一版 HSI（可选）</span>
-                <label class="io-file-box">
+                <label class="io-file-box" data-target="io-previous" data-accept="sheet" data-kind="hsi">
                   <input id="io-previous" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
                   <span class="io-file-name" id="io-previous-name" data-i18n="io.fileNone">未选择文件</span>
                   <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
                 </label>
               </div>
-              <div id="io-package-field" class="io-file" hidden>
+              <div id="io-package-field" class="io-file" data-io-mode="mcu" hidden>
                 <span class="io-file-label" data-i18n="io.package">封装</span>
                 <div class="io-package-body">
                   <p id="io-package-status" class="io-package-status" hidden></p>
@@ -272,8 +310,14 @@
               <button id="io-back" type="button" class="ghost" data-i18n="io.back">返回</button>
               <div class="io-bar-end">
                 <button id="io-blank" type="button" class="ghost" data-i18n="io.blank">生成空表</button>
-                <button id="io-hsi" type="button" data-i18n="io.generate" disabled>生成 HSI</button>
+                <button id="io-hsi" type="button" data-i18n="io.revise" disabled>按原理图修改</button>
               </div>
+            </div>
+            <div id="io-progress" class="arch-progress" hidden>
+              <div class="arch-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                <div id="io-progress-bar" class="arch-progress-bar"></div>
+              </div>
+              <p id="io-progress-label" class="arch-progress-label"></p>
             </div>
             <div id="io-result" class="io-result" hidden>
               <p id="io-msg" class="msg" hidden></p>
@@ -372,6 +416,13 @@
                 <span class="kb-chip" data-i18n="kb.classInternal">密级 内部</span>
                 <span class="kb-chip" data-i18n="kb.onPrem">不出公网</span>
               </div>
+              <label class="kb-library"><span data-i18n="kb.library">库</span>
+                <select id="kb-library">
+                  <option value="sor" data-i18n="kb.lib.sor">SOR 出表</option>
+                  <option value="arch" data-i18n="kb.lib.arch">电驱对照</option>
+                  <option value="hsi" data-i18n="kb.lib.hsi">HSI 规则</option>
+                </select>
+              </label>
               <label class="kb-search"><span data-i18n="kb.search">检索</span>
                 <input id="kb-q" type="search" placeholder="条款号、名称、别名、公式、企标…" autocomplete="off" data-i18n-placeholder="kb.searchPh" />
               </label>
@@ -586,8 +637,8 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261016a" defer></script>
-  <script src="/static/app.js?v=20261016a" defer></script>
-  <script src="/static/kb.js?v=20261016a" defer></script>
+  <script src="/static/i18n.js?v=20261030g" defer></script>
+  <script src="/static/app.js?v=20261030g" defer></script>
+  <script src="/static/kb.js?v=20261030g" defer></script>
 </body>
 </html>

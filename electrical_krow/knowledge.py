@@ -517,6 +517,83 @@ def browse_catalog() -> dict:
     }
 
 
+_FEATURE_FILES = {
+    "arch": "arch_kb.yaml",
+    "hsi": "hsi_kb.yaml",
+}
+
+
+def feature_library(kind: str) -> dict:
+    """电驱对照库或 HSI 规则库。不开选段，不提供可填进表的数。"""
+    filename = _FEATURE_FILES.get(kind)
+    if not filename:
+        return {}
+    path = PROJECT_ROOT / "docs" / "knowledge" / filename
+    if not path.is_file():
+        return {}
+    import yaml
+
+    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    if raw.get("fill_from_kb") is not False or raw.get("retrieve") is not False:
+        raise ValueError(f"{filename} 必须 fill_from_kb=false 且 retrieve=false")
+    clauses: list[dict] = []
+    groups: dict[str, int] = {}
+    for index, card in enumerate(raw.get("cards") or [], start=1):
+        group = str(card.get("group") or "未分组").strip() or "未分组"
+        groups[group] = groups.get(group, 0) + 1
+        clauses.append(
+            {
+                "seq": index,
+                "id": str(card.get("id") or ""),
+                "name": _scrub_text(str(card.get("title") or "")),
+                "group": group,
+                "gloss": _scrub_text(str(card.get("gloss") or "")),
+                "use": _scrub_text(str(card.get("use") or "")),
+                "limits": [_scrub_text(str(item)) for item in (card.get("does_not") or [])],
+                "aliases": [],
+                "reject": [],
+                "std": [],
+                "units": [],
+                "see": [],
+                "retrieve": False,
+                "status": "active",
+                "status_label": "已用于核对",
+                "related": [],
+                "fill": False,
+            }
+        )
+    scope = raw.get("scope") or {}
+    return {
+        "kind": kind,
+        "title": _scrub_text(str(raw.get("title") or "")),
+        "version": str(raw.get("version") or "").strip(),
+        "fill_from_kb": False,
+        "leave_site": False,
+        "rule": _scrub_text(str(raw.get("rule") or "")),
+        "scope": {
+            "answers": [_scrub_text(str(item)) for item in (scope.get("answers") or [])],
+            "does_not": [_scrub_text(str(item)) for item in (scope.get("does_not") or [])],
+            "owner": _scrub_text(str(scope.get("owner") or "")),
+            "site": _scrub_text(str(scope.get("site") or "")),
+        },
+        "sources": [],
+        "stats": {
+            "clauses": len(clauses),
+            "physics": 0,
+            "retrieve": 0,
+            "edges": 0,
+            "groups": len(groups),
+            "enterprise": 0,
+        },
+        "groups": [{"name": name, "count": count} for name, count in groups.items()],
+        "clauses": clauses,
+        "physics": [],
+        "enterprise": [],
+        "enterprise_terms": [],
+        "graph": {"nodes": [], "edges": []},
+    }
+
+
 _PENDING = PROJECT_ROOT / "docs" / "knowledge" / "pending_rulings.json"
 
 

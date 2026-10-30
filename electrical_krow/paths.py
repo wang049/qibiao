@@ -12,7 +12,7 @@ MAX_MB = MAX_BYTES // (1024 * 1024)
 PACKAGE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = PACKAGE_DIR.parent
 FRONTEND_DIR = PACKAGE_DIR / "frontend"
-SUPPORTED = {".pdf", ".docx", ".xlsx", ".xlsm", ".txt", ".md"}
+SUPPORTED = {".pdf", ".docx", ".xlsx", ".xlsm", ".txt", ".md", ".edf"}
 
 
 def data_root() -> Path:

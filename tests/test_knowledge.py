@@ -10,6 +10,7 @@ from pathlib import Path
 from electrical_krow.knowledge import (
     browse_catalog,
     citation_for_seq,
+    feature_library,
     fill_from_kb_allowed,
     keyword_hits,
     knowledge_version,
@@ -509,6 +510,36 @@ class KnowledgeCompileTests(unittest.TestCase):
             self.assertEqual(sorted(p.name for p in out.iterdir()), ["bundle.json", "domain_pack.json"])
             b = json.loads((out / "bundle.json").read_text(encoding="utf-8"))
             self.assertEqual(b["version"], "20260916T120000Z")
+
+
+class FeatureLibraryTests(unittest.TestCase):
+    def test_arch_and_hsi_libraries_do_not_supply_values(self) -> None:
+        arch = feature_library("arch")
+        hsi = feature_library("hsi")
+        self.assertEqual(arch["kind"], "arch")
+        self.assertEqual(hsi["kind"], "hsi")
+        self.assertEqual(arch["title"], "电驱对照知识库")
+        self.assertEqual(hsi["title"], "HSI 规则知识库")
+        for data in (arch, hsi):
+            self.assertFalse(data["fill_from_kb"])
+            self.assertFalse(data["leave_site"])
+            self.assertEqual(data["stats"]["retrieve"], 0)
+            self.assertGreaterEqual(len(data["clauses"]), 4)
+            for card in data["clauses"]:
+                self.assertFalse(card["retrieve"])
+                self.assertFalse(card["fill"])
+                self.assertTrue(card["gloss"])
+                self.assertTrue(card["limits"])
+        arch_names = {card["name"] for card in arch["clauses"]}
+        self.assertIn("同条中英数值要一致", arch_names)
+        self.assertIn("同文件重量不得超出该文件写明的上限", arch_names)
+        hsi_names = {card["name"] for card in hsi["clauses"]}
+        self.assertIn("同一电机的 PWM 在同一个 ATOM", hsi_names)
+        self.assertIn("三相电流分到不同 group 的同一 channel", hsi_names)
+        self.assertIn("功率板按自己的接插件脚出表", hsi_names)
+        blob = json.dumps(hsi, ensure_ascii=False)
+        self.assertNotIn("1.6", blob)
+        self.assertEqual(feature_library("sor"), {})
 
 
 if __name__ == "__main__":

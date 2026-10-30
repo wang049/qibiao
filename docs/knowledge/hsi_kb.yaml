@@ -1,0 +1,86 @@
+# HSI 出表的规则库。不提供引脚号、电阻值或死区时间，不开选段检索。
+id: hsi
+title: HSI 规则知识库
+version: "2026-10-30.1"
+fill_from_kb: false
+leave_site: false
+retrieve: false
+rule: 只说明已经确认的分配规则和出表边界。引脚、网络、外部电阻和死区时间只来自当份手册、当份网表或当份表上的格子。
+scope:
+  answers:
+    - 同一电机的 PWM 是否应在同一个 ATOM
+    - 同一相上下桥是否应共用通道，下桥是否为互补输出
+    - 三相电流是否应落在不同 group 的同一个 channel
+    - 功率板网表按什么生成端口行
+    - 怎样的电阻才记成外部上拉或下拉
+    - ADC 表哪些列隐藏
+  does_not:
+    - 用库里的引脚号、球号或电阻值填端口表
+    - 没有手册复用时编造 ATOM 或 DTM
+    - 只用 MCU 型号、没有芯片手册就出端口
+    - 把功率板网表对到模板里的 MCU 引脚符号
+  owner: 分配规则已在按手册出表中使用；改口径须同时改卡片和对应测试
+  site: 指定场所内使用，不出公网
+cards:
+  - id: hsi-pwm-atom
+    group: 分配规则
+    title: 同一电机的 PWM 在同一个 ATOM
+    gloss: P1、GM、TM 各自的 PWM 应配置在同一个 ATOM。名称里的 A、B、C 表示 U、V、W。
+    use: 按芯片手册出表时，用手册复用核对。对不上就标在对应引脚上，不改写成另一套配置。
+    does_not:
+      - 手册复用里没有 ATOM 时，不把没写出来的通道当成冲突
+      - 功率板接插件出表不套用这条
+  - id: hsi-pwm-bridge
+    group: 分配规则
+    title: 同一相上下桥共用通道且下桥互补
+    gloss: 同一相的上桥和下桥使用同一个 ATOM 通道。下桥是上桥 DTM 的互补 N 输出。
+    use: 按芯片手册出表时核对。互补关系看手册里写出的 DTM 与带 N 的 DTM。
+    does_not:
+      - 不给手册没有写出的脚指定通道
+      - 不把示例通道写进没有这组复用的端口
+  - id: hsi-adc-phase
+    group: 分配规则
+    title: 三相电流分到不同 group 的同一 channel
+    gloss: 同一电机的三相电流应落在不同 ADC group 的同一个 channel。名称里的 A、B、C 表示三相。
+    use: 按 ADC 表核对 group 和 channel。对不上就标在对应引脚上。
+    does_not:
+      - 名称带 BU 或备份的电流不计入这三相
+  - id: hsi-two-modes
+    group: 出表路径
+    title: 有网表就按接插件改，没有网表就按手册新建
+    gloss: 有原理图网表时，按板上接插件脚改端口表，再人工复核。没有网表时，按 MCU 型号对照芯片手册和封装出表。
+    use: 两条路径分开。型号要和手册一起用。
+    does_not:
+      - 只有型号、没有芯片手册时不出端口表
+  - id: hsi-schematic-connector
+    group: 原理图
+    title: 功率板按自己的接插件脚出表
+    gloss: 功率板网表的端口行来自接插件脚。模板提供封面和表头。方向、球号、复用留空，并标成待人工复核。
+    use: 接插件位号以 J 开头，或器件类型为 CON。一只接插件脚一行。
+    does_not:
+      - 不按模板里的 MCU 引脚符号去对网表
+      - 不按端口名把网表网络写进原有 MCU 行
+      - 电阻的脚不是端口行
+  - id: hsi-external-pull
+    group: 原理图
+    title: 外部上拉下拉只认接到电源或地的电阻
+    gloss: 电阻一端在信号网上。另一端在地网络上，记为下拉。另一端在 5V、3V3、3.3V、1V8、1V2、VCC、VDD、VDDA、VDDIO 开头的网络上，记为上拉。
+    use: 写在电路外部硬件状态，不写入 MCU 缓冲列。结果仍待人工复核。
+    does_not:
+      - 串在信号路径上的电阻不是上拉或下拉
+      - 脚所在网络本身就是电源或地时，这只脚是电源或地，不记成上拉下拉
+  - id: hsi-hide-adc-spare
+    group: 表
+    title: ADC 表隐藏不参与复核的 R1 和 R3
+    gloss: 表头以 R1( 或 R3( 开头的列在出表时隐藏。格子里已有的数保留。
+    use: 按手册出表时收起这两列。
+    does_not:
+      - 不隐藏 C1
+      - 不删除格内电阻值
+  - id: hsi-dead-time
+    group: 表
+    title: 死区时间以表上可改的格子为准
+    gloss: 死区图两侧标注和第一行要求跟随死区时间这一格。窄脉冲抑制只改第二行要求。
+    use: 数从当份表上已有的要求读出，人可以改这一格。
+    does_not:
+      - 不把库内或别的项目的死区时间写进这张表

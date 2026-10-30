@@ -34,6 +34,20 @@ _PAGE_BANNER = re.compile(
     r"^(?:TC\d+[A-Za-z0-9]*\s+[A-Z0-9/]+-Step|\d{4}-\d{2}-\d{2})$",
     re.IGNORECASE,
 )
+# 手册功能列和缓冲列抽在同一行时，供电名会粘在信号名后面，例如 `GTM_TIM2_IN3_6 VDDEXTH`。
+_SUPPLY_TOKEN = re.compile(
+    r"VD[A-Z0-9]+|VEXT|VEVRSB|VAREF|VFLEX|VAEXT|FAST|SLOW|PU\d*|PD\d*|HIGHZ|ES\d+|LVDS(?:_[A-Z0-9]+)?",
+    re.IGNORECASE,
+)
+_SIGNAL_TOKEN = re.compile(r"[A-Z][A-Z0-9]*[0-9_][A-Z0-9_]*")
+_RESERVED_ITEM = re.compile(r"^(?:[—\-–]\s*)?(?:O\d+\s+)?Reserved$", re.IGNORECASE)
+_RESERVED_PHRASE = re.compile(
+    r"(?:^|\s)[—\-–]\s+O\d+\s+Reserved\b|(?:^|\s)O\d+\s+Reserved\b|(?:^|\s)[—\-–]\s+Reserved\b",
+    re.IGNORECASE,
+)
+_GLUED_SUPPLY = re.compile(
+    r"\b([A-Z][A-Z0-9]*[0-9_][A-Z0-9_]*)\s+(?:VD[A-Z0-9]+|VEXT|VEVRSB|VAREF|VFLEX|VAEXT)\b"
+)
 _MUX = re.compile(
     r"^(?P<name>[—\-–A-Z][A-Z0-9_]*)\s+(?P<ctrl>[IO]\d+)\s*(?P<desc>.*)$"
 )
@@ -251,6 +265,53 @@ def _buffer_token(line: str) -> str:
     return matched.group("tok") or matched.group("es") or ""
 
 
+def _signal_start(text: str) -> bool:
+    first = text.split(None, 1)[0] if text else ""
+    return _SIGNAL_TOKEN.fullmatch(first) is not None
+
+
+def _peel_glued_supply(text: str) -> tuple[str, list[str]] | None:
+    """功能名同一行尾部若是供电或缓冲记号，拆回缓冲，不留在复用名上。"""
+    parts = text.split()
+    if len(parts) < 2 or _SIGNAL_TOKEN.fullmatch(parts[0]) is None:
+        return None
+    supplies: list[str] = []
+    index = 1
+    while index < len(parts) and _SUPPLY_TOKEN.fullmatch(parts[index]):
+        supplies.append(parts[index])
+        index += 1
+    if not supplies:
+        return None
+    rest = " ".join(parts[index:]).strip()
+    name = parts[0] if not rest else f"{parts[0]} {rest}"
+    return name, supplies
+
+
+def is_reserved_mux_item(text: str) -> bool:
+    return _RESERVED_ITEM.fullmatch(text.strip()) is not None
+
+
+def present_mux(mux: str) -> str:
+    """复用按功能分行，去掉只写 Reserved 的空位。"""
+    items: list[str] = []
+    for part in re.split(r"[；;\n]", mux or ""):
+        text = part.strip()
+        if not text or is_reserved_mux_item(text):
+            continue
+        items.append(text)
+    return "\n".join(items)
+
+
+def present_excerpt(excerpt: str) -> str:
+    """原文摘录去掉 Reserved 空位，供电名不粘在信号名上，每个信号单独成行。"""
+    text = _RESERVED_PHRASE.sub(" ", excerpt or "")
+    text = _GLUED_SUPPLY.sub(r"\1", text)
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r" *\n *", "\n", text).strip()
+    text = re.sub(r" (?=[A-Z][A-Z0-9]*_[A-Z0-9]+\b)", "\n", text)
+    return text
+
+
 class _OpenPin:
     def __init__(self, package: str, ball: str, symbol: str, page: int, header: str) -> None:
         self.package = package
@@ -308,11 +369,21 @@ class _OpenPin:
             self.mux.append(piece)
             self.lines.append(text)
             return
+        original = text
+        peeled = _peel_glued_supply(text)
+        if peeled:
+            name, supplies = peeled
+            self.buffers.extend(supplies)
+            text = name
+        if self.function and self.mux and not _signal_start(text):
+            self.mux[-1] = f"{self.mux[-1]} {text}".strip()
+            self.lines.append(original)
+            return
         if not self.function:
             self.function = text
         else:
             self.mux.append(text)
-        self.lines.append(text)
+        self.lines.append(original)
 
     def finish(self) -> ChipPin | None:
         if not self.ball or not self.symbol or not self.header:
@@ -484,13 +555,19 @@ def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...
     return tuple(rows)
 
 
-def read_pdf_pages(path: Path) -> list[tuple[int, str]]:
+def read_pdf_pages(path: Path, on_progress=None) -> list[tuple[int, str]]:
+    """on_progress(done, total) 按页回报。抽文字是读手册里最久的一段。"""
     from pypdf import PdfReader
 
     reader = PdfReader(str(path))
     pages: list[tuple[int, str]] = []
+    total = len(reader.pages)
+    if on_progress is not None:
+        on_progress(0, total)
     for index, page in enumerate(reader.pages, start=1):
         pages.append((index, page.extract_text() or ""))
+        if on_progress is not None:
+            on_progress(index, total)
     return pages
 
 

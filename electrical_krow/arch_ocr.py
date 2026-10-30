@@ -176,7 +176,7 @@ def _clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
 
-def read_image_tables(path: Path) -> dict[int, list[Grid]]:
+def read_image_tables(path: Path, progress=None) -> dict[int, list[Grid]]:
     """每页图片里识读出的表格。依赖缺失或任何一步出错都按没有图片表处理。"""
     try:
         regions = image_regions(path)
@@ -184,7 +184,11 @@ def read_image_tables(path: Path) -> dict[int, list[Grid]]:
         log.info("找不到图片区域，跳过图片表格：%s", exc)
         return {}
     found: dict[int, list[Grid]] = {}
-    for page_no, boxes in regions.items():
+    ordered = list(regions.items())
+    total_pages = len(ordered) or 1
+    for at, (page_no, boxes) in enumerate(ordered, start=1):
+        if progress:
+            progress(at, total_pages)
         grids: list[Grid] = []
         for box in boxes:
             try:

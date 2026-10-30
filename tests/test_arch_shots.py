@@ -8,7 +8,7 @@ from pathlib import Path
 from openpyxl import load_workbook
 
 from electrical_krow.arch_contrast import REQ_COLUMNS, SourceDoc, build_contrast, read_pdf_pages, suggest_category, write_contrast
-from electrical_krow.arch_shots import Shot, clause_box, render_shots, row_box
+from electrical_krow.arch_shots import Shot, clause_box, covered_by_stamp, render_shots, row_box
 
 
 def _spec_pdf(path: Path) -> None:
@@ -30,6 +30,12 @@ def _spec_pdf(path: Path) -> None:
 
 
 class ArchShotsTests(unittest.TestCase):
+    def test_stamp_overlap_drops_the_covered_clip_only(self) -> None:
+        bands = [(266.0, 610.0)]
+        self.assertTrue(covered_by_stamp((40.0, 280.0, 540.0, 310.0), bands))
+        self.assertFalse(covered_by_stamp((40.0, 200.0, 540.0, 230.0), bands))
+        self.assertFalse(covered_by_stamp((40.0, 200.0, 540.0, 230.0), []))
+
     def test_clause_box_unions_matching_lines_and_ignores_far_ones(self) -> None:
         lines = [
             ((50.0, 90.0, 120.0, 102.0), "2 Spec"),
@@ -103,7 +109,7 @@ class ArchShotsTests(unittest.TestCase):
                 self.assertEqual(ids[:2], ["REQ-20261015-001", "REQ-20261015-002"])
                 self.assertEqual(len(ids), len(set(ids)))
                 statuses = {sheet.cell(r, REQ_COLUMNS.index("Currently status\n状态") + 1).value for r in range(2, sheet.max_row + 1)}
-                self.assertEqual(statuses, {"待确认"})
+                self.assertEqual(statuses, {"To be confirmed"})
                 self.assertEqual(len(sheet._images), result.shots)
                 excerpts = [str(sheet.cell(r, 5).value) for r in range(2, sheet.max_row + 1)]
                 self.assertTrue(any(e.startswith("Ripple：") for e in excerpts))

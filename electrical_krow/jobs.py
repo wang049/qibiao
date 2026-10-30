@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import threading
 import time
 import uuid
@@ -67,6 +68,7 @@ _HISTORY_FIELDS = (
     "unreadable",
 )
 ARCH_PREFIX = "架构对照-"
+RECORD_KINDS = frozenset({"jobs", "hsi", "arch"})
 # 出表中的实时计数（不进历史）：已处理分段 / 分段总数 / 已抽出格数
 _LIVE_FIELDS = {"chunk_done", "chunk_total", "filled"}
 _COMPARE_LIST_LIMIT = 20
@@ -504,6 +506,289 @@ class JobStore:
         rows = sorted(by_name.values(), key=_created_at, reverse=True)
         return rows[: max(1, min(int(limit), 80))]
 
+    def list_record_folders(self, username: str, kind: str) -> list[dict[str, object]]:
+        """这个人在某一类记录里建的文件夹。按新建时间从新到旧。"""
+        raw = self._folder_board(username)
+        folders = raw.get("folders") if isinstance(raw.get("folders"), list) else []
+        rows = [
+            {
+                "id": str(item.get("id") or ""),
+                "name": str(item.get("name") or ""),
+                "kind": kind,
+                "created_at": _created_at(item),
+            }
+            for item in folders
+            if isinstance(item, dict) and str(item.get("kind") or "") == kind and item.get("id") and item.get("name")
+        ]
+        rows.sort(key=_created_at, reverse=True)
+        return rows
+
+    def attach_record_folders(
+        self, rows: list[dict[str, object]], username: str, kind: str
+    ) -> list[dict[str, object]]:
+        """给记录带上 folder_id。没放进自建文件夹的不写这个字段，界面按同一文件归类。"""
+        placed = self._folder_board(username).get("placed")
+        if not isinstance(placed, dict):
+            placed = {}
+        known = {str(item["id"]) for item in self.list_record_folders(username, kind)}
+        out: list[dict[str, object]] = []
+        for row in rows:
+            item = dict(row)
+            folder_id = str(placed.get(str(item.get("id") or "")) or "")
+            if folder_id in known:
+                item["folder_id"] = folder_id
+            out.append(item)
+        return out
+
+    def create_record_folder(self, *, username: str, kind: str, name: str) -> dict[str, object]:
+        owner = (username or "").strip()
+        if not owner:
+            raise ValueError("请先登录。")
+        if kind not in RECORD_KINDS:
+            raise ValueError("记录类型不对。")
+        title = (name or "").strip()
+        if not title:
+            raise ValueError("请填写文件夹名称。")
+        if len(title) > 40:
+            raise ValueError("文件夹名称请控制在 40 字以内。")
+        if any(mark in title for mark in "/\\"):
+            raise ValueError("文件夹名称不能包含斜杠。")
+        folder = {
+            "id": "fld-" + uuid.uuid4().hex[:12],
+            "name": title,
+            "kind": kind,
+            "created_at": time.time(),
+        }
+        with self._persist_lock:
+            book = self._load_folder_book()
+            board = self._folder_board_mut(book, owner)
+            folders = board["folders"]
+            if any(str(item.get("kind") or "") == kind and str(item.get("name") or "") == title for item in folders):
+                raise ValueError("已有同名文件夹。")
+            folders.append(folder)
+            self._save_folder_book(book)
+        return folder
+
+    def place_record(self, *, username: str, kind: str, record_id: str, folder_id: str) -> None:
+        owner = (username or "").strip()
+        if not owner:
+            raise ValueError("请先登录。")
+        if kind not in RECORD_KINDS:
+            raise ValueError("记录类型不对。")
+        record = (record_id or "").strip()
+        if not record or len(record) > 180:
+            raise ValueError("找不到这条记录。")
+        if not self._record_visible(owner, kind, record):
+            raise ValueError("找不到这条记录。")
+        target = (folder_id or "").strip()
+        with self._persist_lock:
+            book = self._load_folder_book()
+            board = self._folder_board_mut(book, owner)
+            if target:
+                folders = board["folders"]
+                if not any(str(item.get("id") or "") == target and str(item.get("kind") or "") == kind for item in folders):
+                    raise ValueError("找不到这个文件夹。")
+                board["placed"][record] = target
+            else:
+                board["placed"].pop(record, None)
+            self._save_folder_book(book)
+
+    def _record_visible(self, username: str, kind: str, record_id: str) -> bool:
+        if kind == "jobs":
+            rows = self.list_recent(limit=80, username=username)
+        elif kind == "hsi":
+            rows = self.list_hsi(limit=80, username=username)
+        else:
+            rows = self.list_arch(limit=80, username=username)
+        if any(str(row.get("id") or "") == record_id for row in rows):
+            return True
+        return any(str(row.get("id") or "") == record_id for row in self.list_source_rows(username, kind))
+
+    def _folders_path(self) -> Path:
+        return self._output_dir / "record-folders.json"
+
+    def _load_folder_book(self) -> dict[str, object]:
+        path = self._folders_path()
+        if not path.is_file():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def _save_folder_book(self, book: dict[str, object]) -> None:
+        path = self._folders_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(book, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _folder_board(self, username: str) -> dict[str, object]:
+        book = self._load_folder_book()
+        raw = book.get((username or "").strip())
+        return raw if isinstance(raw, dict) else {}
+
+    def _folder_board_mut(self, book: dict[str, object], username: str) -> dict[str, object]:
+        raw = book.get(username)
+        if not isinstance(raw, dict):
+            raw = {}
+            book[username] = raw
+        folders = raw.get("folders")
+        if not isinstance(folders, list):
+            folders = []
+            raw["folders"] = folders
+        placed = raw.get("placed")
+        if not isinstance(placed, dict):
+            placed = {}
+            raw["placed"] = placed
+        sources = raw.get("sources")
+        if not isinstance(sources, list):
+            sources = []
+            raw["sources"] = sources
+        return raw
+
+    def keep_source(
+        self,
+        *,
+        username: str,
+        kind: str,
+        filename: str,
+        data: bytes | None = None,
+        path: Path | None = None,
+        run_id: str = "",
+        group_title: str = "",
+        folder_id: str = "",
+    ) -> dict[str, object]:
+        """留下检测用的原件，和同一次输出放在一起。folder_id 有值时放进这个人建的文件夹。"""
+        owner = (username or "").strip()
+        if not owner:
+            raise ValueError("请先登录。")
+        if kind not in RECORD_KINDS:
+            raise ValueError("记录类型不对。")
+        name = Path(filename or "").name.strip()
+        suffix = Path(name).suffix.lower()
+        if not name or suffix not in SUPPORTED:
+            raise ValueError("检测文件请用 PDF、Word 或 Excel。")
+        if path is not None and path.is_file():
+            size = path.stat().st_size
+        elif data:
+            size = len(data)
+        else:
+            raise ValueError("文件是空的")
+        if size > MAX_BYTES:
+            raise ValueError(f"文件超过 {MAX_MB}MB")
+        title = (group_title or name).strip()[:80] or name
+        target = (folder_id or "").strip()
+        run = (run_id or "").strip()
+        with self._persist_lock:
+            book = self._load_folder_book()
+            board = self._folder_board_mut(book, owner)
+            sources = board["sources"]
+            if run:
+                for item in sources:
+                    if (
+                        str(item.get("kind") or "") == kind
+                        and str(item.get("run_id") or "") == run
+                        and str(item.get("name") or "") == name
+                    ):
+                        return self._source_row(item)
+            if target and not any(
+                str(item.get("id") or "") == target and str(item.get("kind") or "") == kind
+                for item in board["folders"]
+            ):
+                raise ValueError("找不到这个文件夹。")
+            source_id = "src-" + uuid.uuid4().hex[:12]
+            stored = f"{source_id}{suffix}"
+            dest = self._sources_dir() / stored
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if path is not None and path.is_file():
+                shutil.copyfile(path, dest)
+            else:
+                dest.write_bytes(data or b"")
+            record = {
+                "id": source_id,
+                "kind": kind,
+                "name": name,
+                "stored": stored,
+                "run_id": run,
+                "group_title": title,
+                "created_at": time.time(),
+            }
+            sources.append(record)
+            if target:
+                board["placed"][source_id] = target
+            self._save_folder_book(book)
+        return self._source_row(record)
+
+    def list_source_rows(self, username: str, kind: str) -> list[dict[str, object]]:
+        raw = self._folder_board(username)
+        sources = raw.get("sources") if isinstance(raw.get("sources"), list) else []
+        rows = [
+            self._source_row(item)
+            for item in sources
+            if isinstance(item, dict) and str(item.get("kind") or "") == kind and item.get("id")
+        ]
+        rows.sort(key=_created_at, reverse=True)
+        return rows[:80]
+
+    def with_sources(
+        self, rows: list[dict[str, object]], username: str, kind: str
+    ) -> list[dict[str, object]]:
+        """输出记录和检测原件合成一份列表。同一次生成的原件和输出用同一个文件夹名。"""
+        linked = self.attach_record_folders(rows, username, kind)
+        sources = self.attach_record_folders(self.list_source_rows(username, kind), username, kind)
+        titles: dict[str, str] = {}
+        for item in sources:
+            run = str(item.get("run_id") or "")
+            title = str(item.get("group_title") or "")
+            if run and title and run not in titles:
+                titles[run] = title
+        merged: list[dict[str, object]] = []
+        for row in linked:
+            item = dict(row)
+            title = titles.get(str(item.get("id") or ""))
+            if title:
+                item["group_title"] = title
+            merged.append(item)
+        merged.extend(sources)
+        return merged
+
+    def source_file(self, username: str, source_id: str) -> tuple[Path, str]:
+        raw = self._folder_board(username)
+        sources = raw.get("sources") if isinstance(raw.get("sources"), list) else []
+        found = None
+        for item in sources:
+            if isinstance(item, dict) and str(item.get("id") or "") == source_id:
+                found = item
+                break
+        if found is None:
+            raise ValueError("找不到这份检测文件。")
+        stored = Path(str(found.get("stored") or "")).name
+        if not stored or stored in {".", ".."}:
+            raise ValueError("找不到这份检测文件。")
+        path = (self._sources_dir() / stored).resolve()
+        root = self._sources_dir().resolve()
+        if path.parent != root or not path.is_file():
+            raise ValueError("找不到这份检测文件。")
+        return path, str(found.get("name") or stored)
+
+    def _sources_dir(self) -> Path:
+        return self._output_dir / "sources"
+
+    def _source_row(self, item: dict[str, object]) -> dict[str, object]:
+        source_id = str(item.get("id") or "")
+        return {
+            "id": source_id,
+            "role": "source",
+            "status": "done",
+            "kind": str(item.get("kind") or ""),
+            "source": str(item.get("name") or ""),
+            "message": "检测文件",
+            "created_at": _created_at(item),
+            "download": f"/api/records/sources/{source_id}/file",
+            "group_title": str(item.get("group_title") or item.get("name") or ""),
+            "run_id": str(item.get("run_id") or ""),
+        }
+
     def update(self, job_id: str, **fields: object) -> None:
         with self._lock:
             if job_id in self._jobs:
@@ -658,6 +943,10 @@ class JobStore:
                 if extract_on and not stopped
                 else {}
             )
+            try:
+                self._keep_job_source(job_id, incoming)
+            except Exception:
+                pass
             self.update(
                 job_id,
                 status="done",
@@ -704,6 +993,22 @@ class JobStore:
 
     def _history_path(self) -> Path:
         return self._output_dir / "jobs.jsonl"
+
+    def _keep_job_source(self, job_id: str, incoming: Path) -> None:
+        with self._lock:
+            job = self._jobs.get(job_id) or {}
+            username = str(job.get("username") or "")
+            filename = Path(str(job.get("source") or incoming.name)).name
+        if not username or not incoming.is_file():
+            return
+        self.keep_source(
+            username=username,
+            kind="jobs",
+            filename=filename,
+            path=incoming,
+            run_id=job_id,
+            group_title=filename,
+        )
 
     def _remember(self, job_id: str) -> None:
         with self._lock:

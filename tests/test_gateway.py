@@ -44,12 +44,24 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20261016a", resp.text)
-        self.assertIn("i18n.js?v=20261016a", resp.text)
-        self.assertIn("app.js?v=20261016a", resp.text)
+        self.assertIn("styles.css?v=20261030g", resp.text)
+        self.assertIn("i18n.js?v=20261030g", resp.text)
+        self.assertIn("app.js?v=20261030g", resp.text)
+        self.assertIn('data-target="io-manual"', resp.text)
+        self.assertIn('data-kind="arch"', resp.text)
+        self.assertIn('data-kind="hsi"', resp.text)
+        self.assertNotIn("source-pick", resp.text)
+        js = self.client.get("/static/app.js").text
+        self.assertIn("fileFromSource", js)
+        self.assertIn("io.pickLocal", js)
         self.assertIn('id="rail-tab-hsi"', resp.text)
         self.assertIn('id="hsi-list"', resp.text)
         self.assertIn('id="io-dl"', resp.text)
+        self.assertIn('id="io-mcu"', resp.text)
+        self.assertIn('id="io-mcu-menu"', resp.text)
+        self.assertIn("TC399", resp.text)
+        self.assertIn("TC387", resp.text)
+        self.assertIn("TC324", resp.text)
         self.assertIn('id="io-package-field"', resp.text)
         self.assertIn('id="io-package-choices"', resp.text)
         self.assertIn('id="env-busy"', resp.text)
@@ -686,7 +698,7 @@ class GatewayTests(unittest.TestCase):
         home = page[page.index('id="home-card"'):page.index('id="arch-card"')]
         self.assertEqual(home.count('class="fn-card'), 3)
         self.assertIn("进入出表", home)
-        self.assertIn("IO口规划", home)
+        self.assertIn("HSI生成", home)
         self.assertIn('data-go="io"', home)
         self.assertIn('data-go="arch"', home)
         self.assertIn("电驱需求拆解", home)
@@ -774,7 +786,7 @@ class GatewayTests(unittest.TestCase):
         self._login()
         seen = {}
 
-        def fake_build(template, datasheet, dest, package="", previous=None, ask=None):
+        def fake_build(template, datasheet, dest, package="", previous=None, ask=None, on_progress=None, schematic=None, mcu=""):
             seen["template"] = Path(template)
             seen["ask"] = ask
             dest = Path(dest)
@@ -829,13 +841,75 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(again.json()["changes"], 0)
         self.assertIs(self.client.get("/api/hsi/history").json()["records"][0]["previous"], True)
 
+    def test_hsi_progress_moves_and_closes_when_done(self) -> None:
+        from electrical_krow.hsi_book import HsiResult
+        from electrical_krow import gateway as gw
+
+        self._login()
+        job = "hsi-job-1"
+        seen: dict[str, object] = {}
+
+        def fake_build(template, datasheet, dest, package="", previous=None, ask=None, on_progress=None, schematic=None, mcu=""):
+            self.assertTrue(callable(on_progress))
+            on_progress(48, "pins", "2")
+            with gw._HSI_PROGRESS_LOCK:
+                seen["mid"] = dict(gw._HSI_PROGRESS[job])
+            dest = Path(dest)
+            dest.write_bytes(b"hsi-bytes")
+            return HsiResult(dest, "TC38x", "BGA516", "TC38x-BGA516-1", 2, 0)
+
+        with patch("electrical_krow.gateway.build_hsi", side_effect=fake_build), patch(
+            "electrical_krow.gateway.open_locally"
+        ):
+            resp = self.client.post(
+                "/api/hsi",
+                data={"package": "BGA516"},
+                files={"datasheet": ("tc38x.pdf", b"%PDF-1.4", "application/pdf")},
+                headers={"X-Hsi-Progress": job},
+            )
+        self.assertEqual(resp.status_code, 200, resp.text)
+        self.assertEqual(seen["mid"], {"percent": 48, "stage": "pins", "detail": "2", "done": False})
+        done = self.client.get(f"/api/hsi/progress/{job}")
+        self.assertEqual(done.status_code, 200, done.text)
+        self.assertEqual(done.json(), {"percent": 100, "stage": "write", "detail": "", "done": True})
+        missing = self.client.get("/api/hsi/progress/missing")
+        self.assertEqual(missing.json(), {"percent": 0, "stage": "read", "detail": "", "done": False})
+        page = self.client.get("/").text
+        js = self.client.get("/static/app.js").text
+        i18n = self.client.get("/static/i18n.js").text
+        self.assertIn('id="io-progress"', page)
+        self.assertIn("/api/hsi/progress/", js)
+        self.assertIn("X-Hsi-Progress", js)
+        self.assertIn("payload.done", js)
+        self.assertIn("正在读取手册 {detail}", i18n)
+        self.assertIn("正在核对约束 {detail}", i18n)
+
+        def fail_build(template, datasheet, dest, package="", previous=None, ask=None, on_progress=None):
+            on_progress(12, "read", "1/4")
+            raise ValueError("手册中没有读到封装引脚表。")
+
+        with patch("electrical_krow.gateway.build_hsi", side_effect=fail_build), patch(
+            "electrical_krow.gateway.open_locally"
+        ):
+            bad = self.client.post(
+                "/api/hsi",
+                data={"package": "BGA516"},
+                files={"datasheet": ("tc38x.pdf", b"%PDF-1.4", "application/pdf")},
+                headers={"X-Hsi-Progress": "hsi-job-bad"},
+            )
+        self.assertEqual(bad.status_code, 400, bad.text)
+        closed = self.client.get("/api/hsi/progress/hsi-job-bad")
+        self.assertEqual(closed.json()["done"], True)
+
     def test_arch_route_builds_contrast_and_records_history(self) -> None:
         from electrical_krow.arch_contrast import ContrastResult, Unreadable
 
         self._login()
         seen: dict[str, object] = {}
 
-        def fake_build(sources, dest, ask=None):
+        def fake_build(sources, dest, ask=None, on_progress=None):
+            if on_progress:
+                on_progress(40, "tables", "260605_LDC_SR.pdf 1/2")
             seen["names"] = [Path(p).name for p in sources]
             seen["ask"] = ask
             dest = Path(dest)
@@ -1217,6 +1291,16 @@ class GatewayTests(unittest.TestCase):
         self.assertFalse(data.get("fill_from_kb"))
         self.assertTrue(data.get("version"))
         self.assertGreaterEqual(len(data.get("clauses") or []), 116)
+        arch = self.client.get("/api/knowledge?library=arch")
+        self.assertEqual(arch.status_code, 200, arch.text)
+        arch_data = arch.json()
+        self.assertEqual(arch_data.get("kind"), "arch")
+        self.assertFalse(arch_data.get("fill_from_kb"))
+        self.assertEqual((arch_data.get("stats") or {}).get("retrieve"), 0)
+        hsi = self.client.get("/api/knowledge?library=hsi")
+        self.assertEqual(hsi.status_code, 200, hsi.text)
+        self.assertEqual(hsi.json().get("kind"), "hsi")
+        self.assertFalse(hsi.json().get("fill_from_kb"))
         blob = json.dumps(data, ensure_ascii=False)
         self.assertNotIn(".yaml", blob)
         self.assertNotIn("docs/clause", blob)

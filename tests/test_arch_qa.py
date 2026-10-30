@@ -94,7 +94,12 @@ class ArchQualityCheckTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as raw:
             out = Path(raw) / "arch_qa.xlsx"
-            res = write_contrast([doc], [], out)
+            seen_stages: list[str] = []
+
+            def on_progress(percent, stage, detail=""):
+                seen_stages.append(stage)
+
+            res = write_contrast([doc], [], out, on_progress=on_progress)
             self.assertGreaterEqual(res.bilingual_conflicts, 1)
             self.assertEqual(res.tbd_count, 1)
             self.assertGreaterEqual(res.conflicts, 1)
@@ -116,6 +121,10 @@ class ArchQualityCheckTests(unittest.TestCase):
             remark_idx = next(i for i, h in enumerate(headers, start=1) if "备注" in h)
             self.assertIn("中英数值不一致", str(req_ws.cell(2, remark_idx).value or ""))
             self.assertIn("TBD/TBC", str(req_ws.cell(3, remark_idx).value or ""))
+            self.assertNotIn("须向客户确认", str(req_ws.cell(3, remark_idx).value or ""))
+            self.assertNotIn("须向客户确认", note_map["文件内容质检"])
+            self.assertIn("check", seen_stages)
+            self.assertIn("save", seen_stages)
             # 冲突行与 TBD 行在「需求清单」均整行标红（FCE4E4）
             self.assertTrue(str(req_ws.cell(2, 1).fill.fgColor.rgb).endswith("FCE4E4"))
             self.assertTrue(str(req_ws.cell(3, 1).fill.fgColor.rgb).endswith("FCE4E4"))

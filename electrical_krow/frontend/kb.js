@@ -91,6 +91,8 @@
         row.name,
         row.group,
         row.gloss,
+        row.use,
+        (row.limits || []).join(" "),
         (row.aliases || []).join(" "),
         (row.reject || []).join(" "),
         (row.std || []).join(" "),
@@ -107,6 +109,17 @@
       renderList();
       if (tab === "physics") renderPhysics();
     });
+    const library = $("kb-library");
+    if (library) {
+      library.addEventListener("change", () => {
+        catalog = null;
+        selected = null;
+        groupName = "";
+        tab = "dir";
+        loading = null;
+        kbEnsure();
+      });
+    }
     document.querySelectorAll(".kb-tab").forEach((btn) => {
       btn.addEventListener("click", () => {
         tab = btn.getAttribute("data-tab") || "dir";
@@ -131,20 +144,39 @@
   }
 
   function renderAll() {
+    const feature = catalog.kind && catalog.kind !== "sor";
     const stats = catalog.stats || {};
     $("kb-version").textContent = tx("kb.verN", { v: catalog.version || "" });
-    // 顶部只留一句口径，用界面文案（知识包 manifest 里的 rule 意思相同，仍在「范围与来源」里原样列出）
-    $("kb-banner").textContent = tx("kb.banner");
-    // 统计只给用户关心的三项；密级、版本已在 chip 里，图谱边数、分组数、检索开通数是维护者指标
-    $("kb-stats").innerHTML = [
-      ["clauses", tx("kb.stat.clauses")],
-      ["physics", tx("kb.stat.physics")],
-      ["enterprise", tx("kb.stat.enterprise")],
-    ]
+    $("kb-banner").textContent = feature && catalog.rule ? catalog.rule : tx("kb.banner");
+    const statRows = feature
+      ? [["clauses", tx("kb.stat.items")]]
+      : [
+          ["clauses", tx("kb.stat.clauses")],
+          ["physics", tx("kb.stat.physics")],
+          ["enterprise", tx("kb.stat.enterprise")],
+        ];
+    $("kb-stats").innerHTML = statRows
       .map(([key, label]) => {
         return `<div class="kb-stat"><b>${esc(stats[key] ?? 0)}</b><span>${label}</span></div>`;
       })
       .join("");
+    document.querySelectorAll(".kb-tab").forEach((btn) => {
+      const name = btn.getAttribute("data-tab");
+      btn.hidden = Boolean(feature && name !== "dir" && name !== "scope");
+    });
+    if (feature && tab !== "dir" && tab !== "scope") tab = "dir";
+    document.querySelectorAll(".kb-tab").forEach((btn) => {
+      btn.classList.toggle("is-on", btn.getAttribute("data-tab") === tab);
+    });
+    $("kb-panel-dir").hidden = tab !== "dir";
+    $("kb-panel-graph").hidden = tab !== "graph";
+    $("kb-panel-physics").hidden = tab !== "physics";
+    $("kb-panel-scope").hidden = tab !== "scope";
+    const title = $("title");
+    if (title && document.body.classList.contains("is-kb")) {
+      if (feature) title.textContent = catalog.title || "";
+      else if (typeof window.t === "function") title.innerHTML = window.t("hero.kb.title");
+    }
     renderGroups();
     renderList();
     if (!selected && catalog.clauses && catalog.clauses.length) {
@@ -283,21 +315,32 @@
       host.innerHTML = "";
       return;
     }
+    const flag = row.status_label || (row.retrieve ? tx("kb.open") : tx("kb.pending"));
+    const cite = catalog.kind && catalog.kind !== "sor"
+      ? ""
+      : `<p class="kb-cite">${tx("kb.cite", { seq: row.seq, name: row.name ? " " + esc(row.name) : "", v: esc(catalog.version) })}</p>`;
+    const graph = row.related && row.related.length
+      ? `<h4>${tx("kb.h.graph")}</h4>${relatedHtml(row.related)}`
+      : (catalog.kind && catalog.kind !== "sor"
+        ? ""
+        : `<h4>${tx("kb.h.graph")}</h4><p class="kb-empty">${tx("kb.noRel")}</p>`);
     host.innerHTML = `
       <div class="kb-kicker">${esc(row.group)} · #${row.seq}</div>
       <h3>${esc(row.name)}</h3>
       <div class="kb-flags">
-        <span class="kb-chip ${row.retrieve ? "ok" : ""}" title="${esc(row.retrieve ? tx("kb.openTip") : tx("kb.pendingTip"))}">${esc(row.retrieve ? tx("kb.open") : tx("kb.pending"))}</span>
+        <span class="kb-chip ${row.retrieve ? "ok" : ""}" title="${esc(row.retrieve ? tx("kb.openTip") : (row.status_label || tx("kb.pendingTip")))}">${esc(flag)}</span>
         <span class="kb-chip">${tx("kb.knowledgeChip", { v: catalog.version })}</span>
+        <span class="kb-chip warn">${tx("kb.noValue")}</span>
       </div>
       ${row.gloss ? `<p class="kb-gloss">${esc(row.gloss)}</p>` : ""}
-      <p class="kb-cite">${tx("kb.cite", { seq: row.seq, name: row.name ? " " + esc(row.name) : "", v: esc(catalog.version) })}</p>
+      ${cite}
+      ${row.use ? `<h4>${tx("kb.h.use")}</h4><p class="kb-gloss">${esc(row.use)}</p>` : ""}
+      ${row.limits && row.limits.length ? `<h4>${tx("kb.h.limits")}</h4>${chips(row.limits, "warn")}` : ""}
       ${row.aliases && row.aliases.length ? `<h4>${tx("kb.h.aliases")}</h4>${chips(row.aliases)}` : ""}
       ${row.units && row.units.length ? `<h4>${tx("kb.h.units")}</h4>${chips(row.units)}` : ""}
       ${row.reject && row.reject.length ? `<h4>${tx("kb.h.reject")}</h4>${chips(row.reject, "warn")}` : ""}
       ${row.std && row.std.length ? `<h4>${tx("kb.h.std")}</h4>${chips(row.std)}` : ""}
-      <h4>${tx("kb.h.graph")}</h4>
-      ${relatedHtml(row.related) || `<p class="kb-empty">${tx("kb.noRel")}</p>`}
+      ${graph}
     `;
     bindLinks(host);
   }
@@ -749,6 +792,13 @@
     if (!selected) renderDetail($("kb-graph-detail"));
   }
 
+  function libraryQuery() {
+    const library = $("kb-library");
+    const kind = library ? library.value : "sor";
+    if (!kind || kind === "sor") return "/api/knowledge";
+    return "/api/knowledge?library=" + encodeURIComponent(kind);
+  }
+
   window.kbEnsure = async function kbEnsure() {
     if (catalog) {
       renderMiniGraph();
@@ -758,7 +808,7 @@
     if (loading) return loading;
     $("kb-banner").textContent = tx("kb.loading");
     loading = (async () => {
-      catalog = await kbJson("/api/knowledge");
+      catalog = await kbJson(libraryQuery());
       bindOnce();
       renderAll();
       return catalog;

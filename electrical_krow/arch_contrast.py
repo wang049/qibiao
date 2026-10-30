@@ -16,12 +16,16 @@ from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.worksheet.datavalidation import DataValidation
 
 SHEET_NOTE = "确认说明"
 SHEET_ATTACH = "附件"  # 整表原文和图表截图合在一张
 SHEET_TABLES = SHEET_ATTACH  # 旧名，条目索引文字里仍用
 
 STATUS_PENDING = "待确认"
+# Currently status 与偏差跟踪表同一套英文。To be confirmed 就是待确认，避免中英混在一个下拉里。
+STATUS_CURRENT = "To be confirmed"
+STATUS_CHOICES = (STATUS_CURRENT, "Requirement Met", "Require Customer Clarified", "Closed")
 SECTION_COVER = "封面"
 SECTION_TOC = "目录"
 
@@ -86,9 +90,14 @@ _TRAIL = re.compile(
 _PAREN = re.compile(r"[（(]([^()（）]{3,160})[)）]")
 # 保密声明行：各页都有、不是需求。按关键词整行剔除，避免按行去重时只删掉一半留下碎片。
 _NOTICE = re.compile(
-    r"보호받습니다|정보자산|기아의|관련 법령|confidential|proprietary|all rights reserved|保密|机密|版权所有|不得外传|仅供内部",
+    r"보호받습니다|정보자산|기아의|관련 법령|confidential|proprietary|all rights reserved|保密|机密|版权所有|不得外传|仅供内部|together we can",
     re.I,
 )
+# 斜盖在表格上的图章，不是正文。
+_STAMP = re.compile(r"corresponding\s+to\s+the\s+.{0,80}?drawing", re.I)
+_MARK_CELL = re.compile(r"^[○◯●•〇✓✔√]+$")
+_SIDE_NAME = re.compile(r"\b(?:hmc|supplier|供应商)\b", re.I)
+NOTE_MARK_COL = "圆圈所在列读不出，请对照原页"
 # 一条内的表格块：词数够多，且数字占四成以上，或重复词太多（表头「Torque Nm Power kW」反复出现）。
 _TABLE_MIN_TOKENS = 10
 _TABLE_NUMERIC = 0.5
@@ -194,7 +203,7 @@ def _plain_glyphs(text: str) -> str:
     return _PUA.sub("•", text or "")
 
 
-def read_pdf_pages(path: Path) -> SourceDoc | Unreadable:
+def read_pdf_pages(path: Path, progress=None) -> SourceDoc | Unreadable:
     """读 PDF 文字层。读不开或没有文字层时返回 Unreadable。"""
     from pypdf import PdfReader
 
@@ -206,7 +215,10 @@ def read_pdf_pages(path: Path) -> SourceDoc | Unreadable:
             except Exception:  # noqa: BLE001
                 return Unreadable(path.name, 0, "文件已加密，读不出正文。")
         pages: list[tuple[int, str]] = []
+        total_pages = len(reader.pages)
         for index, page in enumerate(reader.pages, start=1):
+            if progress:
+                progress("text", index, total_pages)
             try:
                 pages.append((index, _plain_glyphs(page.extract_text() or "")))
             except Exception:  # noqa: BLE001
@@ -219,8 +231,16 @@ def read_pdf_pages(path: Path) -> SourceDoc | Unreadable:
         return Unreadable(path.name, len(pages), "没有文字层，未拆条，未补写内容。")
     boxes: dict[int, list[tuple[float, float, float, float]]] = {}
     row_boxes: dict[int, list[list]] = {}
-    tables = read_pdf_tables(path, boxes, row_boxes)
-    image_tables = drop_duplicate_grids(tables, read_image_tables(path))
+    tables = read_pdf_tables(
+        path, boxes, row_boxes,
+        progress=(lambda page, total: progress("tables", page, total)) if progress else None,
+    )
+    image_tables = drop_duplicate_grids(
+        tables,
+        read_image_tables(path, progress=(lambda page, total: progress("ocr", page, total)) if progress else None),
+    )
+    if progress:
+        progress("figures", 1, 1)
     return SourceDoc(
         path.name, tuple(pages), tables, image_tables, read_figures(path, boxes, set(image_tables)),
         path=str(path), lines=read_text_lines(path, boxes), table_rows=row_boxes,
@@ -266,12 +286,12 @@ def drop_duplicate_grids(tables: dict[int, list[Grid]], image_tables: dict[int, 
     return kept
 
 
-def read_image_tables(path: Path) -> dict[int, list[Grid]]:
+def read_image_tables(path: Path, progress=None) -> dict[int, list[Grid]]:
     """图片形式贴进 PDF 的表格：按格线切格、OCR 识字。识读库不可用或出错就当没有。"""
     try:
         from electrical_krow.arch_ocr import read_image_tables as _read
 
-        return _read(path)
+        return _read(path, progress=progress)
     except Exception:  # noqa: BLE001
         return {}
 
@@ -280,6 +300,7 @@ def read_pdf_tables(
     path: Path,
     boxes: dict[int, list[tuple[float, float, float, float]]] | None = None,
     row_boxes: dict[int, list[list]] | None = None,
+    progress=None,
 ) -> dict[int, list[Grid]]:
     """按格线读每页的表格。读不出（没格线、库不可用）就当没有表，退回按文字拆。
     传入 boxes 时顺便记下每张认下的表在页面上的位置（截图表时避开）；传入 row_boxes 时记下每行的范围（条款截图用）。"""
@@ -290,7 +311,10 @@ def read_pdf_tables(
     found: dict[int, list[Grid]] = {}
     try:
         with pdfplumber.open(str(path)) as pdf:
+            total_pages = len(pdf.pages)
             for index, page in enumerate(pdf.pages, start=1):
+                if progress:
+                    progress(index, total_pages)
                 grids: list[Grid] = []
                 try:
                     found_tables = page.find_tables()
@@ -379,7 +403,7 @@ def page_body(text: str, boilerplate: frozenset[str], page_no: str = "", *, drop
         # 「PAGE / 16 / /51」拆成三行时，中间那行只剩页码数字
         if page_no and key == page_no:
             continue
-        if _NOTICE.search(key):
+        if _NOTICE.search(key) or _STAMP.search(key):
             continue
         # 保密声明按词拆成多行时，关键词只在其中一行；韩文占比低的文件里纯韩文行整行剔除
         if drop_hangul and _hangul_only(key):
@@ -848,6 +872,31 @@ class TableEntry:
     value: str  # Requirement / Specification 格原文（带单位）
     remark: str  # Remark / Note 格原文
     row: int = -1  # 在表里的行号（含表头），截图定位用
+    note: str = ""  # 读不出的格不写入原文，原因写在这里
+
+
+def _clean_cell(cell: str) -> str:
+    return _STAMP.sub("", cell or "").strip()
+
+
+def _subheader_labels(roles: list[str], labels: list[str], row: list[str]) -> list[str] | None:
+    """表头下一行如果只在合并列下写了 HMC、Supplier 这种短列名，这一行是列表头，不是数据。"""
+    width = len(labels)
+    row = list(row) + [""] * (width - len(row))
+    filled: list[int] = []
+    for col, cell in enumerate(row[:width]):
+        text = _clean_cell(cell)
+        if not text:
+            continue
+        if roles[col] in {"key", "value"} or len(text) > 20 or len(text.split()) > 2:
+            return None
+        filled.append(col)
+    if len(filled) < 2:
+        return None
+    renamed = list(labels)
+    for col in filled:
+        renamed[col] = _clean_cell(row[col])
+    return renamed
 
 
 def _header_roles(headers: list[str]) -> list[str]:
@@ -905,11 +954,17 @@ def table_entries(grid: Grid) -> list[TableEntry]:
     banner = header_at == 0 and bool(headers[0]) and all(not c for c in headers[1:])
     labels: list[str] = []
     for cell in headers:  # 合并表头下的空列用前一个表头名标注；整行合并的总标题不重复贴到每一列
-        labels.append("" if banner else (cell or (labels[-1] if labels else "")))
+        labels.append("" if banner else (_clean_cell(cell) or (labels[-1] if labels else "")))
+    body_at = header_at + 1
+    if body_at < len(grid):
+        renamed = _subheader_labels(roles, labels, grid[body_at])
+        if renamed:
+            labels = renamed
+            body_at += 1
     entries: list[TableEntry] = []
     carried = [""] * len(headers)
-    for row_at, row in enumerate(grid[header_at + 1 :], start=header_at + 1):
-        row = list(row) + [""] * (len(headers) - len(row))
+    for row_at, row in enumerate(grid[body_at:], start=body_at):
+        row = [_clean_cell(cell) for cell in list(row) + [""] * (len(headers) - len(row))]
         if not any(row):
             continue
         keys: list[str] = []
@@ -917,6 +972,8 @@ def table_entries(grid: Grid) -> list[TableEntry]:
         units: list[str] = []
         remarks: list[str] = []
         parts: list[str] = []
+        sides: list[str] = []
+        mark_unread = False
         reset = False  # 上一级项目格换了内容，右边更细一级的沿用值作废
         for col, cell in enumerate(row[: len(headers)]):
             role = roles[col]
@@ -929,6 +986,10 @@ def table_entries(grid: Grid) -> list[TableEntry]:
                 cell = carried[col]
             if not cell:
                 continue
+            # 圆圈落在「Role sharing」这种没写明 HMC / Supplier 的列上时，不把「角色分担：○」写进原文
+            if _MARK_CELL.fullmatch(cell) and not _SIDE_NAME.search(labels[col] or ""):
+                mark_unread = True
+                continue
             parts.append(f"{labels[col]}：{cell}" if labels[col] else cell)
             if role == "key" and cell not in keys:
                 keys.append(cell)
@@ -938,6 +999,8 @@ def table_entries(grid: Grid) -> list[TableEntry]:
                 units.append(cell)
             elif role == "remark":
                 remarks.append(cell)
+            elif labels[col] and _SIDE_NAME.search(labels[col]) and _MARK_CELL.fullmatch(cell):
+                sides.append(f"{labels[col]}：{cell}")
             elif labels[col]:
                 # 认不出角色的栏（「Settings for evaluation」「Document name」）带表头放进条件列，不丢
                 remarks.append(f"{labels[col]}：{cell}")
@@ -949,7 +1012,10 @@ def table_entries(grid: Grid) -> list[TableEntry]:
         item = " / ".join(keys)
         if not value and not remarks and len(item) > 60:
             item = ""  # 项目格里是一整句、又没有要求格的，是表尾的说明行，不当栏目名
-        entries.append(TableEntry(item, " | ".join(parts), value, " ".join(remarks), row_at))
+        # 摘录只留「项目：要求」和责任方，不再把 Item／Details 标签中英各抄一遍
+        head = f"{item}：{value}" if item and value else (value or item)
+        text = "；".join(bit for bit in (head, *sides) if bit)
+        entries.append(TableEntry(item, text, value, " ".join(remarks), row_at, NOTE_MARK_COL if mark_unread else ""))
     return entries
 
 
@@ -1018,7 +1084,7 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
 
     def emit_tables(index: int, inner: str, section: str, grids: list[Grid]) -> None:
         """按格线读出的表：认得出「项目／要求」表头的每行一条，key 进「项目」、要求格进「数值与单位」；
-        认不出表头的整表作为一条独立 REQ 并入「需求清单」（附整表截图与全文）。
+        认不出表头的整表作为一条：截图是整张表，原文摘录写在同一格，按表行换行。
         图片里 OCR 识读出的表同样处理，但备注标明是 OCR，字符要对照原图核对。
         图表（坐标图、曲线、框图）作为一条独立 REQ 并入「需求清单」（附整图截图与图中文字），不拆条、不取数。"""
         from electrical_krow.arch_shots import Shot
@@ -1082,6 +1148,7 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
                 continue
             for entry in entries:
                 box = boxes[entry.row] if 0 <= entry.row < len(boxes) else None
+                note = _join_notes(NOTE_OCR if ocr else "", "表格行", entry.note)
                 entry_text, entry_val = entry.text, entry.value
                 if box and not ocr:
                     inner_split = [
@@ -1112,7 +1179,7 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
                                 if tail:
                                     entry_val = tail
                                     entry_text = f"{entry.item}：{tail}" if entry.item else tail
-                rows.append(plain(index, inner, section, "", entry_text, entry_val, entry.remark, _join_notes(NOTE_OCR if ocr else "", "表格行"), entry.item, shot=Shot(index, box) if box else None))
+                rows.append(plain(index, inner, section, "", entry_text, entry_val, entry.remark, note, entry.item, shot=Shot(index, box) if box else None))
 
     carried = ""  # 上一页末尾所在的章节；本页没有标题时沿用
     for index, raw in doc.pages:
@@ -1174,6 +1241,11 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
             continue
         for sec, mark, text in clauses:
             sec = sec or section
+            from electrical_krow.arch_translate import strip_column_headers
+
+            text = strip_column_headers(text)
+            if not _compact(text) or re.fullmatch(r"\d+[).）]", _compact(text)):
+                continue
             if is_table_block(text):
                 # 坐标轴刻度、反复出现的表头：整块作为一条保留，不取数
                 tables.append([None, obj, doc.name, index, sec, ATTACH_BLOCK, text, "条内表格块，整块保留，不拆成单条，不判断是否满足"])
@@ -1249,7 +1321,7 @@ def _style_sheet(sheet, header_row: int, widths: dict[str, int], *, body_height:
     sheet.oddFooter.center.text = "第 &P 页"
 
 
-def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Path, ask=None, now: datetime | None = None) -> ContrastResult:
+def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Path, ask=None, now: datetime | None = None, on_progress=None) -> ContrastResult:
     """ask：可选的模型调用（messages → 回包文本），只用于给正文参数起名和归并同义参数名；None 为纯规则。now：REQ-ID 里的日期。
     两张表：确认说明、需求清单（主表，按页码顺序含条款、表格行、整表及图表截图与原文）。"""
     from electrical_krow.arch_params import CONSIST_DIFF, collect_params
@@ -1258,6 +1330,16 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
     if not docs:
         reasons = "；".join(f"{u.name}（{u.reason.rstrip('。')}）" for u in unreadable)
         raise ValueError(f"文件内容质检未通过：{reasons or '所选文件都读不出文字'}，无法拆条。")
+
+    def tick(inner: float, stage: str, detail: str = "") -> None:
+        if on_progress is None:
+            return
+        try:
+            on_progress(inner, stage, detail)
+        except Exception:  # noqa: BLE001
+            return
+
+    tick(2, "check", "")
     all_rows: list[list[object]] = []
     all_tables: list[list[object]] = []
     for doc in docs:
@@ -1269,9 +1351,12 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
             all_tables.append(row)
             row[0] = len(all_tables)
     ts = now or datetime.now()
-    req_map = _req_row_map(docs, all_rows, ts)
+    pngs, keep_seqs = _render_requirement_pngs(docs, all_rows, on_progress)
+    req_map = _req_row_map(docs, all_rows, ts, with_shot=keep_seqs)
+    tick(12, "check", "")
     params = collect_params(all_rows, ask)
     quality = check_arch_quality(docs, unreadable, all_rows, params, req_map)
+    tick(18, "check", "")
     note_col = COLUMNS.index("备注")
     for row in all_rows:
         extra = quality.row_notes.get(int(row[0]))
@@ -1283,7 +1368,9 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
     note = book.active
     note.title = SHEET_NOTE
     reqs_sheet = book.create_sheet(SHEET_REQS)
-    req_count, shot_count, figure_count, trans_model_used = _write_reqs(reqs_sheet, docs, all_rows, ts, conflict_seqs, ask=ask)
+    req_count, shot_count, figure_count, trans_model_used = _write_reqs(
+        reqs_sheet, docs, all_rows, ts, conflict_seqs, ask=ask, on_progress=tick, pngs=pngs, keep_seqs=keep_seqs,
+    )
     used_model = params.model_used or trans_model_used
 
     sources = "；".join(f"{doc.name}（{len(doc.pages)} 页）" for doc in docs)
@@ -1291,14 +1378,14 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
         ("用途", "把需求文件按条款拆成条目，供人工逐条确认。本表只摘原文（外文条款附同格中文直译对照），不写能否满足。"),
         ("来源文件", sources),
         ("文件内容质检", "\n".join(quality.detail_lines)),
-        ("需求清单", f"「{SHEET_REQS}」一行一条需求，版式按偏差跟踪表：REQ-ID（REQ-日期-序号）、章节、该条在原文里的截图（表格行截那一行，正文截那一段，复杂整表与图表截整表／整图；截图按列宽缩放）、原文摘录（外文条目按「原文 / 中文译文」同格双语对照呈现，原文一字不改）；「类别」是按章节和条文关键词给的建议值，须人工改定；优先级、意见、提出人、客户反馈留给人填，状态一律为待确认。截图按文字位置定位，个别条目定位不到时该格留空，原文摘录仍在。"),
+        ("需求清单", f"「{SHEET_REQS}」一行一条需求，版式按偏差跟踪表：REQ-ID（REQ-日期-序号）、章节、该条在原文里的截图（表格行截那一行，正文截那一段，复杂整表与图表截整表／整图；截图按列宽缩放）、原文摘录（外文条目按「原文 / 中文译文」同格双语对照呈现，原文一字不改）；「类别」是按章节和条文关键词给的建议值，须人工改定；优先级、意见、提出人、客户反馈留给人填，Currently status 默认为 To be confirmed（待确认）。截图按文字位置定位。原文截图被斜章挡住，或定位不到的条目，不写入需求清单。"),
         ("拆分方式", "行首「1)」「•」「※」等标记各起一条；标记前的短引导句并入其后那条；整页没有标记的按整页一条。原文只来自该页可复制文字。章节按行首的目录章节号和标题词认；本页没有标题的沿用上一页末尾的章节并在备注注明，文件开头还没有章节的留空。"),
-        ("表格与图表", f"PDF 里有格线的表按格读：表头认得出「项目」栏（Category、Item、Classification 等）和「要求」栏（Requirement、Specification、Target 等）的，每行出一条，原文摘录是「项目格：整行」，「数值与单位」是要求格原文（要求格没单位时补上单位栏），「适用条件」是 Remark／Note 格原文，表头认不出角色的栏也带表头放在这里；纵向合并的格沿用上一行。表头未按单列「项目／要求」构造的表（如开发日程、多国法规矩阵、DR 评审表、标准清单等）以及坐标图、曲线图、框图，按所在页码和章节位置统一按「一表／一图一条 REQ（附整图截图与全文）」并入「{SHEET_REQS}」。以图片贴进 PDF 的表格，按图里的格线切格、OCR 识字后同样处理，备注标「{NOTE_OCR}」，字符可能识错，请对照原图。"),
+        ("表格与图表", f"PDF 里有格线的表按格读：表头认得出「项目」栏（Category、Item、Classification 等）和「要求」栏（Requirement、Specification、Target 等）的，每行出一条，原文摘录是「项目格：整行」，「数值与单位」是要求格原文（要求格没单位时补上单位栏），「适用条件」是 Remark／Note 格原文，表头认不出角色的栏也带表头放在这里；纵向合并的格沿用上一行。表头未按单列「项目／要求」构造的表（如开发日程、多国法规矩阵、DR 评审表、标准清单等）以及坐标图、曲线图、框图，按所在页码和章节位置统一按「一表／一图一条 REQ（附整图截图与全文）」并入「{SHEET_REQS}」。认不出「项目／要求」栏的表（如开发日程）仍是一条需求：截图是整张表。原文摘录有几行内容，就在该条下拆成几行，行与行之间是表格边框；编号、章节和截图合并成一格。职责表下一行若是 HMC、Supplier 这类列名，圆圈按该列写出；列名读不出时不写圆圈，备注写「圆圈所在列读不出，请对照原页」。斜章和页脚叠字不进表。以图片贴进 PDF 的表格，按图里的格线切格、OCR 识字后同样处理，备注标「{NOTE_OCR}」，字符可能识错，请对照原图。"),
         ("数值与条件", "正文条目的「数值与单位」是从该条原文里机械挑出的带单位的数，每个数前带原文里紧挨着的几个字（右对齐截短）以便对应，数后紧跟的「↑」「以上」「max」一起保留；「适用条件（原文括注）」是原文括号里带数或带条件词的话。两列都不是认条，不改写、不换算，须对照「原文摘录」核对。"),
         ("取值一致性", f"程序把全文「参数 → 取值」归到一起比对：表格里一格一个数的取项目格和要求格；一格几个数的和正文条目由模型指出每个数是哪个参数的值，程序核对该字串确在原文里。同一参数、适用条件相同而取值不同的，在需求清单该条的备注里写明别处的页码和取值，并整行标红（「{CONSIST_DIFF}」）；取值不同但适用条件也不同（不同工况、不同标准）的不算冲突。归并是否恰当、不一致是笔误还是分段落条件不同，由确认人判断。"
                      + ("本次已用模型起名、归并同义参数名并生成外文条款中文对照。" if used_model else "本次未用模型，参数名是数前的引导词，归并按原名，外文条款按内置工程词典生成中文对照。")
                      + ("；".join(params.notes) and ("本次说明：" + "；".join(params.notes)) or "")),
-        ("留空栏目", "状态一律为待确认。优先级、意见、提出人、客户反馈由确认人填写。"),
+        ("留空栏目", "Currently status 默认 To be confirmed（待确认），下拉还有 Requirement Met、Require Customer Clarified、Closed。优先级、意见、提出人、客户反馈由确认人填写。"),
     ]
     if unreadable:
         for item in unreadable:
@@ -1315,6 +1402,7 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
     book.active = book[SHEET_REQS]
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
+    tick(97, "save", "")
     book.save(dest)
     book.close()
     return ContrastResult(
@@ -1402,8 +1490,14 @@ def _is_requirement_row(row: list[object], *, has_sections: bool = False, has_li
     return bool(_compact(text))
 
 
-def _req_row_map(docs: list[SourceDoc], all_rows: list[list[object]], now: datetime) -> dict[int, tuple[int, str]]:
-    """计算将进入「需求清单」的每条序号对应的 (Excel行号, REQ-ID)，供「确认说明」质检明细直接标注行号。"""
+def _render_requirement_pngs(
+    docs: list[SourceDoc],
+    all_rows: list[list[object]],
+    on_progress=None,
+) -> tuple[dict[int, bytes], set[int]]:
+    """渲染原文截图。有 PDF 时，截不到图或被斜章挡住的条目不进入需求清单。"""
+    from electrical_krow.arch_shots import render_shots
+
     sec_col, file_col, seq_col = COLUMNS.index("章节"), COLUMNS.index("文件"), COLUMNS.index("序号")
     doc_has_sections = {
         doc.name: any(str(r[sec_col] or "") not in {"", SECTION_COVER, SECTION_TOC} for r in all_rows if r[file_col] == doc.name)
@@ -1418,6 +1512,69 @@ def _req_row_map(docs: list[SourceDoc], all_rows: list[list[object]], now: datet
             has_lines=doc_has_lines.get(str(row[file_col]), False),
         )
     ]
+    pngs: dict[int, bytes] = {}
+    keep: set[int] = set()
+    by_doc: dict[str, list[list[object]]] = {}
+    for row in picked:
+        by_doc.setdefault(str(row[file_col]), []).append(row)
+    shot_jobs: list[tuple[SourceDoc, list[tuple[int, object]]]] = []
+    for doc in docs:
+        rows = by_doc.get(doc.name, [])
+        if not doc.path:
+            for row in rows:
+                seq = int(row[seq_col])
+                keep.add(seq)
+                shot = row[SHOT_SLOT] if len(row) > SHOT_SLOT else None
+                if shot is not None and shot.png:
+                    pngs[seq] = shot.png
+            continue
+        pending = [
+            (int(row[seq_col]), row[SHOT_SLOT])
+            for row in rows
+            if len(row) > SHOT_SLOT and row[SHOT_SLOT] is not None
+        ]
+        if pending:
+            shot_jobs.append((doc, pending))
+    shot_total = sum(len(pending) for _, pending in shot_jobs)
+    shot_done = 0
+    for doc, pending in shot_jobs:
+        def _shot_tick(done: int, _total: int, base: int = shot_done) -> None:
+            if on_progress is None:
+                return
+            seen = base + done
+            on_progress(55 + 23 * seen / max(shot_total, 1), "shots", f"{seen}/{shot_total}")
+
+        rendered = render_shots(Path(doc.path), [shot for _, shot in pending], on_progress=_shot_tick)
+        for (seq, _), png in zip(pending, rendered):
+            if png:
+                pngs[seq] = png
+                keep.add(seq)
+        shot_done += len(pending)
+    return pngs, keep
+
+
+def _req_row_map(
+    docs: list[SourceDoc],
+    all_rows: list[list[object]],
+    now: datetime,
+    with_shot: set[int] | None = None,
+) -> dict[int, tuple[int, str]]:
+    """计算将进入「需求清单」的每条序号对应的 (Excel行号, REQ-ID)。没有原文截图的条目不进入清单。"""
+    sec_col, file_col, seq_col = COLUMNS.index("章节"), COLUMNS.index("文件"), COLUMNS.index("序号")
+    doc_has_sections = {
+        doc.name: any(str(r[sec_col] or "") not in {"", SECTION_COVER, SECTION_TOC} for r in all_rows if r[file_col] == doc.name)
+        for doc in docs
+    }
+    doc_has_lines = {doc.name: bool(doc.lines) for doc in docs}
+    picked = [
+        row for row in all_rows
+        if _is_requirement_row(
+            row,
+            has_sections=doc_has_sections.get(str(row[file_col]), False),
+            has_lines=doc_has_lines.get(str(row[file_col]), False),
+        )
+        and (with_shot is None or int(row[seq_col]) in with_shot)
+    ]
     stamp = now.strftime("%Y%m%d")
     return {int(row[seq_col]): (number + 1, f"REQ-{stamp}-{number:03d}") for number, row in enumerate(picked, start=1)}
 
@@ -1429,10 +1586,13 @@ def _write_reqs(
     now: datetime,
     conflict_seqs: set[int] = frozenset(),
     ask: Callable[[str], str] | None = None,
+    on_progress=None,
+    pngs: dict[int, bytes] | None = None,
+    keep_seqs: set[int] | None = None,
 ) -> tuple[int, int, int, bool]:
     """「需求清单」：一行一条需求，带原文截图、双语原文摘录、数值、条件和程序备注；取值与别处不一致的行标红。返回 (条数, 带截图条数, 图表张数, 是否用到模型翻译)。"""
     from electrical_krow.arch_shots import render_shots
-    from electrical_krow.arch_translate import format_bilingual_excerpt, translate_excerpts
+    from electrical_krow.arch_translate import format_bilingual_excerpt, table_excerpt_blocks, translate_excerpts
 
     sheet.append(list(REQ_COLUMNS))
     sec_col, item_col, text_col, page_col, file_col, seq_col, qty_col, cond_col, note_col = (
@@ -1451,6 +1611,10 @@ def _write_reqs(
             has_lines=doc_has_lines.get(str(row[file_col]), False),
         )
     ]
+    if keep_seqs is not None:
+        picked = [row for row in picked if int(row[seq_col]) in keep_seqs]
+    elif pngs is not None:
+        picked = [row for row in picked if pngs.get(int(row[seq_col]))]
     stamp = now.strftime("%Y%m%d")
     raw_excerpts: dict[int, str] = {}
     for row in picked:
@@ -1458,52 +1622,112 @@ def _write_reqs(
         item = str(row[item_col] or "")
         text = str(row[text_col] or "")
         raw_excerpts[seq] = f"{item}：{text}" if item and not text.startswith(item) else text
-    translations, trans_model_used = translate_excerpts(list(raw_excerpts.items()), ask)
-    # 先按文件把截图批量渲染
-    pngs: dict[int, bytes] = {}
-    for doc in docs:
-        pending = [(int(row[seq_col]), row[SHOT_SLOT]) for row in picked if row[file_col] == doc.name and len(row) > SHOT_SLOT and row[SHOT_SLOT] is not None]
-        if not pending:
-            continue
-        rendered = render_shots(Path(doc.path), [shot for _, shot in pending]) if doc.path else [shot.png for _, shot in pending]
-        for (seq, _), png in zip(pending, rendered):
-            if png:
-                pngs[seq] = png
+    translations, trans_model_used = translate_excerpts(
+        list(raw_excerpts.items()),
+        ask,
+        on_progress=(lambda done, total: on_progress(20 + 35 * done / max(total, 1), "translate", f"{done}/{total}")) if on_progress else None,
+    )
+    if pngs is None:
+        from electrical_krow.arch_shots import render_shots
+
+        pngs = {}
+        shot_jobs: list[tuple[SourceDoc, list[tuple[int, object]]]] = []
+        for doc in docs:
+            pending = [(int(row[seq_col]), row[SHOT_SLOT]) for row in picked if row[file_col] == doc.name and len(row) > SHOT_SLOT and row[SHOT_SLOT] is not None]
+            if pending:
+                shot_jobs.append((doc, pending))
+        shot_total = sum(len(pending) for _, pending in shot_jobs)
+        shot_done = 0
+        for doc, pending in shot_jobs:
+            def _shot_tick(done: int, _total: int, base: int = shot_done) -> None:
+                if on_progress is None:
+                    return
+                seen = base + done
+                on_progress(55 + 23 * seen / max(shot_total, 1), "shots", f"{seen}/{shot_total}")
+
+            rendered = render_shots(Path(doc.path), [shot for _, shot in pending], on_progress=_shot_tick) if doc.path else [shot.png for _, shot in pending]
+            if on_progress and not doc.path:
+                _shot_tick(len(pending), len(pending))
+            for (seq, _), png in zip(pending, rendered):
+                if png:
+                    pngs[seq] = png
+            shot_done += len(pending)
+        picked = [row for row in picked if pngs.get(int(row[seq_col]))]
     shots = 0
     figures = sum(1 for row in picked if str(row[text_col] or "").startswith("本页图表"))
     flagged: list[int] = []
+    groups: list[tuple[int, int, bytes]] = []
+    shot_col = REQ_COLUMNS.index("SR content\n原文截图") + 1
     for number, row in enumerate(picked, start=1):
         seq = int(row[seq_col])
         section = str(row[sec_col] or "")
         item = str(row[item_col] or "")
         text = str(row[text_col] or "")
-        excerpt = format_bilingual_excerpt(raw_excerpts[seq], translations.get(seq, ""))
-        sheet.append([
-            f"REQ-{stamp}-{number:03d}", "", section, "", excerpt[:_EXCERPT_CAP], row[qty_col] or "", row[cond_col] or "",
-            suggest_category(section, f"{item} {text}"), "", "", STATUS_PENDING, "", row[note_col] or "", row[page_col],
-        ])
-        at = sheet.max_row
-        if seq in conflict_seqs:
-            flagged.append(at)
+        source = raw_excerpts[seq]
+        blocks = table_excerpt_blocks(source) if source.startswith(("本页表格", "本页图片表格")) else []
+        if not blocks:
+            blocks = [format_bilingual_excerpt(source, translations.get(seq, ""))]
+        category = suggest_category(section, f"{item} {text}")
+        start = sheet.max_row + 1
+        for index, block in enumerate(blocks):
+            first = index == 0
+            sheet.append([
+                f"REQ-{stamp}-{number:03d}" if first else None,
+                None,
+                section if first else None,
+                None,
+                block[:_EXCERPT_CAP],
+                (row[qty_col] or "") if first else None,
+                (row[cond_col] or "") if first else None,
+                category if first else None,
+                None,
+                None,
+                STATUS_CURRENT if first else None,
+                None,
+                (row[note_col] or "") if first else None,
+                row[page_col] if first else None,
+            ])
+            if seq in conflict_seqs:
+                flagged.append(sheet.max_row)
+        end = sheet.max_row
+        if end > start:
+            for col in (1, 3, shot_col, 6, 7, 8, 11, 14):
+                sheet.merge_cells(start_row=start, start_column=col, end_row=end, end_column=col)
         png = pngs.get(seq)
-        if not png:
-            continue
-        image = _scaled_xl_image(png, _REQ_SHOT_MAX_PX, _REQ_SHOT_MAX_H_PX)
-        # 行高按 1px = 1pt + 上下余量给足：macOS WPS 下图片按 1px≈1pt 渲染也不会压到下一行
-        sheet.row_dimensions[at].height = min(_MAX_ROW_HEIGHT, image.height + _REQ_SHOT_ROW_PAD)
-        _place_image(sheet, image, REQ_COLUMNS.index("SR content\n原文截图") + 1, at)
-        shots += 1
+        if png:
+            groups.append((start, end, png))
     heights = {r: sheet.row_dimensions[r].height for r in range(2, sheet.max_row + 1) if sheet.row_dimensions[r].height}
     _style_sheet(
         sheet, 1,
-        {"A": 20, "B": 9, "C": 26, "D": _REQ_SHOT_COL_WIDTH, "E": 50, "F": 28, "G": 26, "H": 16, "I": 36, "J": 12, "K": 12, "L": 36, "M": 36, "N": 9},
+        {"A": 20, "B": 9, "C": 26, "D": _REQ_SHOT_COL_WIDTH, "E": 50, "F": 28, "G": 26, "H": 16, "I": 36, "J": 12, "K": 28, "L": 36, "M": 36, "N": 9},
         body_height=46,
     )
     for r, height in heights.items():
         sheet.row_dimensions[r].height = max(height, sheet.row_dimensions[r].height or 0)
+    image_total = len(groups)
+    for image_at, (start, end, png) in enumerate(groups, start=1):
+        if on_progress and (image_at == 1 or image_at == image_total or image_at % 8 == 0):
+            on_progress(78 + 16 * image_at / max(image_total, 1), "images", f"{image_at}/{image_total}")
+        image = _scaled_xl_image(png, _REQ_SHOT_MAX_PX, _REQ_SHOT_MAX_H_PX)
+        need = min(_MAX_ROW_HEIGHT, image.height + _REQ_SHOT_ROW_PAD)
+        total = sum(sheet.row_dimensions[r].height or 36 for r in range(start, end + 1))
+        if total < need:
+            extra = (need - total) / (end - start + 1)
+            for r in range(start, end + 1):
+                sheet.row_dimensions[r].height = (sheet.row_dimensions[r].height or 36) + extra
+        _place_image(sheet, image, shot_col, start)
+        shots += 1
     for r in flagged:
         for cell in sheet[r]:
             cell.fill = _DIFF_FILL
+    if sheet.max_row >= 2:
+        status_col = REQ_COLUMNS.index("Currently status\n状态") + 1
+        letter = sheet.cell(1, status_col).column_letter
+        choices = DataValidation(type="list", formula1=f'"{",".join(STATUS_CHOICES)}"', allow_blank=False)
+        choices.error = "请从列表中选择状态"
+        choices.errorTitle = "Currently status"
+        choices.add(f"{letter}2:{letter}1048576")
+        sheet.add_data_validation(choices)
     return len(picked), shots, figures, trans_model_used
 
 
@@ -1548,16 +1772,39 @@ def _write_attachments(sheet, docs: list[SourceDoc], all_rows: list[list[object]
     return count
 
 
-def build_contrast(sources: list[Path], dest: Path, ask=None, now: datetime | None = None) -> ContrastResult:
+def build_contrast(sources: list[Path], dest: Path, ask=None, on_progress=None, now: datetime | None = None) -> ContrastResult:
+    """on_progress(percent, stage, detail)。读文件占前 68%，写入从 70% 走到 99%，按核对、翻译、截图、保存分开报。"""
     docs: list[SourceDoc] = []
     unreadable: list[Unreadable] = []
-    for path in sources:
-        read = read_pdf_pages(Path(path))
+    file_count = max(len(sources), 1)
+    spans = {"text": (0, 18), "tables": (18, 55), "ocr": (55, 82), "figures": (82, 90), "lines": (90, 94)}
+
+    def report(percent: float, stage: str, detail: str = "") -> None:
+        if on_progress is None:
+            return
+        try:
+            on_progress(max(0, min(99, int(percent))), stage, detail)
+        except Exception:  # noqa: BLE001
+            return
+
+    for file_at, path in enumerate(sources):
+        name = Path(path).name
+
+        def page_progress(phase: str, page: int, total: int, *, _at: int = file_at, _name: str = name) -> None:
+            lo, hi = spans.get(phase, (0, 18))
+            local = lo + (hi - lo) * (page / max(total, 1))
+            report(((_at + local / 100) / file_count) * 68, phase, f"{_name} {page}/{total}")
+
+        read = read_pdf_pages(Path(path), progress=page_progress)
         if isinstance(read, Unreadable):
             unreadable.append(read)
         else:
             docs.append(read)
-    return write_contrast(docs, unreadable, dest, ask, now)
+
+    def write_progress(inner: float, stage: str, detail: str = "") -> None:
+        report(70 + max(0.0, min(100.0, inner)) * 0.29, stage, detail)
+
+    return write_contrast(docs, unreadable, dest, ask, now, on_progress=write_progress)
 
 
 def contrast_file_name(now: datetime | None = None) -> str:

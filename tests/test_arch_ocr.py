@@ -91,11 +91,12 @@ class ArchOcrTests(unittest.TestCase):
         self.assertEqual([(r[7], r[9]) for r in table_rows], [("Ripple", "1.0 V"), ("Delay", "10 ms")])
         self.assertTrue(all(NOTE_OCR in r[15] for r in table_rows))
         self.assertEqual(tables, [])  # 拆成行的表不再整表进附件
-        # 表头认不出的图片表格才整表进附件，类型标 OCR
-        _, tables = split_document(SourceDoc("ldc.pdf", pages, {}, {1: [[["a", "b"], ["c", "d"], ["e", "f"]]]}))
+        # 表头认不出的图片表格整表一条，类型标 OCR
+        rows, tables = split_document(SourceDoc("ldc.pdf", pages, {}, {1: [[["a", "b"], ["c", "d"], ["e", "f"]]]}))
         self.assertEqual(len(tables), 1)
         self.assertEqual(tables[0][5], "图片表格·OCR")
         self.assertIn(NOTE_OCR, tables[0][7])
+        self.assertEqual(sum(1 for r in rows if str(r[8]).startswith("本页图片表格")), 1)
 
 
 if __name__ == "__main__":

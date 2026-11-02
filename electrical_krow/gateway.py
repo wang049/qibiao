@@ -28,6 +28,8 @@ from pydantic import BaseModel, Field
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
 from electrical_krow.arch_contrast import build_contrast, contrast_file_name
 from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, build_hsi, revise_hsi_from_schematic
+from electrical_krow.ce_bom import build_ce_bom, ce_bom_file_name
+from electrical_krow.icd_book import build_icd, icd_file_name
 from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
 from electrical_krow.io_plan import write_io_sheet
 
@@ -993,7 +995,8 @@ def create_app(
             version=result.version,
             previous=bool(previous_bytes),
         )
-        group = " ".join(part for part in (result.mcu, result.package) if part).strip() or manual_name
+        schematic_stem = Path(schematic_name).stem if schematic_name else ""
+        group = " ".join(part for part in (result.mcu, result.package) if part).strip() or schematic_stem or manual_name
         try:
             if manual_bytes:
                 request.app.state.jobs.keep_source(
@@ -1162,6 +1165,150 @@ def create_app(
             "tbd_count": result.tbd_count,
             "quality_issues": list(result.quality_issues),
             "unreadable": unreadable,
+        }
+
+    @app.post("/api/icd")
+    async def create_icd(
+        request: Request,
+        file: UploadFile = File(...),
+        previous: UploadFile | None = File(default=None),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """按当份接插件 ICD 抽出引脚。有上一版时写出版本差异。不补当份没有的信号。"""
+        item = _require_session(request, authorization)
+        name = Path(file.filename or "").name
+        if Path(name).suffix.lower() not in {".xlsx", ".xlsm"}:
+            raise HTTPException(400, "ICD 请用 Excel。")
+        current_bytes = await read_capped_upload(file)
+        previous_name = Path(previous.filename or "").name if previous is not None else ""
+        previous_bytes = b""
+        if previous_name:
+            if Path(previous_name).suffix.lower() not in {".xlsx", ".xlsm"}:
+                raise HTTPException(400, "上一版 ICD 请用 Excel。")
+            previous_bytes = await read_capped_upload(previous)
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            current_path = folder / (name or "icd.xlsx")
+            current_path.write_bytes(current_bytes)
+            previous_path = None
+            if previous_bytes:
+                previous_path = folder / f"previous-{previous_name}"
+                previous_path.write_bytes(previous_bytes)
+            dest_tmp = folder / "icd.xlsx"
+            try:
+                result = await asyncio.to_thread(build_icd, current_path, dest_tmp, previous_path)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            dest = request.app.state.jobs.output_dir / icd_file_name()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(dest_tmp.read_bytes())
+        try:
+            open_locally(dest)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        request.app.state.jobs.remember_output(
+            kind="icd",
+            name=dest.name,
+            username=item.auth.username,
+            pins=result.pins,
+            rows=result.parts,
+            tables=result.hv,
+            changes=result.changes,
+        )
+        return {
+            "ok": True,
+            "name": dest.name,
+            "download": f"/files/{dest.name}",
+            "pins": result.pins,
+            "parts": result.parts,
+            "hv": result.hv,
+            "changes": result.changes,
+        }
+
+    @app.get("/api/icd/history")
+    def icd_history(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        user = item.auth.username
+        rows = request.app.state.jobs.list_output("icd", username=user)
+        return {
+            "records": request.app.state.jobs.with_sources(rows, user, "icd"),
+            "folders": request.app.state.jobs.list_record_folders(user, "icd"),
+        }
+
+    @app.post("/api/ce-bom")
+    async def create_ce_bom(
+        request: Request,
+        manuals: list[UploadFile] = File(...),
+        template: UploadFile = File(...),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """按确认的 CE BOM 表格式，从当份物料手册抽出尺寸和重量。不补手册没有的数。"""
+        item = _require_session(request, authorization)
+        template_name = Path(template.filename or "").name
+        if Path(template_name).suffix.lower() not in {".xlsx", ".xlsm"}:
+            raise HTTPException(400, "CE BOM 模板请用 Excel。")
+        if not manuals:
+            raise HTTPException(400, "请选择物料手册或器件说明。")
+        template_bytes = await read_capped_upload(template)
+        payloads: list[tuple[str, bytes]] = []
+        for upload in manuals:
+            name = Path(upload.filename or "").name
+            if Path(name).suffix.lower() not in {".xlsx", ".xlsm", ".pdf", ".docx"}:
+                raise HTTPException(400, f"{name or '所选文件'} 不是物料手册。请用 Excel、PDF 或 Word。")
+            payloads.append((name, await read_capped_upload(upload)))
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            template_path = folder / (template_name or "template.xlsx")
+            template_path.write_bytes(template_bytes)
+            manual_paths: list[Path] = []
+            for index, (name, data) in enumerate(payloads, start=1):
+                target = folder / f"{index:02d}-{name}"
+                target.write_bytes(data)
+                manual_paths.append(target)
+            dest_tmp = folder / "ce-bom.xlsx"
+            try:
+                result = await asyncio.to_thread(build_ce_bom, manual_paths, template_path, dest_tmp)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            dest = request.app.state.jobs.output_dir / ce_bom_file_name()
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(dest_tmp.read_bytes())
+        try:
+            open_locally(dest)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        request.app.state.jobs.remember_output(
+            kind="bom",
+            name=dest.name,
+            username=item.auth.username,
+            rows=result.rows,
+            pins=result.filled,
+            changes=result.conflicts,
+        )
+        return {
+            "ok": True,
+            "name": dest.name,
+            "download": f"/files/{dest.name}",
+            "rows": result.rows,
+            "filled": result.filled,
+            "blank": result.blank,
+            "conflicts": result.conflicts,
+        }
+
+    @app.get("/api/ce-bom/history")
+    def ce_bom_history(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        user = item.auth.username
+        rows = request.app.state.jobs.list_output("bom", username=user)
+        return {
+            "records": request.app.state.jobs.with_sources(rows, user, "bom"),
+            "folders": request.app.state.jobs.list_record_folders(user, "bom"),
         }
 
     @app.get("/files/{name}")

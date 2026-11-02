@@ -869,7 +869,7 @@ button.ghost:hover { border-color: var(--navy); color: var(--navy); }
   body.is-logged header .shell,
   body.is-logged main { width: auto; }
   .desk { flex-direction: column; }
-  .rail { width: auto; border-right: 0; border-bottom: 1px solid var(--rule); max-height: 320px; }
+  .rail { width: auto; height: auto; border-right: 0; border-bottom: 1px solid var(--rule); max-height: 320px; overflow: auto; }
   .stats { grid-template-columns: repeat(2, 1fr); }
   .step-desc { font-size: 10px; min-height: 3.2em; }
   h1, main.is-work h1 { font-size: 22px; }
@@ -887,15 +887,18 @@ button.ghost:hover { border-color: var(--navy); color: var(--navy); }
   display: none;
   width: 276px;
   flex: none;
+  align-self: stretch;
+  min-height: 0;
   background: var(--surface);
   border-right: 1px solid var(--rule);
-  padding: 16px 14px 12px;
-  overflow: auto;
+  padding: 12px 12px 10px;
+  overflow: hidden;
 }
 body.is-logged .rail:not([hidden]) {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
+  height: 100%;
 }
 .rail-brand {
   display: flex;
@@ -908,12 +911,16 @@ body.is-logged .rail:not([hidden]) {
 .rail-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: thin;
 }
 /* 导航分组：细线 + 小灰字。工作台单独在最上面，不带分组名 */
 .rail-group {
-  margin: 8px 0 4px;
-  padding: 10px 10px 0;
+  margin: 4px 0 2px;
+  padding: 8px 8px 0;
   border-top: 1px solid var(--rule-2);
   font-size: 11px;
   font-weight: 650;
@@ -944,8 +951,8 @@ body.is-logged .rail:not([hidden]) {
 .rail-fn-label .tool-dot { margin-left: 2px; }
 .rail-tabs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  gap: 4px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2px;
   margin-bottom: 8px;
   padding: 3px;
   background: var(--surface-2);
@@ -954,7 +961,7 @@ body.is-logged .rail:not([hidden]) {
 button.rail-tab {
   height: 28px;
   margin: 0;
-  padding: 0 8px;
+  padding: 0 4px;
   border: 0;
   border-radius: 6px;
   background: transparent;
@@ -962,6 +969,8 @@ button.rail-tab {
   font-size: 12px;
   font-weight: 650;
   box-shadow: none;
+  white-space: nowrap;
+  min-width: 0;
 }
 button.rail-tab.is-on {
   background: var(--surface);
@@ -970,7 +979,8 @@ button.rail-tab.is-on {
 }
 html[data-theme="dark"] button.rail-tab.is-on { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
 /* 记录列表自己滚动，账号区始终留在底部 */
-.rail-jobs { flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column; gap: 0; }
+.rail-jobs { flex: 1 1 0; min-height: 120px; display: flex; flex-direction: column; gap: 0; overflow: hidden; }
+.rail-jobs > .rail-group { margin-top: 0; }
 .rail-jobs .job-list {
   flex: 1 1 auto;
   max-height: none;
@@ -990,9 +1000,9 @@ html[data-theme="dark"] button.rail-tab.is-on { box-shadow: 0 1px 2px rgba(0, 0,
 .rail-fn {
   width: 100%;
   height: auto;
-  min-height: 36px;
-  margin-bottom: 4px;
-  padding: 7px 10px;
+  min-height: 32px;
+  margin-bottom: 1px;
+  padding: 4px 8px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1085,7 +1095,8 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
     "avatar copy"
     "actions actions";
   gap: 8px 10px;
-  margin-top: auto;
+  flex: none;
+  margin-top: 0;
   padding: 10px;
   background: var(--surface-2);
   border: 1px solid var(--rule-2);
@@ -1183,7 +1194,14 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   border: 1px solid var(--accent-rule);
   border-radius: 4px;
 }
-.job-folder-bar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.job-folder-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.job-new-folder,
+.job-add-source { width: 100%; }
 .job-new-folder,
 .job-add-source,
 .job-folder-form button {
@@ -1224,7 +1242,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   font-size: 11px;
   color: var(--err);
 }
-.job-folder { display: flex; flex-direction: column; gap: 6px; }
+.job-folder { display: flex; flex-direction: column; gap: 2px; }
 .job-folder-head {
   width: 100%;
   height: 32px;
@@ -1266,7 +1284,7 @@ button.rail-tool.is-on { background: var(--accent-wash); color: var(--navy); }
   background: var(--surface-2);
   border-radius: 999px;
 }
-.job-folder-body { display: none; flex-direction: column; gap: 6px; padding-left: 10px; }
+.job-folder-body { display: none; flex-direction: column; gap: 2px; margin: 0 0 4px 7px; padding-left: 10px; border-left: 1px solid var(--rule-2); }
 .job-folder.is-open .job-folder-body { display: flex; }
 .job-folder-empty {
   margin: 0;
@@ -1413,6 +1431,57 @@ html[data-theme="dark"] .job-row:hover { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4
   line-height: 1.35;
   white-space: normal;
 }
+.rail-jobs .job-list { gap: 2px; }
+.rail-jobs .job-row {
+  align-items: center;
+  min-height: 32px;
+  background: transparent;
+  border-color: transparent;
+  border-radius: 8px;
+}
+.rail-jobs .job-row:hover,
+.rail-jobs .job-row.is-on {
+  background: var(--surface-2);
+  border-color: transparent;
+  box-shadow: none;
+}
+.rail-jobs .job-open {
+  align-items: center;
+  padding: 4px 2px 4px 8px;
+}
+.rail-jobs .job-copy {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+.rail-jobs .job-kind {
+  flex: none;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--ink-3);
+}
+.rail-jobs .job-name {
+  flex: 1 1 auto;
+  font-size: 12px;
+  font-weight: 600;
+}
+.rail-jobs .job-meta {
+  flex: none;
+  flex-wrap: nowrap;
+  gap: 0;
+}
+.rail-jobs .job-status,
+.rail-jobs .job-tag { display: none; }
+.rail-jobs .job-meta-text {
+  flex: none;
+  white-space: nowrap;
+  font-size: 11px;
+}
+.rail-jobs .job-move {
+  height: 22px;
+  margin-right: 4px;
+  color: var(--ink-3);
+}
 .home-hello {
   text-align: center;
   max-width: 40em;
@@ -1440,14 +1509,24 @@ html[data-theme="dark"] .job-row:hover { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4
   color: var(--ink-2);
 }
 .home-grid {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
   gap: 16px;
 }
-.home-grid .fn-card { flex: 1 1 280px; max-width: 420px; }
+.home-grid .fn-card {
+  width: auto;
+  max-width: none;
+  height: 100%;
+  min-height: 188px;
+}
 .home-grid .fn-go { margin-top: auto; }
+@media (max-width: 980px) {
+  .home-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .home-grid { grid-template-columns: 1fr; }
+}
 .io-steps {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1827,15 +1906,21 @@ html[data-theme="dark"] .job-row:hover { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4
   font-size: 13px;
 }
 #io-hsi,
-#arch-build {
+#arch-build,
+#icd-build,
+#bom-build {
   background: var(--accent);
   color: #fff;
   font-weight: 650;
 }
 #io-hsi:hover:not(:disabled),
-#arch-build:hover:not(:disabled) { background: var(--accent-ink); }
+#arch-build:hover:not(:disabled),
+#icd-build:hover:not(:disabled),
+#bom-build:hover:not(:disabled) { background: var(--accent-ink); }
 #io-hsi:disabled,
-#arch-build:disabled {
+#arch-build:disabled,
+#icd-build:disabled,
+#bom-build:disabled {
   background: var(--surface-3);
   color: var(--ink-3);
   cursor: not-allowed;

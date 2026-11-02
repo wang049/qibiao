@@ -159,6 +159,11 @@ mkdir -p "$STAGE/app/docs/knowledge/published"
 cp "$ROOT/docs/knowledge/published/manifest.json" "$STAGE/app/docs/knowledge/published/manifest.json"
 cp "$ROOT/docs/knowledge/published/graph.json" "$STAGE/app/docs/knowledge/published/graph.json"
 cp "$ROOT/docs/knowledge/published/keyword_index.json" "$STAGE/app/docs/knowledge/published/keyword_index.json"
+for extra in arch_kb.yaml hsi_kb.yaml; do
+  if [ -f "$ROOT/docs/knowledge/$extra" ]; then
+    cp "$ROOT/docs/knowledge/$extra" "$STAGE/app/docs/knowledge/$extra"
+  fi
+done
 # 待专家口径标注（出表时写进复核备注）；文件可为空/不存在
 if [ -f "$ROOT/docs/knowledge/pending_rulings.json" ]; then
   cp "$ROOT/docs/knowledge/pending_rulings.json" "$STAGE/app/docs/knowledge/pending_rulings.json"

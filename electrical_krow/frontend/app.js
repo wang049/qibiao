@@ -282,11 +282,15 @@ function applyWorkPanel() {
   const kb = on && workPanel === "kb";
   const extract = on && workPanel === "extract";
   const io = on && workPanel === "io";
+  const icd = on && workPanel === "icd";
+  const bom = on && workPanel === "bom";
   const arch = on && workPanel === "arch";
   $("home-card").hidden = !home;
   $("work-card").hidden = !extract;
   $("kb-card").hidden = !kb;
   $("io-card").hidden = !io;
+  $("icd-card").hidden = !icd;
+  $("bom-card").hidden = !bom;
   $("arch-card").hidden = !arch;
   document.body.classList.toggle("is-logged", on);
   document.body.classList.toggle("is-home", home);
@@ -296,9 +300,13 @@ function applyWorkPanel() {
   $("rail-home")?.classList.toggle("is-on", home);
   $("rail-extract")?.classList.toggle("is-on", extract);
   $("rail-io")?.classList.toggle("is-on", io);
+  $("rail-icd")?.classList.toggle("is-on", icd);
+  $("rail-bom")?.classList.toggle("is-on", bom);
   $("rail-arch")?.classList.toggle("is-on", arch);
   $("rail-kb")?.classList.toggle("is-on", kb);
   if (io) setRailRecordTab("hsi");
+  else if (icd) setRailRecordTab("icd");
+  else if (bom) setRailRecordTab("bom");
   else if (arch) setRailRecordTab("arch");
   else if (extract) setRailRecordTab("jobs");
   // 知识库页的口径只在页内蓝条说一次，标题下不再放副标题
@@ -326,6 +334,18 @@ function applyWorkPanel() {
     $("kicker").textContent = tx("hero.io.kicker");
     $("title").innerHTML = tx("hero.io.title");
     $("lead").textContent = tx("hero.io.lead");
+    return;
+  }
+  if (icd) {
+    $("kicker").textContent = tx("hero.icd.kicker");
+    $("title").innerHTML = tx("hero.icd.title");
+    $("lead").textContent = tx("hero.icd.lead");
+    return;
+  }
+  if (bom) {
+    $("kicker").textContent = tx("hero.bom.kicker");
+    $("title").innerHTML = tx("hero.bom.title");
+    $("lead").textContent = tx("hero.bom.lead");
     return;
   }
   if (arch) {
@@ -411,9 +431,25 @@ function fileNameOf(download) {
 }
 
 function recordTitle(name) {
-  const base = String(name || "").replace(/\.(pdf|xlsx|xlsm|xls)$/i, "");
-  const hsi = base.match(/^HSI-(.+?)(?:-\d{8})?$/i);
-  return hsi ? hsi[1] : (base || String(name || ""));
+  const base = String(name || "").replace(/\.(pdf|xlsx|xlsm|xls|edf|docx)$/i, "");
+  const hsi = base.match(/^HSI-(.*?)(?:-\d{8}(?:-\d{6})?)?$/i);
+  if (hsi) {
+    const title = hsi[1].replace(/^-+/, "").replace(/-+$/, "");
+    return title || "HSI";
+  }
+  const icd = base.match(/^ICD引脚清单-(.+)$/);
+  if (icd) return icd[1].replace(/-/g, " ");
+  const bom = base.match(/^CEBOM-(.+)$/);
+  if (bom) return bom[1].replace(/-/g, " ");
+  return base || String(name || "");
+}
+
+function recordInner(kindLabel, title, metaHtml) {
+  return "<span class='job-copy'>"
+    + "<span class='job-kind'>" + escText(kindLabel) + "</span>"
+    + "<span class='job-name'>" + escText(title) + "</span>"
+    + (metaHtml || "")
+    + "</span>";
 }
 
 const EMPTY_JOBS_SVG = "<svg viewBox='0 0 64 48' width='64' height='48' fill='none' aria-hidden='true'>"
@@ -426,10 +462,26 @@ let hsiRows = [];
 let jobSources = [];
 let hsiSources = [];
 let archSources = [];
-let recordFolders = { jobs: [], hsi: [], arch: [] };
+let recordFolders = { jobs: [], hsi: [], arch: [], icd: [], bom: [] };
+let icdRows = [];
+let bomRows = [];
+let icdSources = [];
+let bomSources = [];
 let recordNote = null;
 let recordOpen = {};
 let recordDraft = null;
+
+function renderByKind(kind) {
+  if (kind === "hsi") renderHsi();
+  else if (kind === "arch") renderArch();
+  else if (kind === "icd") renderSheetRecords("icd");
+  else if (kind === "bom") renderSheetRecords("bom");
+  else renderJobs();
+}
+
+function recordListId(kind) {
+  return { hsi: "hsi-list", arch: "arch-list", icd: "icd-list", bom: "bom-list" }[kind] || "job-list";
+}
 
 function recordFolderTitle(row, kind) {
   const grouped = String((row && row.group_title) || "").trim();
@@ -438,9 +490,7 @@ function recordFolderTitle(row, kind) {
     const chip = [row.mcu, row.package].filter(Boolean).join(" ");
     if (chip) return chip;
     const name = fileNameOf(row.download) || String(row.source || "");
-    const base = name.replace(/\.xlsx$/i, "");
-    const matched = base.match(/^HSI-(.+?)(?:-\d+)?(?:-\d{8})?$/i);
-    return matched ? matched[1] : recordTitle(name);
+    return recordTitle(name);
   }
   if (kind === "arch") return recordTitle(fileNameOf(row.download) || row.source || "");
   return String(row.source || tx("spec"));
@@ -524,16 +574,19 @@ function mergedRecords(outputs, sources) {
   return outputs.concat(sources).sort((a, b) => Number(b.created_at || 0) - Number(a.created_at || 0));
 }
 
+function sourceKindLabel(kind) {
+  if (kind === "hsi") return tx("record.kind.net");
+  if (kind === "arch") return tx("record.kind.req");
+  if (kind === "icd") return tx("record.kind.icdIn");
+  if (kind === "bom") return tx("record.kind.manual");
+  return tx("record.kind.spec");
+}
+
 function sourceCard(kind, row) {
   const name = String(row.source || "");
   const when = fmtWhen(row.created_at);
-  const inner = "<span class='job-copy'>"
-    + "<span class='job-name'>" + escText(name) + "</span>"
-    + "<span class='job-meta'>"
-    + "<span class='job-status file'>" + tx("record.sourceTag") + "</span>"
-    + "<span class='job-meta-text'>" + escText(when) + "</span>"
-    + "</span></span>";
-  return recordCard(kind, row, "data-source", row.id || "", name, inner);
+  const meta = "<span class='job-meta'><span class='job-meta-text'>" + escText(when) + "</span></span>";
+  return recordCard(kind, row, "data-source", row.id || "", name, recordInner(sourceKindLabel(kind), name, meta));
 }
 
 function recordToolbar(kind) {
@@ -583,9 +636,7 @@ function bindRecordChrome(host, kind) {
   host.querySelectorAll(".job-new-folder").forEach((btn) => {
     btn.addEventListener("click", () => {
       recordDraft = { kind, recordId: "", name: "", error: "" };
-      if (kind === "hsi") renderHsi();
-      else if (kind === "arch") renderArch();
-      else renderJobs();
+      renderByKind(kind);
       const input = host.querySelector(".job-folder-form input");
       if (input) input.focus();
     });
@@ -614,18 +665,14 @@ function bindRecordChrome(host, kind) {
         await loadJobs();
       } catch (err) {
         recordDraft = { kind, recordId: draft.recordId, name, error: err.message || String(err) };
-        if (kind === "hsi") renderHsi();
-        else if (kind === "arch") renderArch();
-        else renderJobs();
+        renderByKind(kind);
       }
     });
     const cancel = form.querySelector("[data-cancel]");
     if (cancel) {
       cancel.addEventListener("click", () => {
         recordDraft = null;
-        if (kind === "hsi") renderHsi();
-        else if (kind === "arch") renderArch();
-        else renderJobs();
+        renderByKind(kind);
       });
     }
   });
@@ -633,9 +680,7 @@ function bindRecordChrome(host, kind) {
     btn.addEventListener("click", () => {
       const key = btn.getAttribute("data-folder") || "";
       recordOpen[key] = !folderHeadOpen(btn);
-      if (kind === "hsi") renderHsi();
-      else if (kind === "arch") renderArch();
-      else renderJobs();
+      renderByKind(kind);
     });
   });
   host.querySelectorAll(".job-move").forEach((btn) => {
@@ -692,9 +737,7 @@ async function uploadSource(kind, file, folderId) {
     await loadJobs();
   } catch (err) {
     recordNote = { kind, text: err.message || String(err) };
-    if (kind === "hsi") renderHsi();
-    else if (kind === "arch") renderArch();
-    else renderJobs();
+    renderByKind(kind);
   }
 }
 
@@ -733,9 +776,16 @@ function folderHeadOpen(btn) {
   return !!(section && section.classList.contains("is-open"));
 }
 
+function recordRows(kind) {
+  if (kind === "hsi") return hsiRows;
+  if (kind === "arch") return archRows;
+  if (kind === "icd") return icdRows;
+  if (kind === "bom") return bomRows;
+  return jobRows;
+}
+
 function recordById(kind, id) {
-  const rows = kind === "hsi" ? hsiRows : kind === "arch" ? archRows : jobRows;
-  return rows.find((row) => String(row.id || "") === id) || null;
+  return recordRows(kind).find((row) => String(row.id || "") === id) || null;
 }
 
 function recordMenuEl() {
@@ -798,9 +848,7 @@ function openRecordMenu(anchor, kind, recordId) {
         await loadJobs();
       } catch (err) {
         recordDraft = { kind, recordId: "", name: "", error: err.message || String(err) };
-        if (kind === "hsi") renderHsi();
-        else if (kind === "arch") renderArch();
-        else renderJobs();
+        renderByKind(kind);
       }
     });
   });
@@ -809,10 +857,8 @@ function openRecordMenu(anchor, kind, recordId) {
     newer.addEventListener("click", () => {
       menu.hidden = true;
       recordDraft = { kind, recordId, name: "", error: "" };
-      if (kind === "hsi") renderHsi();
-      else if (kind === "arch") renderArch();
-      else renderJobs();
-      const input = document.querySelector("#" + (kind === "hsi" ? "hsi-list" : kind === "arch" ? "arch-list" : "job-list") + " .job-folder-form input");
+      renderByKind(kind);
+      const input = document.querySelector("#" + recordListId(kind) + " .job-folder-form input");
       if (input) input.focus();
     });
   }
@@ -824,16 +870,13 @@ function renderHsi() {
   fillRecordHost(host, "hsi", mergedRecords(hsiRows, hsiSources), (row) => {
     if (row.role === "source") return sourceCard("hsi", row);
     const name = fileNameOf(row.download) || String(row.source || "");
+    const titled = String(row.group_title || "").trim() || [row.mcu, row.package].filter(Boolean).join(" ");
     const bits = [];
     const when = fmtWhen(row.created_at);
     if (when) bits.push(when);
     if (row.pins) bits.push(tx("io.pins", { n: row.pins }));
-    const inner = "<span class='job-copy'>"
-      + "<span class='job-name'>" + escText(recordTitle(name)) + "</span>"
-      + "<span class='job-meta'>"
-      + "<span class='job-status done'>" + tx("job.done") + "</span>"
-      + "<span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span>"
-      + "</span></span>";
+    const meta = "<span class='job-meta'><span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span></span>";
+    const inner = recordInner(tx("record.kind.hsi"), titled || recordTitle(name), meta);
     return recordCard("hsi", row, "data-hsi", row.download || "", name, inner);
   }, () => "<p class='job-empty'>" + tx("empty.hsi") + "</p>");
   host.querySelectorAll("[data-hsi]").forEach((btn) => {
@@ -853,17 +896,50 @@ function renderArch() {
     const when = fmtWhen(row.created_at);
     if (when) bits.push(when);
     if (row.rows) bits.push(tx("arch.rows", { n: row.rows }));
-    const inner = "<span class='job-copy'>"
-      + "<span class='job-name'>" + escText(recordTitle(name)) + "</span>"
-      + "<span class='job-meta'>"
-      + "<span class='job-status done'>" + tx("job.done") + "</span>"
-      + "<span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span>"
-      + "</span></span>";
+    const meta = "<span class='job-meta'><span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span></span>";
+    const inner = recordInner(tx("record.kind.arch"), recordTitle(name), meta);
     return recordCard("arch", row, "data-arch", row.download || "", name, inner);
   }, () => "<p class='job-empty'>" + tx("empty.arch") + "</p>");
   host.querySelectorAll("[data-arch]").forEach((btn) => {
     btn.addEventListener("click", () => openArchRecord(btn.getAttribute("data-arch") || ""));
   });
+}
+
+const sheetRecord = {
+  icd: { rows: () => icdRows, sources: () => icdSources, empty: "empty.icd", attr: "data-icd", panel: "icd", msg: setIcdMsg, show: showIcdDownload },
+  bom: { rows: () => bomRows, sources: () => bomSources, empty: "empty.bom", attr: "data-bom", panel: "bom", msg: setBomMsg, show: showBomDownload },
+};
+
+function renderSheetRecords(kind) {
+  const spec = sheetRecord[kind];
+  const host = $(recordListId(kind));
+  if (!spec || !host) return;
+  fillRecordHost(host, kind, mergedRecords(spec.rows(), spec.sources()), (row) => {
+    if (row.role === "source") return sourceCard(kind, row);
+    const name = fileNameOf(row.download) || String(row.source || "");
+    const bits = [];
+    const when = fmtWhen(row.created_at);
+    if (when) bits.push(when);
+    if (kind === "icd" && row.pins) bits.push(tx("io.pins", { n: row.pins }));
+    if (kind === "bom" && row.rows) bits.push(tx("arch.rows", { n: row.rows }));
+    const meta = "<span class='job-meta'><span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span></span>";
+    const kindLabel = kind === "bom" ? tx("record.kind.bom") : tx("record.kind.icd");
+    const inner = recordInner(kindLabel, recordTitle(name), meta);
+    return recordCard(kind, row, spec.attr, row.download || "", name, inner);
+  }, () => "<p class='job-empty'>" + tx(spec.empty) + "</p>");
+  host.querySelectorAll("[" + spec.attr + "]").forEach((btn) => {
+    btn.addEventListener("click", () => openSheetRecord(kind, btn.getAttribute(spec.attr) || ""));
+  });
+}
+
+function openSheetRecord(kind, download) {
+  const spec = sheetRecord[kind];
+  if (!spec) return;
+  const row = spec.rows().find((item) => item.download === download) || {};
+  const name = fileNameOf(download) || String(row.source || "");
+  setPanel(spec.panel);
+  spec.msg(name, "ok");
+  spec.show({ name, download });
 }
 
 function openArchRecord(download) {
@@ -911,13 +987,12 @@ function renderJobs() {
     if (row.status === "done" && Number(row.pending_note || 0) > 0) bits.push(tx("meta.pending", { n: Number(row.pending_note) }));
     if (row.status === "error" && row.detail) bits.push(String(row.detail).slice(0, 24));
     const tag = kindTag(row);
-    const inner = "<span class='job-copy'>"
-      + "<span class='job-name'>" + escText(name) + "</span>"
-      + "<span class='job-meta'>"
+    const meta = "<span class='job-meta'>"
       + "<span class='job-status " + st.cls + "'>" + st.text + "</span>"
       + (tag ? "<i class='job-tag'>" + escText(tag) + "</i>" : "")
       + "<span class='job-meta-text'>" + escText(bits.join(" · ") || (row.message || "")) + "</span>"
-      + "</span></span>";
+      + "</span>";
+    const inner = recordInner(tx("record.kind.sheet"), name, meta);
     return recordCard("jobs", row, "data-id", id, name, inner);
   }, () => "<div class='job-empty'>" + EMPTY_JOBS_SVG
     + "<p>" + tx("empty.jobs") + "</p><small>" + tx("empty.jobsHint") + "</small></div>");
@@ -1016,10 +1091,12 @@ $("work-open-dir")?.addEventListener("click", async () => {
 async function loadJobs() {
   if (!loggedIn) return;
   try {
-    const [data, hsi, arch] = await Promise.all([
+    const [data, hsi, arch, icd, bom] = await Promise.all([
       json("/api/jobs"),
       json("/api/hsi/history").catch(() => ({ records: [] })),
       json("/api/arch/history").catch(() => ({ records: [] })),
+      json("/api/icd/history").catch(() => ({ records: [] })),
+      json("/api/ce-bom/history").catch(() => ({ records: [] })),
     ]);
     const split = (rows) => {
       const outputs = [];
@@ -1033,14 +1110,20 @@ async function loadJobs() {
     [jobRows, jobSources] = split(data.jobs);
     [hsiRows, hsiSources] = split(hsi.records);
     [archRows, archSources] = split(arch.records);
+    [icdRows, icdSources] = split(icd.records);
+    [bomRows, bomSources] = split(bom.records);
     recordFolders = {
       jobs: data.folders || [],
       hsi: hsi.folders || [],
       arch: arch.folders || [],
+      icd: icd.folders || [],
+      bom: bom.folders || [],
     };
     renderJobs();
     renderHsi();
     renderArch();
+    renderSheetRecords("icd");
+    renderSheetRecords("bom");
   } catch {
     if (!$("job-list").children.length) {
       $("job-list").innerHTML = "<p class='job-empty'>" + tx("jobs.unread") + "</p>";
@@ -1289,9 +1372,9 @@ function goExtract(opts) {
 }
 
 function setRailRecordTab(tab) {
-  const pick = (tab === "hsi" || tab === "arch") ? tab : "jobs";
-  const panels = { jobs: $("job-list"), hsi: $("hsi-list"), arch: $("arch-list") };
-  const tabs = { jobs: $("rail-tab-jobs"), hsi: $("rail-tab-hsi"), arch: $("rail-tab-arch") };
+  const pick = ["hsi", "arch", "icd", "bom"].includes(tab) ? tab : "jobs";
+  const panels = { jobs: $("job-list"), hsi: $("hsi-list"), icd: $("icd-list"), bom: $("bom-list"), arch: $("arch-list") };
+  const tabs = { jobs: $("rail-tab-jobs"), hsi: $("rail-tab-hsi"), icd: $("rail-tab-icd"), bom: $("rail-tab-bom"), arch: $("rail-tab-arch") };
   Object.keys(panels).forEach((key) => {
     const on = key === pick;
     if (panels[key]) panels[key].hidden = !on;
@@ -1303,10 +1386,14 @@ function setRailRecordTab(tab) {
 $("rail-home").onclick = () => setPanel("home");
 $("rail-extract").onclick = () => goExtract({ clearFile: true });
 $("rail-io").onclick = () => setPanel("io");
+$("rail-icd").onclick = () => setPanel("icd");
+$("rail-bom").onclick = () => setPanel("bom");
 $("rail-arch").onclick = () => setPanel("arch");
 $("rail-kb").onclick = () => setPanel("kb");
 $("rail-tab-jobs").onclick = () => setRailRecordTab("jobs");
 $("rail-tab-hsi").onclick = () => setRailRecordTab("hsi");
+$("rail-tab-icd").onclick = () => setRailRecordTab("icd");
+$("rail-tab-bom").onclick = () => setRailRecordTab("bom");
 $("rail-tab-arch").onclick = () => setRailRecordTab("arch");
 function syncIoResult() {
   const row = $("io-result");
@@ -1490,7 +1577,7 @@ function syncIoFileName(input, nameEl) {
 }
 
 function storedSources(accept, kind) {
-  const rows = kind === "hsi" ? hsiSources : kind === "arch" ? archSources : jobSources;
+  const rows = kind === "hsi" ? hsiSources : kind === "arch" ? archSources : kind === "icd" ? icdSources : kind === "bom" ? bomSources : jobSources;
   const seen = new Set();
   return rows.filter((row) => {
     const id = String(row.id || "");
@@ -1498,6 +1585,7 @@ function storedSources(accept, kind) {
     if (!id || seen.has(id)) return false;
     const ok = accept === "pdf" ? name.endsWith(".pdf")
       : accept === "sheet" ? (name.endsWith(".xlsx") || name.endsWith(".xlsm"))
+      : accept === "manual" ? (name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xlsm"))
       : accept === "schematic" ? (name.endsWith(".pdf") || name.endsWith(".edf") || name.endsWith(".xlsx") || name.endsWith(".xlsm"))
       : (name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xlsm"));
     if (!ok) return false;
@@ -1541,7 +1629,7 @@ async function useStoredSource(target, row) {
 
 function sourceFolderName(row) {
   const id = String(row.folder_id || "");
-  const folders = (recordFolders.jobs || []).concat(recordFolders.hsi || [], recordFolders.arch || []);
+  const folders = (recordFolders.jobs || []).concat(recordFolders.hsi || [], recordFolders.arch || [], recordFolders.icd || [], recordFolders.bom || []);
   const folder = id ? folders.find((item) => item.id === id) : null;
   return folder ? folder.name : "";
 }
@@ -1560,6 +1648,8 @@ function placeChoiceMenu(menu, anchor) {
 function reportPickError(target, err) {
   const msg = err.message || String(err);
   if (target === "io-manual" || target === "io-previous" || target === "io-schematic") setIoMsg(msg);
+  else if (target === "icd-file" || target === "icd-previous") setIcdMsg(msg);
+  else if (target === "bom-manuals" || target === "bom-template") setBomMsg(msg);
   else if (target === "arch-files") setArchMsg(msg);
   else {
     const host = $("file-info");
@@ -2101,6 +2191,209 @@ $("arch-build").onclick = async () => {
     renderArchFiles();
   }
 };
+function setBomMsg(text, kind) {
+  const msg = $("bom-msg");
+  const box = $("bom-result");
+  if (!msg || !box) return;
+  box.hidden = !text;
+  msg.hidden = !text;
+  msg.textContent = text || "";
+  msg.className = "msg" + (kind === "ok" ? " is-ok" : "");
+}
+
+function clearBomDownload() {
+  const link = $("bom-dl");
+  if (!link) return;
+  link.hidden = true;
+  link.removeAttribute("href");
+  link.textContent = "";
+}
+
+function showBomDownload(data) {
+  const link = $("bom-dl");
+  if (!link || !data || !data.download) return;
+  link.hidden = false;
+  link.href = apiUrl(data.download);
+  link.textContent = tx("bom.download");
+}
+
+function refreshBomGenerate() {
+  const manuals = $("bom-manuals").files;
+  const template = $("bom-template").files && $("bom-template").files[0];
+  $("bom-build").disabled = !(manuals && manuals.length && template);
+}
+
+$("bom-manuals").addEventListener("change", () => {
+  const input = $("bom-manuals");
+  const nameEl = $("bom-manuals-name");
+  const count = input.files ? input.files.length : 0;
+  if (count > 1) {
+    nameEl.removeAttribute("data-i18n");
+    nameEl.textContent = tx("bom.picked", { n: count });
+    nameEl.classList.add("is-set");
+  } else {
+    syncIoFileName(input, nameEl);
+  }
+  clearBomDownload();
+  setBomMsg("");
+  refreshBomGenerate();
+});
+$("bom-template").addEventListener("change", () => {
+  syncIoFileName($("bom-template"), $("bom-template-name"));
+  clearBomDownload();
+  setBomMsg("");
+  refreshBomGenerate();
+});
+$("bom-back").onclick = () => setPanel("home");
+$("bom-build").onclick = async () => {
+  const manuals = $("bom-manuals").files;
+  const template = $("bom-template").files && $("bom-template").files[0];
+  if (!manuals || !manuals.length) {
+    setBomMsg(tx("bom.needManuals"));
+    return;
+  }
+  if (!template) {
+    setBomMsg(tx("bom.needTemplate"));
+    return;
+  }
+  const body = new FormData();
+  Array.from(manuals).forEach((file) => body.append("manuals", file));
+  body.append("template", template);
+  $("bom-build").disabled = true;
+  clearBomDownload();
+  setBomMsg(tx("bom.working"), "ok");
+  try {
+    const resp = await fetch(apiUrl("/api/ce-bom"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+      body,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = data.detail || data.error || resp.statusText;
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    setBomMsg(tx("bom.done", data), "ok");
+    showBomDownload(data);
+  } catch (err) {
+    clearBomDownload();
+    setBomMsg(err.message || String(err));
+  } finally {
+    refreshBomGenerate();
+  }
+};
+$("bom-dl").addEventListener("click", async (ev) => {
+  const link = ev.currentTarget;
+  const api = desktopSave();
+  if (!api) return;
+  ev.preventDefault();
+  const href = link.getAttribute("href") || "";
+  const name = decodeURIComponent(href.split("/").pop() || "");
+  try {
+    const out = await api.save_sheet(name, "Excel (*.xlsx)");
+    if (out && out.canceled) return;
+    if (out && out.ok) return;
+    throw new Error((out && out.error) || tx("err.save"));
+  } catch (e) {
+    setBomMsg(e.message || String(e));
+  }
+});
+function setIcdMsg(text, kind) {
+  const msg = $("icd-msg");
+  const box = $("icd-result");
+  if (!msg || !box) return;
+  box.hidden = !text;
+  msg.hidden = !text;
+  msg.textContent = text || "";
+  msg.className = "msg" + (kind === "ok" ? " is-ok" : "");
+}
+
+function clearIcdDownload() {
+  const link = $("icd-dl");
+  if (!link) return;
+  link.hidden = true;
+  link.removeAttribute("href");
+  link.textContent = "";
+}
+
+function showIcdDownload(data) {
+  const link = $("icd-dl");
+  if (!link || !data || !data.download) return;
+  link.hidden = false;
+  link.href = apiUrl(data.download);
+  link.textContent = tx("icd.download");
+}
+
+function refreshIcdGenerate() {
+  const file = $("icd-file").files && $("icd-file").files[0];
+  $("icd-build").disabled = !file;
+}
+
+$("icd-file").addEventListener("change", () => {
+  syncIoFileName($("icd-file"), $("icd-file-name"));
+  clearIcdDownload();
+  setIcdMsg("");
+  refreshIcdGenerate();
+});
+$("icd-previous").addEventListener("change", () => {
+  syncIoFileName($("icd-previous"), $("icd-previous-name"));
+  clearIcdDownload();
+  setIcdMsg("");
+});
+$("icd-back").onclick = () => setPanel("home");
+$("icd-build").onclick = async () => {
+  const file = $("icd-file").files && $("icd-file").files[0];
+  if (!file) {
+    setIcdMsg(tx("icd.needFile"));
+    return;
+  }
+  const previous = $("icd-previous").files && $("icd-previous").files[0];
+  const body = new FormData();
+  body.append("file", file);
+  if (previous) body.append("previous", previous);
+  $("icd-build").disabled = true;
+  clearIcdDownload();
+  setIcdMsg(tx("icd.working"), "ok");
+  try {
+    const resp = await fetch(apiUrl("/api/icd"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+      body,
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = data.detail || data.error || resp.statusText;
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    let text = tx("icd.done", { name: data.name, pins: data.pins, parts: data.parts, hv: data.hv });
+    if (previous) text += " " + tx(data.changes ? "icd.changes" : "icd.noChanges", { n: data.changes || 0 });
+    setIcdMsg(text, "ok");
+    showIcdDownload(data);
+  } catch (err) {
+    clearIcdDownload();
+    setIcdMsg(err.message || String(err));
+  } finally {
+    refreshIcdGenerate();
+  }
+};
+$("icd-dl").addEventListener("click", async (ev) => {
+  const link = ev.currentTarget;
+  const api = desktopSave();
+  if (!api) return;
+  ev.preventDefault();
+  const href = link.getAttribute("href") || "";
+  const name = decodeURIComponent(href.split("/").pop() || "");
+  try {
+    const out = await api.save_sheet(name, "Excel (*.xlsx)");
+    if (out && out.canceled) return;
+    if (out && out.ok) return;
+    throw new Error((out && out.error) || tx("err.save"));
+  } catch (e) {
+    setIcdMsg(e.message || String(e));
+  }
+});
 $("arch-dl").addEventListener("click", async (ev) => {
   const link = ev.currentTarget;
   const api = desktopSave();

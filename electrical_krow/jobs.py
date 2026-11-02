@@ -68,7 +68,13 @@ _HISTORY_FIELDS = (
     "unreadable",
 )
 ARCH_PREFIX = "架构对照-"
-RECORD_KINDS = frozenset({"jobs", "hsi", "arch"})
+ICD_PREFIX = "ICD引脚清单-"
+BOM_PREFIX = "CEBOM-"
+OUTPUT_KINDS = {
+    "icd": (ICD_PREFIX, "引脚清单已生成"),
+    "bom": (BOM_PREFIX, "CE BOM 已生成"),
+}
+RECORD_KINDS = frozenset({"jobs", "hsi", "arch", "icd", "bom"})
 # 出表中的实时计数（不进历史）：已处理分段 / 分段总数 / 已抽出格数
 _LIVE_FIELDS = {"chunk_done", "chunk_total", "filled"}
 _COMPARE_LIST_LIMIT = 20
@@ -339,7 +345,7 @@ class JobStore:
     ) -> list[dict[str, object]]:
         by_id: dict[str, dict[str, object]] = {}
         for rec in self._read_history():
-            if str(rec.get("kind") or "") in {"hsi", "arch"}:
+            if str(rec.get("kind") or "") in {"hsi", "arch", "icd", "bom"}:
                 continue
             job_id = str(rec.get("id") or "")
             if job_id:
@@ -359,7 +365,7 @@ class JobStore:
             for path in self._output_dir.glob("*.xlsx"):
                 if path.name.startswith("~$") or path.name in seen_files:
                     continue
-                if path.name.startswith("HSI-") or path.name.startswith(ARCH_PREFIX):
+                if path.name.startswith(("HSI-", ARCH_PREFIX, ICD_PREFIX, BOM_PREFIX)):
                     continue
                 rec = _xlsx_history(path)
                 by_id[str(rec["id"])] = rec
@@ -506,6 +512,67 @@ class JobStore:
         rows = sorted(by_name.values(), key=_created_at, reverse=True)
         return rows[: max(1, min(int(limit), 80))]
 
+    def remember_output(
+        self,
+        *,
+        kind: str,
+        name: str,
+        username: str,
+        **fields: object,
+    ) -> dict[str, object]:
+        """记下 ICD 或 CE BOM 的一次生成。不进 SOR 出表记录。"""
+        _prefix, message = OUTPUT_KINDS[kind]
+        record = {
+            "id": f"{kind}-{uuid.uuid4().hex[:12]}",
+            "status": "done",
+            "kind": kind,
+            "message": message,
+            "source": name,
+            "username": (username or "").strip(),
+            "created_at": time.time(),
+            "download": f"/files/{name}",
+        }
+        record.update({key: value for key, value in fields.items() if key in _HISTORY_FIELDS})
+        path = self._history_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            line = json.dumps(_history_record(record), ensure_ascii=False)
+            with self._persist_lock:
+                with path.open("a", encoding="utf-8") as fh:
+                    fh.write(line + "\n")
+        except OSError:
+            return record
+        return record
+
+    def list_output(
+        self, kind: str, limit: int = _HISTORY_LIMIT, *, username: str = ""
+    ) -> list[dict[str, object]]:
+        prefix, message = OUTPUT_KINDS[kind]
+        by_name: dict[str, dict[str, object]] = {}
+        for rec in self._read_history():
+            if str(rec.get("kind") or "") != kind:
+                continue
+            if (username or "").strip() and not job_visible_to(rec, username):
+                continue
+            name = str(rec.get("download") or "").rsplit("/", 1)[-1]
+            if name:
+                by_name[name] = rec
+        if self._output_dir.is_dir():
+            for path in self._output_dir.glob(f"{prefix}*.xlsx"):
+                if path.name.startswith("~$") or path.name in by_name:
+                    continue
+                by_name[path.name] = {
+                    "id": f"{kind}-file-{path.name}",
+                    "status": "done",
+                    "kind": kind,
+                    "message": message,
+                    "source": path.name,
+                    "created_at": path.stat().st_mtime,
+                    "download": f"/files/{path.name}",
+                }
+        rows = sorted(by_name.values(), key=_created_at, reverse=True)
+        return rows[: max(1, min(int(limit), 80))]
+
     def list_record_folders(self, username: str, kind: str) -> list[dict[str, object]]:
         """这个人在某一类记录里建的文件夹。按新建时间从新到旧。"""
         raw = self._folder_board(username)
@@ -598,8 +665,12 @@ class JobStore:
             rows = self.list_recent(limit=80, username=username)
         elif kind == "hsi":
             rows = self.list_hsi(limit=80, username=username)
-        else:
+        elif kind == "arch":
             rows = self.list_arch(limit=80, username=username)
+        elif kind in OUTPUT_KINDS:
+            rows = self.list_output(kind, limit=80, username=username)
+        else:
+            rows = []
         if any(str(row.get("id") or "") == record_id for row in rows):
             return True
         return any(str(row.get("id") or "") == record_id for row in self.list_source_rows(username, kind))

@@ -874,12 +874,12 @@ def create_app(
         mcu: str = Form(default=""),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        """按原理图修改已有 HSI，或按 MCU 型号和手册新建。"""
+        """按原理图生成 HSI，或按 MCU 型号和手册新建。"""
         item = _require_session(request, authorization)
         progress_id = (request.headers.get("x-hsi-progress") or "").strip()[:80]
         chosen = (mode or "mcu").strip().lower()
         if chosen not in {"mcu", "schematic"}:
-            raise HTTPException(400, "请选择按原理图修改，或按 MCU 型号新建。")
+            raise HTTPException(400, "请选择按原理图生成，或按 MCU 型号新建。")
         manual_name = Path(datasheet.filename or "").name if datasheet is not None else ""
         manual_bytes = b""
         typed_mcu = mcu.strip()
@@ -951,7 +951,7 @@ def create_app(
             try:
                 if chosen == "schematic":
                     if schematic_path is None or schematic_path.suffix.lower() != ".edf":
-                        raise ValueError("按原理图修改请用 EDIF（.edf）网表。")
+                        raise ValueError("按原理图生成请用 EDIF（.edf）网表。")
                     result = await asyncio.to_thread(
                         revise_hsi_from_schematic,
                         previous_path or template_path,
@@ -1241,7 +1241,7 @@ def create_app(
     @app.post("/api/ce-bom")
     async def create_ce_bom(
         request: Request,
-        manuals: list[UploadFile] = File(...),
+        manuals: list[UploadFile] | None = File(default=None),
         template: UploadFile = File(...),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
@@ -1251,7 +1251,7 @@ def create_app(
         if Path(template_name).suffix.lower() not in {".xlsx", ".xlsm"}:
             raise HTTPException(400, "CE BOM 模板请用 Excel。")
         if not manuals:
-            raise HTTPException(400, "请选择物料手册或器件说明。")
+            manuals = []
         template_bytes = await read_capped_upload(template)
         payloads: list[tuple[str, bytes]] = []
         for upload in manuals:
@@ -1296,6 +1296,7 @@ def create_app(
             "filled": result.filled,
             "blank": result.blank,
             "conflicts": result.conflicts,
+            "standard": result.standard,
         }
 
     @app.get("/api/ce-bom/history")

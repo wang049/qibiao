@@ -129,7 +129,7 @@ header .shell {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: url("app-icon.png?v=20261023b") center / cover no-repeat;
+  background: url("app-icon.png?v=20261103a") center / cover no-repeat;
   box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
   flex: none;
 }

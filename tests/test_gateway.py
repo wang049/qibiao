@@ -44,9 +44,9 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="rail-kb"', resp.text)
         self.assertIn('id="rail-extract"', resp.text)
         self.assertIn('id="home-card"', resp.text)
-        self.assertIn("styles.css?v=20261102j", resp.text)
-        self.assertIn("i18n.js?v=20261102j", resp.text)
-        self.assertIn("app.js?v=20261102j", resp.text)
+        self.assertIn("styles.css?v=20261103a", resp.text)
+        self.assertIn("i18n.js?v=20261103c", resp.text)
+        self.assertIn("app.js?v=20261103c", resp.text)
         self.assertIn('data-target="io-manual"', resp.text)
         self.assertIn('data-kind="arch"', resp.text)
         self.assertIn('data-kind="hsi"', resp.text)
@@ -896,9 +896,10 @@ class GatewayTests(unittest.TestCase):
         self.assertIn("X-Hsi-Progress", js)
         self.assertIn("payload.done", js)
         self.assertIn("正在读取手册 {detail}", i18n)
+        self.assertIn("正在读取网表 {detail}", i18n)
         self.assertIn("正在核对约束 {detail}", i18n)
 
-        def fail_build(template, datasheet, dest, package="", previous=None, ask=None, on_progress=None):
+        def fail_build(template, datasheet, dest, package="", previous=None, ask=None, on_progress=None, mcu=""):
             on_progress(12, "read", "1/4")
             raise ValueError("手册中没有读到封装引脚表。")
 

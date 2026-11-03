@@ -166,6 +166,53 @@ def read_schematic(path: Path) -> dict[str, SchematicHit]:
     return found
 
 
+def _pin_id(token: str) -> str:
+    token = (token or "").strip().strip('"')
+    if token.startswith("&"):
+        token = token[1:]
+    return token
+
+
+def _cell_ports(text: str) -> dict[str, list[str]]:
+    """元件接口上声明的脚号。接插件未入网的脚也在这里。"""
+    found: dict[str, list[str]] = {}
+    for match in re.finditer(r"\(cell\s+", text):
+        block = _block(text, match.start())
+        head = block[:240]
+        renamed = re.match(r'\(cell\s+\(rename\s+(\S+)\s+"([^"]+)"\)', head)
+        plain = re.match(r"\(cell\s+(\S+)", head)
+        if renamed:
+            name = renamed.group(1)
+        elif plain:
+            name = plain.group(1)
+        else:
+            continue
+        ports: list[str] = []
+        for item in re.finditer(r'\(port\s+(?:\(rename\s+\S+\s+"([^"]+)"\)|(&?\S+))', block):
+            shown = _pin_id(item.group(1) or item.group(2))
+            if shown and shown not in ports:
+                ports.append(shown)
+        if ports:
+            found[name] = ports
+    return found
+
+
+def _connector_defined_pins(text: str) -> dict[str, list[str]]:
+    cells = _cell_ports(text)
+    mapping: dict[str, list[str]] = {}
+    for match in re.finditer(r"\(Instance ", text):
+        block = _block(text, match.start())
+        if not block.startswith("(Instance "):
+            continue
+        inst = block.split()[1].rstrip(")")
+        kind = _TYPE.search(block)
+        if not (_CONNECTOR.match(inst) or (kind is not None and kind.group(1) == "CON")):
+            continue
+        cell = re.search(r"\(cellRef\s+([^\s\)]+)", block)
+        mapping[inst] = cells.get(cell.group(1), []) if cell else []
+    return mapping
+
+
 _CONNECTOR = re.compile(r"^J\d+", re.I)
 
 
@@ -223,12 +270,24 @@ def read_board_pins(path: Path) -> list[BoardPin]:
                 continue
             pulls.setdefault(signal, []).append(_Pull(role, inst, shown, other or ""))
     rows: list[BoardPin] = []
+    seen: set[tuple[str, str]] = set()
     for name, refs in members.items():
         attached = () if _rail(name) else tuple(pulls.get(name, ()))
         for port, inst in refs:
             if inst not in connectors:
                 continue
+            key = (inst, port)
+            if key in seen:
+                continue
+            seen.add(key)
             rows.append(BoardPin(inst, port, name, attached))
+    for inst, ports in _connector_defined_pins(text).items():
+        for port in ports:
+            key = (inst, port)
+            if key in seen:
+                continue
+            seen.add(key)
+            rows.append(BoardPin(inst, port, "", ()))
     rows.sort(key=lambda item: (item.ref, _pin_order(item.pin)))
     return rows
 

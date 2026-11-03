@@ -54,11 +54,32 @@ _MUX = re.compile(
 _OUTPUT = re.compile(
     rf"^(?P<symbol>{_SYM})\s+O0\s*(?P<desc>.*)$"
 )
-_OTHER_BALL = re.compile(
+_ONE_BALL = r"[A-Z]{1,2}\d{1,2}"
+_BALL_GROUP = rf"{_ONE_BALL}(?:\s*,\s*{_ONE_BALL})*"
+_BALLS_ONLY = re.compile(rf"^(?P<balls>{_BALL_GROUP})\s*,?\s*$")
+_BALLS_AND_PIN = re.compile(
+    rf"^(?P<balls>{_BALL_GROUP})\s+"
+    rf"(?P<symbol>[A-Z][A-Z0-9_]*)\s+"
+    rf"(?P<ctrl>I/O|IO|[IO])\b\s*(?P<rest>.*)$"
+)
+_SYMBOL_LINE = re.compile(
+    rf"^(?P<symbol>[A-Z][A-Z0-9_]*)\s+"
+    rf"(?P<ctrl>I/O|IO|[IO])\b\s*(?P<rest>.*)$"
+)
+_OTHER_PIN = re.compile(
     rf"^(?P<ball>{_BALL_ANY})\s+"
-    r"(?:VGATE\d+[NP]|XTAL\d+|DAPE\d+|THD\d+_[A-Z]|NC\d*(?:_[A-Z0-9]+)?|"
-    r"PHY\d*_[A-Z0-9_]+|V(?:DD|SS|EXT|FLEX|AREF|AGND)[A-Z0-9_]*)\s+"
-    r"(?:I/O|IO|[IO])\b"
+    r"(?P<symbol>VGATE\d+[NP]|XTAL\d+|DAPE\d+|THD\d+_[A-Z]|NC\d*(?:_[A-Z0-9]+)?|"
+    r"PHY\d*_[A-Z0-9_]+|GND[A-Z0-9_]*|V(?:DD|SS|CC|EXT|FLEX|AREF|AGND)[A-Z0-9_]*)\s+"
+    r"(?P<ctrl>I/O|IO|[IO])\b\s*(?P<rest>.*)$"
+)
+_SUPPLY_NAME = re.compile(
+    r"^(?:VSS[A-Z0-9_]*|GND[A-Z0-9_]*|AGND[A-Z0-9_]*|VAGND[A-Z0-9_]*|VSSA[A-Z0-9_]*)$",
+    re.IGNORECASE,
+)
+_POWER_NAME = re.compile(
+    r"^(?:VDD[A-Z0-9_]*|VCC[A-Z0-9_]*|VEXT[A-Z0-9_]*|VDDM[A-Z0-9_]*|"
+    r"VAREF[A-Z0-9_]*|VFLEX[A-Z0-9_]*|VAEXT[A-Z0-9_]*|VEVRSB[A-Z0-9_]*)$",
+    re.IGNORECASE,
 )
 _STOP_SECTION = re.compile(
     r"^(?:Table\s+[\d\-]+\s+(?:\(continued\)\s+|\(cont.d\)\s+)?"
@@ -287,6 +308,35 @@ def _peel_glued_supply(text: str) -> tuple[str, list[str]] | None:
     return name, supplies
 
 
+def pin_supply_kind(symbol: str) -> str:
+    """电源、地留在引脚表里，出表时用筛选藏起来，不从清单里删掉。"""
+    name = (symbol or "").strip()
+    if _SUPPLY_NAME.match(name):
+        return "地"
+    if _POWER_NAME.match(name):
+        return "电源"
+    return ""
+
+
+def pin_class(pin: ChipPin) -> str:
+    """只按当份手册的符号、功能和复用归类。归不出的留空。"""
+    supply = pin_supply_kind(pin.symbol)
+    if supply:
+        return supply
+    blob = f"{pin.symbol} {pin.function} {pin.mux}".upper()
+    if re.search(r"\b(ADC|EVADC|DSADC|TMADC)\b", blob) or pin.symbol.upper().startswith("AN"):
+        return "ADC"
+    if re.search(r"\bDAC\b", blob):
+        return "DAC"
+    if re.search(r"\b(GTM|TIM|TOM|ATOM|CCU6)\b", blob):
+        return "Timer"
+    if "寄存器" in blob or re.search(r"\bREGISTER\b", blob):
+        return "寄存器"
+    if pin.symbol.upper().startswith("GPIO") or "GENERAL-PURPOSE" in blob or "GENERAL PURPOSE" in blob:
+        return "GPIO"
+    return ""
+
+
 def is_reserved_mux_item(text: str) -> bool:
     return _RESERVED_ITEM.fullmatch(text.strip()) is not None
 
@@ -473,6 +523,7 @@ def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...
     open_pin: _OpenPin | None = None
     rows: list[ChipPin] = []
     seen: set[tuple[str, str]] = set()
+    pending: list[str] = []
 
     def close() -> None:
         nonlocal open_pin
@@ -482,15 +533,33 @@ def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...
         open_pin = None
         if pin is None:
             return
-        key = (pin.package, pin.symbol)
+        key = (pin.package, pin.ball)
         if key in seen:
             return
         seen.add(key)
         rows.append(pin)
 
+    def take_balls(text: str) -> list[str]:
+        return re.findall(_ONE_BALL, text)
+
+    def emit_balls(balls: list[str], symbol: str, ctrl: str, rest: str, page: int, line: str) -> None:
+        nonlocal open_pin
+        close()
+        function = rest.strip(" —-\t")
+        for ball in balls:
+            if not _ball_matches_package(ball, current):
+                continue
+            pin = _OpenPin(current, ball, symbol, page, line)
+            _apply_ctrl(pin, ctrl)
+            if function:
+                pin.function = function
+            open_pin = pin
+            close()
+
     for number, text in pages:
         if not _looks_like_pin_page(text):
             close()
+            pending.clear()
             continue
         for raw in text.splitlines():
             line = raw.strip()
@@ -500,11 +569,59 @@ def parse_pins(pages: list[tuple[int, str]], package: str) -> tuple[ChipPin, ...
             if named:
                 if named != current:
                     close()
+                    pending.clear()
                 current = named
                 continue
             if current.upper().replace("-", "").replace(" ", "") != want:
                 continue
-            if _STOP_SECTION.match(line) or _OTHER_BALL.match(line):
+            if _STOP_SECTION.match(line):
+                close()
+                continue
+            balls_only = _BALLS_ONLY.match(line)
+            if balls_only and ("," in line or pending):
+                close()
+                pending.extend(take_balls(balls_only.group("balls")))
+                continue
+            grouped = _BALLS_AND_PIN.match(line)
+            if grouped and ("," in grouped.group("balls") or pending):
+                balls = pending + take_balls(grouped.group("balls"))
+                pending.clear()
+                emit_balls(
+                    balls,
+                    grouped.group("symbol"),
+                    grouped.group("ctrl"),
+                    grouped.group("rest") or "",
+                    number,
+                    line,
+                )
+                continue
+            symbol_line = _SYMBOL_LINE.match(line)
+            if pending and symbol_line and not _PIN_START.match(line):
+                balls = list(pending)
+                pending.clear()
+                emit_balls(
+                    balls,
+                    symbol_line.group("symbol"),
+                    symbol_line.group("ctrl"),
+                    symbol_line.group("rest") or "",
+                    number,
+                    line,
+                )
+                continue
+            other = _OTHER_PIN.match(line)
+            if other and _ball_matches_package(other.group("ball"), current):
+                close()
+                open_pin = _OpenPin(
+                    current,
+                    other.group("ball"),
+                    other.group("symbol"),
+                    number,
+                    line,
+                )
+                _apply_ctrl(open_pin, other.group("ctrl"))
+                rest = other.group("rest").strip(" —-\t")
+                if rest:
+                    open_pin.function = rest
                 close()
                 continue
             bare = _PIN_BARE.match(line)

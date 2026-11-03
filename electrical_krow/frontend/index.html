@@ -4,8 +4,8 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>电子电器智能体</title>
-  <link rel="icon" type="image/png" href="/static/app-icon.png?v=20261030e" />
-  <link rel="stylesheet" href="/static/styles.css?v=20261102j" />
+  <link rel="icon" type="image/png" href="/static/app-icon.png?v=20261103a" />
+  <link rel="stylesheet" href="/static/styles.css?v=20261103a" />
   <script>
     // 首屏先套上已保存的外观，避免深色主题闪一下白。完整逻辑在 app.js 的 prefs。
     (function () {
@@ -353,7 +353,7 @@
 
           <div id="io-card" class="card tool-card" hidden>
             <div class="io-modes" role="radiogroup" aria-label="生成方式">
-              <label><input type="radio" name="io-mode" value="schematic" checked /><span data-i18n="io.modeSchematic">按原理图修改</span></label>
+              <label><input type="radio" name="io-mode" value="schematic" checked /><span data-i18n="io.modeSchematic">按原理图生成</span></label>
               <label><input type="radio" name="io-mode" value="mcu" /><span data-i18n="io.modeMcu">按MCU型号新建</span></label>
             </div>
             <ol class="io-steps" id="io-steps-schematic" data-io-mode="schematic">
@@ -419,7 +419,7 @@
               <button id="io-back" type="button" class="ghost" data-i18n="io.back">返回</button>
               <div class="io-bar-end">
                 <button id="io-blank" type="button" class="ghost" data-i18n="io.blank">生成空表</button>
-                <button id="io-hsi" type="button" data-i18n="io.revise" disabled>按原理图修改</button>
+                <button id="io-hsi" type="button" data-i18n="io.revise" disabled>按原理图生成</button>
               </div>
             </div>
             <div id="io-progress" class="arch-progress" hidden>
@@ -746,8 +746,8 @@
       </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261102j" defer></script>
-  <script src="/static/app.js?v=20261102j" defer></script>
+  <script src="/static/i18n.js?v=20261103c" defer></script>
+  <script src="/static/app.js?v=20261103c" defer></script>
   <script src="/static/kb.js?v=20261102f" defer></script>
 </body>
 </html>

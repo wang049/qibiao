@@ -1,6 +1,6 @@
 """把 frontend/app-icon.png 收成窗口用的 ico / icns。
 
-主图是 HORSE 与 EECD。改图标时替换这张 png，再运行本脚本。
+主图是 HORSE 与 EEDC。改图标时替换这张 png，再运行本脚本。
 """
 from __future__ import annotations
 

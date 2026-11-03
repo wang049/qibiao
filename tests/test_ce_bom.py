@@ -58,6 +58,93 @@ class CeBomTests(unittest.TestCase):
             self.assertGreater(result.blank, 0)
             book.close()
 
+    def test_standard_sheet_keeps_structure_formulas_and_existing_numbers(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            template = folder / "standard.xlsx"
+            manual = folder / "manual.xlsx"
+            book = Workbook()
+            sheet = book.active
+            sheet.title = "供应商"
+            sheet["A14"] = "序号"
+            sheet["B14"] = "零件中文名称"
+            sheet["C14"] = "产品尺寸(mm)"
+            sheet.merge_cells("C14:E14")
+            sheet["C15"] = "X"
+            sheet["D15"] = "Y"
+            sheet["E15"] = "Z"
+            sheet["F14"] = "产品净重（g）"
+            sheet["B16"] = "密封圈"
+            sheet["C16"] = 81.4
+            sheet["F16"] = "=C16*2"
+            sheet["B17"] = "铜排"
+            sheet["C17"] = 10
+            book.save(template)
+            book.close()
+            _xlsx(manual, [["物料名称", "长度"], ["密封圈", "999mm"]])
+            dest = folder / "out.xlsx"
+            result = build_ce_bom([manual], template, dest)
+            self.assertTrue(result.standard)
+            self.assertEqual(result.filled, 0)
+            saved = load_workbook(dest)
+            body = saved["供应商"]
+            self.assertEqual(body["B16"].value, "密封圈")
+            self.assertEqual(body["C16"].value, 81.4)
+            self.assertEqual(body["F16"].value, "=C16*2")
+            self.assertEqual(body["C15"].value, "X")
+            self.assertNotIn("999", " ".join("" if cell.value is None else str(cell.value) for row in body.iter_rows(min_row=16, max_row=17) for cell in row))
+            notes = "\n".join("" if item is None else str(item) for row in saved["核验记录"].iter_rows(values_only=True) for item in row)
+            mapping = "\n".join("" if item is None else str(item) for row in saved["字段映射"].iter_rows(values_only=True) for item in row)
+            saved.close()
+            self.assertIn("尺寸X", mapping)
+            self.assertIn("净重", mapping)
+            self.assertIn("必填", mapping)
+            self.assertIn("保持不动", notes)
+            self.assertIn("不作为其他物料的填写依据", notes)
+            self.assertIn("未写入标准表", notes)
+            self.assertIn("第16行缺序号", notes)
+            self.assertIn("密度未给定", notes)
+            self.assertEqual(result.blank, 2)
+
+    def test_cover_plate_missing_thickness_is_recorded_not_filled(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            template = folder / "standard.xlsx"
+            book = Workbook()
+            sheet = book.active
+            sheet.title = "供应商"
+            for col, title in enumerate(("序号", "级别1", "零件中文名称", "零件号", "图片", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
+                sheet.cell(14, col, title or None)
+            sheet.merge_cells("G14:I14")
+            sheet["G15"] = "X"
+            sheet["H15"] = "Y"
+            sheet["I15"] = "Z"
+            sheet["A16"] = 1
+            sheet["B16"] = "●"
+            sheet["C16"] = "上盖板"
+            sheet["F16"] = 1
+            sheet["A17"] = 2
+            sheet["B17"] = "●"
+            sheet["C17"] = "电阻"
+            sheet["D17"] = "R100"
+            sheet["F17"] = 4
+            book.save(template)
+            book.close()
+            dest = folder / "out.xlsx"
+            result = build_ce_bom([], template, dest)
+            saved = load_workbook(dest)
+            body = saved["供应商"]
+            self.assertIsNone(body["J16"].value)
+            self.assertEqual(body["C16"].value, "上盖板")
+            notes = "\n".join("" if item is None else str(item) for row in saved["核验记录"].iter_rows(values_only=True) for item in row)
+            mapping = "\n".join("" if item is None else str(item) for row in saved["字段映射"].iter_rows(values_only=True) for item in row)
+            saved.close()
+            self.assertIn("盖板缺材料厚度", notes)
+            self.assertNotIn("电阻", notes.split("盖板")[0])
+            self.assertIn("暂不处理", mapping)
+            self.assertIn("有则填", mapping)
+            self.assertEqual(result.filled, 0)
+
     def test_multiple_specs_are_not_chosen(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)

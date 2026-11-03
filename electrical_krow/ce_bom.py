@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -56,6 +57,7 @@ class CeBomResult:
     blank: int
     conflicts: int
     mapping: list[tuple[str, str, str]] = field(default_factory=list)
+    standard: bool = False
 
 
 def _text(value: object) -> str:
@@ -270,7 +272,214 @@ def _write_sheet(ws: Worksheet, header: tuple[str, ...], rows: list[tuple[str, .
             cell.font = Font(name="宋体", size=10)
 
 
+def _compact_name(header: str) -> str:
+    name, _unit = _split_header(header)
+    return name
+
+
+def _is_size_header(header: str) -> bool:
+    return "产品尺寸" in _compact_name(header)
+
+
+def _is_weight_header(header: str) -> bool:
+    return "产品净重" in _compact_name(header)
+
+
+@dataclass(frozen=True)
+class StandardLayout:
+    sheet: str
+    header_row: int
+    sub_row: int
+    data_start: int
+    axes: dict[str, int]
+    weight_col: int
+    name_col: int
+
+
+def _find_standard_layout(path: Path) -> StandardLayout | None:
+    book = load_workbook(path, data_only=False)
+    try:
+        for name in book.sheetnames:
+            rows = _sheet_rows(book[name])
+            for index, row in enumerate(rows):
+                if index + 1 >= len(rows):
+                    continue
+                size_at = [col for col, cell in enumerate(row) if _is_size_header(cell)]
+                weight_at = [col for col, cell in enumerate(row) if _is_weight_header(cell)]
+                if not size_at or not weight_at:
+                    continue
+                nxt = rows[index + 1]
+                axes: dict[str, int] = {}
+                for col in range(size_at[0], min(size_at[0] + 6, len(nxt))):
+                    label = nxt[col].strip().upper()
+                    if label in {"X", "Y", "Z"} and label not in axes:
+                        axes[label] = col
+                if set(axes) != {"X", "Y", "Z"}:
+                    continue
+                name_col = next((col for col, cell in enumerate(row) if "零件中文名称" in _compact_name(cell)), -1)
+                return StandardLayout(
+                    name,
+                    index + 1,
+                    index + 2,
+                    index + 3,
+                    axes,
+                    weight_at[0] + 1,
+                    name_col + 1,
+                )
+    finally:
+        book.close()
+    return None
+
+
+def _cell_is_formula(value: object) -> bool:
+    return isinstance(value, str) and value.startswith("=")
+
+
+def _standard_fields(header: list[str], sub: list[str]) -> dict[str, list[int]]:
+    """标准表上已经能对上的列。对不上的列不猜。"""
+    fields = {key: [] for key in ("序号", "级别", "名称", "零件号", "图片", "用量", "厚度", "原材料")}
+    width = max(len(header), len(sub))
+    for col in range(width):
+        top = header[col] if col < len(header) else ""
+        below = sub[col] if col < len(sub) else ""
+        label = _compact_name(top or below)
+        if "零件中文名称" in label:
+            fields["名称"].append(col)
+        elif "零件号" in label:
+            fields["零件号"].append(col)
+        elif "序号" in label:
+            fields["序号"].append(col)
+        elif "级别" in label:
+            fields["级别"].append(col)
+        elif "图片" in label:
+            fields["图片"].append(col)
+        elif label == "用量" or label.endswith("用量"):
+            fields["用量"].append(col)
+        elif "材料厚度" in label:
+            fields["厚度"].append(col)
+        elif "原材料" in label and "标准" not in label:
+            fields["原材料"].append(col)
+    return fields
+
+
+def _has_value(row: list[str], cols: list[int]) -> bool:
+    return any(col < len(row) and row[col] for col in cols)
+
+
+def _column_rule(col: int, layout: StandardLayout, fields: dict[str, list[int]]) -> tuple[str, str, str]:
+    if col in fields["序号"]:
+        return "序号", "", "必填。空则记入核验，不补造"
+    if col in fields["级别"]:
+        return "级别", "", "必填。空则记入核验，不补造"
+    if col in fields["名称"]:
+        return "零件中文名称", "", "必填。空则记入核验，不补造"
+    if col in fields["用量"]:
+        return "用量", "", "必填。空则记入核验，不补造"
+    if col in fields["零件号"]:
+        return "零件号", "", "有则填。空着不补"
+    if col in fields["图片"]:
+        return "图片", "", "暂不处理"
+    if col == layout.axes["X"]:
+        return "尺寸X", "mm", "电子件可不填，结构件必填。来源未到，不写入，不换算单位"
+    if col == layout.axes["Y"]:
+        return "尺寸Y", "mm", "电子件可不填，结构件必填。来源未到，不写入，不换算单位"
+    if col == layout.axes["Z"]:
+        return "尺寸Z", "mm", "电子件可不填，结构件必填。来源未到，不写入，不换算单位"
+    if col == layout.weight_col - 1:
+        return "净重", "g", "结构件按体积×密度。密度未给定，不计算、不写入。已有数和公式保持不动"
+    if col in fields["厚度"]:
+        return "材料厚度", "", "仅盖板类必填。名称含盖板且为空时记入核验，不补造"
+    if col in fields["原材料"]:
+        return "原材料", "", "结构件必填。表上未标明结构件或电子件，不据此判缺，不写入"
+    return "未指定", "", "填写规则未到，不写入"
+
+
+def _build_standard_ce_bom(manuals: list[Path], template: Path, dest: Path, layout: StandardLayout) -> CeBomResult:
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(template, dest)
+    book = load_workbook(dest, data_only=False)
+    sheet = book[layout.sheet]
+    rows = _sheet_rows(sheet)
+    header_i = layout.header_row - 1
+    sub_i = layout.sub_row - 1
+    fields = _standard_fields(rows[header_i], rows[sub_i])
+    kept_rows = 0
+    formulas = 0
+    carried = 0
+    missing_rows = 0
+    missing_notes: list[tuple[str, ...]] = []
+    watched = [layout.axes["X"], layout.axes["Y"], layout.axes["Z"], layout.weight_col - 1]
+    required = [key for key in ("序号", "级别", "名称", "用量") if fields[key]]
+    width = max(len(row) for row in rows) if rows else 0
+    for row_i in range(layout.data_start - 1, len(rows)):
+        row = rows[row_i]
+        if not any(col < len(row) and row[col] for col in range(min(width, len(row)))):
+            continue
+        name = row[layout.name_col - 1] if layout.name_col > 0 and layout.name_col - 1 < len(row) else ""
+        if name:
+            kept_rows += 1
+        excel_row = row_i + 1
+        for col in watched:
+            if col >= len(row):
+                continue
+            if row[col].startswith("="):
+                formulas += 1
+            elif row[col]:
+                carried += 1
+        absent = []
+        labels = {"序号": "序号", "级别": "级别", "名称": "零件中文名称", "用量": "用量"}
+        for key in required:
+            if not _has_value(row, fields[key]):
+                absent.append(labels[key])
+        if absent:
+            missing_rows += 1
+            who = name or f"第{excel_row}行"
+            missing_notes.append(("缺必填", who, "", "", f"第{excel_row}行缺" + "、".join(absent)))
+        if "盖板" in name and fields["厚度"] and not _has_value(row, fields["厚度"]):
+            missing_notes.append(("盖板", name, "", "", f"第{excel_row}行盖板缺材料厚度，不补造"))
+    mapping_rows: list[tuple[str, ...]] = []
+    for col in range(width):
+        top = rows[header_i][col] if col < len(rows[header_i]) else ""
+        sub = rows[sub_i][col] if col < len(rows[sub_i]) else ""
+        if not top and not sub:
+            continue
+        label = top if not sub or sub in top else f"{top} / {sub}"
+        role, unit, note = _column_rule(col, layout, fields)
+        mapping_rows.append((get_column_letter(col + 1), label, role, unit, note))
+    manual_note = "未提交物料手册"
+    if manuals:
+        manual_note = "手册已接收，填写规则未到，未写入标准表：" + "；".join(path.name for path in manuals)
+    check_rows = [
+        ("标准表", layout.sheet, "", "", "沿用原工作表、两行表头和列序"),
+        ("表头", f"第{layout.header_row}行 / 第{layout.sub_row}行", "", "", "尺寸列的下一行是 X、Y、Z"),
+        ("已有零件行", str(kept_rows), "", "", "标准文档自带的零件、尺寸和重量不作为其他物料的填写依据"),
+        ("公式格", str(formulas), "", "", "尺寸和净重中的公式保持不动，不改成计算值"),
+        ("已有取值", str(carried), "", "", "尺寸和净重里已经写上的数保持不动"),
+        *missing_notes,
+        ("手册", "", "", "", manual_note),
+        (
+            "说明",
+            "",
+            "",
+            "",
+            "序号、级别、零件中文名称、用量只核对是否为空，不补造。零件号有则填，空着不补。图片不处理。"
+            "产品尺寸、材料厚度、净重、原材料的取值来源未到，不写入。密度未给定，不按体积计算净重。"
+            "EDF、Altium BOM 和 PLM 未接入。技术协议第七章未规定完整度或一致性的通过阈值。",
+        ),
+    ]
+    mapping = book.create_sheet("字段映射")
+    _write_sheet(mapping, ("列", "表头", "识别", "单位", "说明"), mapping_rows, (8, 28, 12, 10, 42))
+    check = book.create_sheet("核验记录")
+    _write_sheet(check, ("记录", "内容", "", "", "说明"), check_rows, (16, 28, 12, 12, 42))
+    book.save(dest)
+    book.close()
+    return CeBomResult(dest, kept_rows, 0, missing_rows, 0, [(row[1], row[2], row[4]) for row in mapping_rows], True)
+
+
 def build_ce_bom(manuals: list[Path], template: Path, dest: Path) -> CeBomResult:
+    layout = _find_standard_layout(template)
+    if layout is not None:
+        return _build_standard_ce_bom(manuals, template, dest, layout)
     columns = _template_columns(template)
     observations: list[Observation] = []
     unread: list[str] = []

@@ -1890,7 +1890,7 @@ $("io-hsi").onclick = async () => {
         hideIoProgress();
         return;
       }
-      // 手册还在上传时，服务端还没有这条进度，先留着本地的「正在读取手册」
+      // 文件还在上传时，服务端还没有这条进度，先留着本地的读取提示
       if (!(Number(payload.percent) > 0)) return;
       showIoProgress(payload.percent, ioProgressLabel(payload));
     } catch (e) { /* 进度读不到不影响出表 */ }
@@ -1950,7 +1950,8 @@ function hideIoProgress() {
 
 function ioProgressLabel(payload) {
   const stage = payload && payload.stage ? payload.stage : "read";
-  return tx("io.progress." + stage, { detail: (payload && payload.detail) || "" }).replace(/\s+$/, "");
+  const key = stage === "read" && ioMode() === "schematic" ? "io.progress.readNet" : "io.progress." + stage;
+  return tx(key, { detail: (payload && payload.detail) || "" }).replace(/\s+$/, "");
 }
 $("io-dl").addEventListener("click", async (ev) => {
   const link = ev.currentTarget;
@@ -2220,7 +2221,7 @@ function showBomDownload(data) {
 function refreshBomGenerate() {
   const manuals = $("bom-manuals").files;
   const template = $("bom-template").files && $("bom-template").files[0];
-  $("bom-build").disabled = !(manuals && manuals.length && template);
+  $("bom-build").disabled = !template;
 }
 
 $("bom-manuals").addEventListener("change", () => {
@@ -2248,16 +2249,12 @@ $("bom-back").onclick = () => setPanel("home");
 $("bom-build").onclick = async () => {
   const manuals = $("bom-manuals").files;
   const template = $("bom-template").files && $("bom-template").files[0];
-  if (!manuals || !manuals.length) {
-    setBomMsg(tx("bom.needManuals"));
-    return;
-  }
   if (!template) {
     setBomMsg(tx("bom.needTemplate"));
     return;
   }
   const body = new FormData();
-  Array.from(manuals).forEach((file) => body.append("manuals", file));
+  if (manuals && manuals.length) Array.from(manuals).forEach((file) => body.append("manuals", file));
   body.append("template", template);
   $("bom-build").disabled = true;
   clearBomDownload();
@@ -2274,7 +2271,7 @@ $("bom-build").onclick = async () => {
       const detail = data.detail || data.error || resp.statusText;
       throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
     }
-    setBomMsg(tx("bom.done", data), "ok");
+    setBomMsg(tx(data.standard ? "bom.doneStandard" : "bom.done", data), "ok");
     showBomDownload(data);
   } catch (err) {
     clearBomDownload();

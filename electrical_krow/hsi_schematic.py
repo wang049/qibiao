@@ -296,3 +296,115 @@ def _pin_order(pin: str) -> tuple[int, str]:
     if pin.isdigit():
         return int(pin), pin
     return 10**9, pin
+
+
+@dataclass(frozen=True)
+class SchematicSymbolPin:
+    """原理图符号上认出的一只 MCU 脚。"""
+
+    symbol: str
+    ball: str
+    function: str
+    sheet: str
+
+
+_SCH_PIN = re.compile(r"^(P\d{1,2})_(\d{1,2})(?:/(.+))?$")
+_SCH_BALL = re.compile(r"^[A-Z]{1,2}\d{1,2}$")
+_SCH_SHEET = re.compile(r"([\w .+-]+?)\.SchDoc")
+_SCH_MCU = re.compile(r"TC\d{3}")
+# 球号文字比引脚文字高约 2.6 pt。上下两行距约 5.3 pt，取绝对最近会配到下一行。
+_BALL_DX = 50.0
+_BALL_ABOVE = 2.64
+
+
+def _norm_port_symbol(port: str, bit: str) -> str:
+    return f"P{int(port[1:]):02d}.{int(bit)}"
+
+
+def _word_y(word: tuple[float, float, float, float, str]) -> float:
+    return (word[1] + word[3]) / 2
+
+
+def _word_x(word: tuple[float, float, float, float, str]) -> float:
+    return (word[0] + word[2]) / 2
+
+
+def pins_from_schematic_words(
+    words: list[tuple[float, float, float, float, str]],
+    sheet: str,
+) -> list[SchematicSymbolPin]:
+    """球号用同一行、略高于引脚的文字。一个球号只配一只脚。"""
+    pins = [word for word in words if _SCH_PIN.match(word[4])]
+    balls = [
+        word
+        for word in words
+        if _SCH_BALL.match(word[4]) and not _SCH_PIN.match(word[4]) and not word[4].startswith("PI")
+    ]
+    claims: list[tuple[float, float, int, int]] = []
+    for pin_index, pin in enumerate(pins):
+        py = _word_y(pin)
+        px = _word_x(pin)
+        for ball_index, ball in enumerate(balls):
+            dx = _word_x(ball) - px
+            dy = _word_y(ball) - py
+            if abs(dx) > _BALL_DX or not (-4.2 <= dy <= -1.2):
+                continue
+            claims.append((abs(dx), abs(dy + _BALL_ABOVE), pin_index, ball_index))
+    claims.sort()
+    chosen: dict[int, str] = {}
+    used_balls: set[int] = set()
+    for _dx, _dy, pin_index, ball_index in claims:
+        if pin_index in chosen or ball_index in used_balls:
+            continue
+        chosen[pin_index] = balls[ball_index][4]
+        used_balls.add(ball_index)
+    found: list[SchematicSymbolPin] = []
+    for pin_index, pin in enumerate(pins):
+        matched = _SCH_PIN.match(pin[4])
+        if matched is None:
+            continue
+        function = (matched.group(3) or "").strip()
+        if function.upper() == "NC":
+            function = ""
+        symbol = _norm_port_symbol(matched.group(1), matched.group(2))
+        found.append(SchematicSymbolPin(symbol, chosen.get(pin_index, ""), function, sheet))
+    return found
+
+
+def read_schematic_pdf(path: Path) -> tuple[list[SchematicSymbolPin], str]:
+    """从原理图 PDF 认出 MCU 符号上的脚、球号和图纸上写的功能。返回引脚和认出的型号。"""
+    if path.suffix.lower() != ".pdf" or not path.is_file():
+        return [], ""
+    import pymupdf
+
+    doc = pymupdf.open(path)
+    try:
+        grouped: dict[str, SchematicSymbolPin] = {}
+        mcu = ""
+        for page in doc:
+            text = page.get_text() or ""
+            if not mcu:
+                found = _SCH_MCU.search(text)
+                if found:
+                    mcu = found.group(0)
+            title = _SCH_SHEET.search(text)
+            sheet = title.group(1).strip() if title else f"第{page.number + 1}页"
+            words = [
+                (word[0], word[1], word[2], word[3], word[4])
+                for word in page.get_text("words")
+            ]
+            for pin in pins_from_schematic_words(words, sheet):
+                current = grouped.get(pin.symbol)
+                if current is None or (pin.function and not current.function) or (pin.ball and not current.ball):
+                    grouped[pin.symbol] = pin
+        pins = sorted(grouped.values(), key=lambda item: _symbol_sort(item.symbol))
+        return pins, mcu
+    finally:
+        doc.close()
+
+
+def _symbol_sort(symbol: str) -> tuple[int, int, str]:
+    matched = re.fullmatch(r"P(\d+)\.(\d+)", symbol)
+    if matched:
+        return int(matched.group(1)), int(matched.group(2)), symbol
+    return 10**9, 10**9, symbol

@@ -119,7 +119,7 @@
           </div>
         </div>
       </aside>
-      <main>
+    <main>
         <div class="stage-inner">
           <div class="hero">
             <div class="hero-text">
@@ -133,7 +133,7 @@
             </div>
           </div>
 
-          <div id="login-card" class="card">
+      <div id="login-card" class="card">
             <div class="card-head">
               <h2 class="card-title" data-i18n="login.title">账号登录</h2>
               <p class="card-desc" data-i18n="login.desc">与开通环境使用同一邮箱。登录后自动领取出表凭据。</p>
@@ -147,7 +147,7 @@
             </div>
             <label><span data-i18n="login.email">邮箱</span>
               <input id="user" type="text" autocomplete="username" placeholder="name@example.com" />
-            </label>
+        </label>
             <label><span data-i18n="login.password">密码</span>
               <span class="pass-wrap">
                 <input id="pass" type="password" autocomplete="current-password" />
@@ -163,12 +163,12 @@
                   </svg>
                 </button>
               </span>
-            </label>
-            <div class="actions">
+        </label>
+        <div class="actions">
               <button id="login" type="button" data-i18n="login.submit">登录</button>
-            </div>
-            <p id="login-msg" class="msg" hidden></p>
-          </div>
+        </div>
+        <p id="login-msg" class="msg" hidden></p>
+      </div>
 
           <div id="home-card" hidden>
             <div class="home-hello">
@@ -192,7 +192,7 @@
                   <span class="fn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" class="ico-line"/></svg></span>
                   <span class="fn-kicker" data-i18n="home.io.kicker">HSI生成</span>
                 </span>
-                <strong data-i18n="home.io.cardTitle">对照芯片手册生成初始配置表。</strong>
+                <strong data-i18n="home.io.cardTitle">按芯片手册或原理图生成初始配置表。</strong>
                 <span class="fn-chips">
                   <span data-i18n="home.io.chipManual">手册</span>
                   <span data-i18n="home.io.chipPins">引脚</span>
@@ -354,7 +354,7 @@
           <div id="io-card" class="card tool-card" hidden>
             <div class="io-modes" role="radiogroup" aria-label="生成方式">
               <label><input type="radio" name="io-mode" value="schematic" checked /><span data-i18n="io.modeSchematic">按原理图生成</span></label>
-              <label><input type="radio" name="io-mode" value="mcu" /><span data-i18n="io.modeMcu">按MCU型号新建</span></label>
+              <label><input type="radio" name="io-mode" value="mcu" /><span data-i18n="io.modeMcu">按芯片手册生成</span></label>
             </div>
             <ol class="io-steps" id="io-steps-schematic" data-io-mode="schematic">
               <li><span>1</span><em data-i18n="io.sch.step1">选择原理图网表</em></li>
@@ -370,6 +370,14 @@
             </ol>
             <form id="io-form" class="io-form">
               <div class="io-file" data-io-mode="mcu" hidden>
+                <span class="io-file-label" data-i18n="io.manual">芯片手册</span>
+                <label class="io-file-box" data-target="io-manual" data-accept="pdf" data-kind="hsi">
+                  <input id="io-manual" type="file" accept=".pdf,application/pdf" />
+                  <span class="io-file-name" id="io-manual-name" data-i18n="io.fileNone">未选择文件</span>
+                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
+                </label>
+              </div>
+              <div id="io-mcu-field" class="io-file" data-io-mode="mcu" hidden>
                 <span class="io-file-label" data-i18n="io.mcu">MCU型号</span>
                 <div class="io-mcu-combo">
                   <input id="io-mcu" class="io-mcu-input" type="text" role="combobox" aria-expanded="false" aria-controls="io-mcu-menu" data-i18n-placeholder="io.mcuPh" placeholder="选择或输入，如 TC399" autocomplete="off" />
@@ -383,13 +391,12 @@
                   </ul>
                 </div>
               </div>
-              <div class="io-file" data-io-mode="mcu" hidden>
-                <span class="io-file-label" data-i18n="io.manual">芯片手册</span>
-                <label class="io-file-box" data-target="io-manual" data-accept="pdf" data-kind="hsi">
-                  <input id="io-manual" type="file" accept=".pdf,application/pdf" />
-                  <span class="io-file-name" id="io-manual-name" data-i18n="io.fileNone">未选择文件</span>
-                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
-                </label>
+              <div id="io-package-field" class="io-file" data-io-mode="mcu" hidden>
+                <span class="io-file-label" data-i18n="io.package">封装</span>
+                <div class="io-package-body">
+                  <p id="io-package-status" class="io-package-status" hidden></p>
+                  <div id="io-package-choices" class="io-packages"></div>
+                </div>
               </div>
               <div class="io-file" data-io-mode="schematic">
                 <span class="io-file-label" data-i18n="io.schematic">原理图网表</span>
@@ -406,13 +413,6 @@
                   <span class="io-file-name" id="io-previous-name" data-i18n="io.fileNone">未选择文件</span>
                   <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
                 </label>
-              </div>
-              <div id="io-package-field" class="io-file" data-io-mode="mcu" hidden>
-                <span class="io-file-label" data-i18n="io.package">封装</span>
-                <div class="io-package-body">
-                  <p id="io-package-status" class="io-package-status" hidden></p>
-                  <div id="io-package-choices" class="io-packages"></div>
-                </div>
               </div>
             </form>
             <div class="io-bar">
@@ -438,7 +438,7 @@
             <div class="toolbar">
               <label class="model-pick"><span data-i18n="work.model">识别模型</span>
                 <select id="model"></select>
-              </label>
+        </label>
               <button type="button" class="ghost header-btn js-open-settings embed-settings" data-i18n="settings">设置</button>
             </div>
             <p id="work-meta" class="work-meta" hidden></p>
@@ -475,7 +475,7 @@
             </div>
             <div id="file-info" class="file-info" hidden></div>
             <input id="file" class="sr-only" type="file" accept=".pdf,.docx,.xlsx,.xlsm" />
-            <div class="actions">
+        <div class="actions">
               <button id="pick" type="button" data-i18n="pick">选择文件</button>
               <button id="go" type="button" disabled data-i18n="go">开始出表</button>
               <button id="pause" type="button" data-i18n="pause">暂停</button>
@@ -743,11 +743,11 @@
       <div class="actions settings-actions">
         <button id="settings-reset" type="button" class="ghost" data-i18n="settings.reset">恢复默认外观</button>
         <button id="settings-close" type="submit" class="ghost" value="cancel" data-i18n="settings.close">关闭</button>
-      </div>
+  </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261103c" defer></script>
-  <script src="/static/app.js?v=20261103c" defer></script>
+  <script src="/static/i18n.js?v=20261104d" defer></script>
+  <script src="/static/app.js?v=20261104d" defer></script>
   <script src="/static/kb.js?v=20261102f" defer></script>
 </body>
 </html>

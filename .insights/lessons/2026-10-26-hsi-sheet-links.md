@@ -15,7 +15,7 @@
 ## 二级依据
 
 - 会议口径：信号网络名与 ADC Table、SPI 页之间要能跳转；当前项目不看的 R1、R3 列先隐藏。
-- DHTE400 `3_ADC Table` 第 4 行：F 列 `Signal name`，Z 列 `R1 (kΩ)`，AA 列 `C1(nF)`，AD 列 `R3 (kΩ)`。AN0 的信号名是 `IA_S/M_TM`，R1 格已有 0.47，隐藏只收起列，不删数。
+- DHTE400 `3_ADC Table` 第 4 行：F 列 `Signal name`，Z 列 `R1 (kΩ)`，AA 列 `C1(nF)`，AD 列 `R3 (kΩ)`。R1、R3 隐藏。模板阻容示例不保留，见 `2026-11-04-hsi-adc-template-circuit-constants`。
 - `4-SPI总线` 第 3 行：B 列 `PIN`，E 列 `Net Name`。`P00.8` 对 `CSN3_M/T_SPI3`。
 - 端口表 L 列端口名对 ADC 信号名，B 列符号对 SPI 的 PIN，K 列星驱原理图网络对 SPI 的 Net Name。对得上的两边互相跳。
 

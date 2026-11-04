@@ -1436,10 +1436,16 @@ function ioMode() {
   return picked ? picked.value : "schematic";
 }
 
+let ioMcuReady = false;
+
 function applyIoMode() {
   const mode = ioMode();
   document.querySelectorAll("[data-io-mode]").forEach((el) => {
     const want = el.getAttribute("data-io-mode");
+    if (el.id === "io-mcu-field") {
+      el.hidden = mode !== "mcu" || !ioMcuReady;
+      return;
+    }
     if (el.id === "io-package-field") {
       el.hidden = mode !== "mcu" || !el.querySelector("input");
       return;
@@ -1455,7 +1461,7 @@ function refreshIoGenerate() {
   if (ioMode() === "schematic") {
     const file = $("io-schematic") && $("io-schematic").files && $("io-schematic").files[0];
     const name = file ? file.name.toLowerCase() : "";
-    btn.disabled = !name.endsWith(".edf");
+    btn.disabled = !(name.endsWith(".edf") || name.endsWith(".pdf"));
     btn.textContent = tx("io.revise");
     return;
   }
@@ -1479,9 +1485,14 @@ function setPackageStatus(text, kind) {
 
 function clearIoPackages() {
   ioPackagesLoading = false;
+  ioMcuReady = false;
   const field = $("io-package-field");
+  const mcuField = $("io-mcu-field");
+  const mcuInput = $("io-mcu");
   const choices = $("io-package-choices");
   if (field) field.hidden = true;
+  if (mcuField) mcuField.hidden = true;
+  if (mcuInput) mcuInput.value = "";
   setPackageStatus("");
   if (choices) choices.innerHTML = "";
   refreshIoGenerate();
@@ -1517,6 +1528,9 @@ async function loadIoPackages(file) {
     return;
   }
   ioPackagesLoading = true;
+  ioMcuReady = false;
+  const mcuField = $("io-mcu-field");
+  if (mcuField) mcuField.hidden = true;
   if (field) field.hidden = false;
   if (choices) choices.innerHTML = "";
   setPackageStatus(tx("io.packageReading"), "reading");
@@ -1538,8 +1552,24 @@ async function loadIoPackages(file) {
     }
     const packages = Array.isArray(data.packages) ? data.packages.map(String) : [];
     if (!packages.length) throw new Error(tx("io.needPackage"));
+    const detected = data.mcu ? String(data.mcu).trim() : "";
+    const mcuInput = $("io-mcu");
+    if (mcuInput) {
+      mcuInput.value = detected;
+      setMcuMenu(false);
+    }
+    ioMcuReady = true;
     ioPackagesLoading = false;
     renderIoPackages(packages);
+    applyIoMode();
+    if (detected) {
+      const hint = tx("io.mcuFromManual", { mcu: detected });
+      if (packages.length > 1) {
+        setPackageStatus(tx("io.packagePick") + " " + hint, "pick");
+      } else {
+        setPackageStatus(hint, "");
+      }
+    }
   } catch (err) {
     if (seq !== ioPackageSeq) return;
     // 读不出封装就收起封装行，原因写在结果区
@@ -1843,7 +1873,8 @@ $("io-hsi").onclick = async () => {
   const previous = $("io-previous").files && $("io-previous").files[0];
   if (previous) body.append("previous", previous);
   if (mode === "schematic") {
-    if (!schematic || !schematic.name.toLowerCase().endsWith(".edf")) {
+    const schematicName = schematic ? schematic.name.toLowerCase() : "";
+    if (!schematic || !(schematicName.endsWith(".edf") || schematicName.endsWith(".pdf"))) {
       setIoMsg(tx("io.needSchematic"));
       return;
     }

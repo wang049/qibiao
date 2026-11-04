@@ -324,16 +324,27 @@ def pin_class(pin: ChipPin) -> str:
     if supply:
         return supply
     blob = f"{pin.symbol} {pin.function} {pin.mux}".upper()
-    if re.search(r"\b(ADC|EVADC|DSADC|TMADC)\b", blob) or pin.symbol.upper().startswith("AN"):
+    if re.search(r"(?<![A-Z0-9])(ADC|EVADC|DSADC|TMADC)(?![A-Z])", blob) or pin.symbol.upper().startswith("AN"):
         return "ADC"
-    if re.search(r"\bDAC\b", blob):
+    if re.search(r"(?<![A-Z0-9])DAC(?![A-Z])", blob):
         return "DAC"
-    if re.search(r"\b(GTM|TIM|TOM|ATOM|CCU6)\b", blob):
+    if re.search(r"(?<![A-Z0-9])(GTM|TIM|TOM|ATOM|CCU6)(?![A-Z])", blob):
         return "Timer"
     if "寄存器" in blob or re.search(r"\bREGISTER\b", blob):
         return "寄存器"
     if pin.symbol.upper().startswith("GPIO") or "GENERAL-PURPOSE" in blob or "GENERAL PURPOSE" in blob:
         return "GPIO"
+    symbol = pin.symbol.strip()
+    if re.match(r"^NC\d*", symbol, re.I):
+        return "空脚"
+    if re.match(r"^XTAL\d*", symbol, re.I):
+        return "时钟"
+    if re.match(r"^PHY\d*", symbol, re.I):
+        return "以太网"
+    if re.match(r"^(?:TRST|TCK|TMS|TDI|TDO)$", symbol, re.I) or re.search(r"\bDAP\d*\b", blob):
+        return "调试"
+    if re.match(r"^PORST", symbol, re.I) or re.search(r"\bRESET\b", blob):
+        return "复位"
     return ""
 
 

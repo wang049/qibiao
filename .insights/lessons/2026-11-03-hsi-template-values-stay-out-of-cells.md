@@ -1,6 +1,7 @@
 # 2026-11-03 出表不把模板项目数据写成这次的结果
 
-- 状态：active
+- 状态：superseded
+- 被替代：`.insights/lessons/2026-11-04-hsi-fill-name-and-class.md`
 - 条目：HSI 出表
 - 闸门：`tests/test_hsi.py`（`test_dhte400_keeps_atom_port_name_cover_and_history`、`test_first_issue_drops_template_history_and_unmatched_names`）
 

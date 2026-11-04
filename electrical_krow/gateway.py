@@ -874,12 +874,12 @@ def create_app(
         mcu: str = Form(default=""),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        """按原理图生成 HSI，或按 MCU 型号和手册新建。"""
+        """按原理图生成 HSI，或按芯片手册生成。"""
         item = _require_session(request, authorization)
         progress_id = (request.headers.get("x-hsi-progress") or "").strip()[:80]
         chosen = (mode or "mcu").strip().lower()
         if chosen not in {"mcu", "schematic"}:
-            raise HTTPException(400, "请选择按原理图生成，或按 MCU 型号新建。")
+            raise HTTPException(400, "请选择按原理图生成，或按芯片手册生成。")
         manual_name = Path(datasheet.filename or "").name if datasheet is not None else ""
         manual_bytes = b""
         typed_mcu = mcu.strip()
@@ -890,7 +890,7 @@ def create_app(
             if typed_mcu and (_MCU_MODEL.match(typed_mcu) is None or not any(ch.isdigit() for ch in typed_mcu)):
                 raise HTTPException(400, "MCU 型号请写成如 TC399、TC387、TC324。")
         elif not schematic or not Path(schematic.filename or "").name:
-            raise HTTPException(400, "请选择原理图网表（.edf）。")
+            raise HTTPException(400, "请选择原理图网表（.edf）或原理图 PDF。")
         template_name = Path(template.filename or "").name if template is not None else ""
         template_bytes = b""
         if template_name:
@@ -950,8 +950,8 @@ def create_app(
             _hsi_progress_set(progress_id, 1, "read", "")
             try:
                 if chosen == "schematic":
-                    if schematic_path is None or schematic_path.suffix.lower() != ".edf":
-                        raise ValueError("按原理图生成请用 EDIF（.edf）网表。")
+                    if schematic_path is None or schematic_path.suffix.lower() not in {".edf", ".pdf"}:
+                        raise ValueError("按原理图生成请用 EDIF（.edf）网表或原理图 PDF。")
                     result = await asyncio.to_thread(
                         revise_hsi_from_schematic,
                         previous_path or template_path,

@@ -145,6 +145,63 @@ class CeBomTests(unittest.TestCase):
             self.assertIn("有则填", mapping)
             self.assertEqual(result.filled, 0)
 
+    def test_edf_counts_same_part_and_does_not_fill_the_standard_sheet(self) -> None:
+        edif = """(edif demo
+  (Instance R1
+    (Property Type (String "Res"))
+    (Property Comment (String "470Ω"))
+    (Property Footprint (String "R0402"))
+    (Property (rename Design_Item_ID "Design Item ID") (String "Res, 470Ω, 0402"))
+  )
+  (Instance R2
+    (Property Type (String "Res"))
+    (Property Comment (String "470Ω"))
+    (Property Footprint (String "R0402"))
+    (Property (rename Design_Item_ID "Design Item ID") (String "Res, 470Ω, 0402"))
+  )
+  (Instance C1
+    (Property Type (String "Cap"))
+    (Property Value (String "100nF"))
+    (Property Footprint (String "C0402"))
+  )
+)"""
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            template = folder / "standard.xlsx"
+            book = Workbook()
+            sheet = book.active
+            sheet.title = "供应商"
+            for col, title in enumerate(("序号", "级别1", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
+                sheet.cell(14, col, title or None)
+            sheet.merge_cells("F14:H14")
+            sheet["F15"] = "X"
+            sheet["G15"] = "Y"
+            sheet["H15"] = "Z"
+            sheet["A16"] = 1
+            sheet["B16"] = "●"
+            sheet["C16"] = "电阻"
+            sheet["E16"] = 2
+            book.save(template)
+            book.close()
+            edf = folder / "board.edf"
+            edf.write_text(edif, encoding="utf-8")
+            dest = folder / "out.xlsx"
+            result = build_ce_bom([edf], template, dest)
+            saved = load_workbook(dest)
+            body = saved["供应商"]
+            self.assertEqual(body["C16"].value, "电阻")
+            self.assertIsNone(body["D16"].value)
+            parts = list(saved["EDF器件"].iter_rows(min_row=2, values_only=True))
+            notes = "\n".join("" if item is None else str(item) for row in saved["核验记录"].iter_rows(values_only=True) for item in row)
+            saved.close()
+            resistor = next(row for row in parts if row[0] == "Res")
+            self.assertEqual(resistor[4], "2")
+            self.assertEqual(resistor[3], "R0402")
+            self.assertIn("R1", resistor[5])
+            self.assertIn("不写入标准表", notes)
+            self.assertIn("没有零件中文名称", notes)
+            self.assertEqual(result.filled, 0)
+
     def test_multiple_specs_are_not_chosen(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)

@@ -394,6 +394,87 @@ def _column_rule(col: int, layout: StandardLayout, fields: dict[str, list[int]])
     return "未指定", "", "填写规则未到，不写入"
 
 
+def _edf_blocks(text: str) -> list[str]:
+    found: list[str] = []
+    for match in re.finditer(r"\(Instance ", text):
+        depth = 0
+        for index in range(match.start(), len(text)):
+            char = text[index]
+            if char == "(":
+                depth += 1
+            elif char == ")":
+                depth -= 1
+                if depth == 0:
+                    found.append(text[match.start() : index + 1])
+                    break
+    return found
+
+
+def _edf_prop(block: str, name: str) -> str:
+    direct = re.search(rf'\(Property {name} \(String "([^"]*)"', block)
+    if direct:
+        return direct.group(1).strip()
+    renamed = re.search(rf'\(rename {name} "[^"]*"\) \(String "([^"]*)"', block)
+    return renamed.group(1).strip() if renamed else ""
+
+
+@dataclass(frozen=True)
+class EdfPart:
+    ref: str
+    kind: str
+    value: str
+    footprint: str
+    item: str
+
+
+def read_edf_parts(path: Path) -> list[EdfPart]:
+    """从 Altium EDIF 统计已放置器件。没有中文名称、零件号和产品尺寸。"""
+    if path.suffix.lower() != ".edf" or not path.is_file():
+        return []
+    raw = path.read_bytes()
+    text = ""
+    for encoding in ("utf-8", "gb18030"):
+        try:
+            text = raw.decode(encoding)
+            break
+        except UnicodeDecodeError:
+            continue
+    if not text:
+        text = raw.decode("latin1", errors="replace")
+    parts: list[EdfPart] = []
+    for block in _edf_blocks(text):
+        ref = block.split()[1].rstrip(")") if len(block.split()) > 1 else ""
+        if not ref:
+            continue
+        comment = _edf_prop(block, "Comment")
+        value = _edf_prop(block, "Value") or comment
+        parts.append(
+            EdfPart(
+                ref,
+                _edf_prop(block, "Type"),
+                value,
+                _edf_prop(block, "Footprint"),
+                _edf_prop(block, "Design_Item_ID"),
+            )
+        )
+    return parts
+
+
+def _edf_summary(parts: list[EdfPart]) -> list[tuple[str, ...]]:
+    grouped: dict[tuple[str, str, str, str], list[str]] = {}
+    for part in parts:
+        key = (part.kind, part.item, part.value, part.footprint)
+        grouped.setdefault(key, []).append(part.ref)
+    rows: list[tuple[str, ...]] = []
+    for (kind, item, value, footprint), refs in grouped.items():
+        shown = "、".join(refs[:8])
+        if len(refs) > 8:
+            shown += f" 等{len(refs)}个"
+        rows.append((kind, item, value, footprint, str(len(refs)), shown))
+    rows.sort(key=lambda row: (-int(row[4]), row[0], row[2]))
+    return rows
+
+
 def _build_standard_ce_bom(manuals: list[Path], template: Path, dest: Path, layout: StandardLayout) -> CeBomResult:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(template, dest)
@@ -446,6 +527,30 @@ def _build_standard_ce_bom(manuals: list[Path], template: Path, dest: Path, layo
         label = top if not sub or sub in top else f"{top} / {sub}"
         role, unit, note = _column_rule(col, layout, fields)
         mapping_rows.append((get_column_letter(col + 1), label, role, unit, note))
+    edf_parts: list[EdfPart] = []
+    edf_names: list[str] = []
+    for path in manuals:
+        if path.suffix.lower() != ".edf":
+            continue
+        edf_names.append(path.name)
+        edf_parts.extend(read_edf_parts(path))
+    edf_rows = _edf_summary(edf_parts)
+    if edf_rows:
+        edf_sheet = book.create_sheet("EDF器件")
+        _write_sheet(
+            edf_sheet,
+            ("类型", "设计条目", "值", "封装", "用量", "位号"),
+            edf_rows,
+            (16, 42, 16, 14, 10, 36),
+        )
+    edf_note = "未提交 EDF"
+    if edf_names:
+        edf_note = (
+            f"{'；'.join(edf_names)} 放置 {len(edf_parts)} 个，按类型、设计条目、值和封装归成 {len(edf_rows)} 种。"
+            "用量按同型号只数统计。封装是 Footprint，不是产品尺寸。"
+            "没有零件中文名称、级别、零件号、材料厚度、净重和原材料，这些不写入标准表。"
+            "层级不能从网表判断。本次没有 AD 导出的 BOM。"
+        )
     manual_note = "未提交物料手册"
     if manuals:
         manual_note = "手册已接收，填写规则未到，未写入标准表：" + "；".join(path.name for path in manuals)
@@ -457,6 +562,7 @@ def _build_standard_ce_bom(manuals: list[Path], template: Path, dest: Path, layo
         ("已有取值", str(carried), "", "", "尺寸和净重里已经写上的数保持不动"),
         *missing_notes,
         ("手册", "", "", "", manual_note),
+        ("EDF", str(len(edf_parts)), str(len(edf_rows)), "", edf_note),
         (
             "说明",
             "",

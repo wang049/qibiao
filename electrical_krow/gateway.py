@@ -1256,8 +1256,8 @@ def create_app(
         payloads: list[tuple[str, bytes]] = []
         for upload in manuals:
             name = Path(upload.filename or "").name
-            if Path(name).suffix.lower() not in {".xlsx", ".xlsm", ".pdf", ".docx"}:
-                raise HTTPException(400, f"{name or '所选文件'} 不是物料手册。请用 Excel、PDF 或 Word。")
+            if Path(name).suffix.lower() not in {".xlsx", ".xlsm", ".pdf", ".docx", ".edf"}:
+                raise HTTPException(400, f"{name or '所选文件'} 不是物料手册。请用 Excel、PDF、Word 或 EDIF（.edf）。")
             payloads.append((name, await read_capped_upload(upload)))
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)

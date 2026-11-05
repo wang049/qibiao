@@ -1615,7 +1615,7 @@ function storedSources(accept, kind) {
     if (!id || seen.has(id)) return false;
     const ok = accept === "pdf" ? name.endsWith(".pdf")
       : accept === "sheet" ? (name.endsWith(".xlsx") || name.endsWith(".xlsm"))
-      : accept === "manual" ? (name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xlsm"))
+      : accept === "manual" ? (name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xlsm") || name.endsWith(".edf"))
       : accept === "schematic" ? (name.endsWith(".pdf") || name.endsWith(".edf") || name.endsWith(".xlsx") || name.endsWith(".xlsm"))
       : (name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xlsm"));
     if (!ok) return false;
@@ -2258,7 +2258,19 @@ function refreshBomGenerate() {
 $("bom-manuals").addEventListener("change", () => {
   const input = $("bom-manuals");
   const nameEl = $("bom-manuals-name");
-  const count = input.files ? input.files.length : 0;
+  const files = input.files ? Array.from(input.files) : [];
+  const bad = files.some((file) => {
+    const name = file.name.toLowerCase();
+    return !(name.endsWith(".pdf") || name.endsWith(".docx") || name.endsWith(".xlsx") || name.endsWith(".xlsm") || name.endsWith(".edf"));
+  });
+  if (bad) {
+    input.value = "";
+    syncIoFileName(input, nameEl);
+    setBomMsg(tx("bom.manualType"));
+    refreshBomGenerate();
+    return;
+  }
+  const count = files.length;
   if (count > 1) {
     nameEl.removeAttribute("data-i18n");
     nameEl.textContent = tx("bom.picked", { n: count });

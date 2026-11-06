@@ -272,6 +272,54 @@ def _value_key(value: str) -> str:
     return "|".join(quantities) if quantities else _norm_value(value)
 
 
+_ROMAN_DIGITS = str.maketrans({
+    "Ⅰ": "I", "Ⅱ": "II", "Ⅲ": "III", "Ⅳ": "IV", "Ⅴ": "V",
+    "Ⅵ": "VI", "Ⅶ": "VII", "Ⅷ": "VIII", "Ⅸ": "IX", "Ⅹ": "X",
+    "ⅰ": "I", "ⅱ": "II", "ⅲ": "III", "ⅳ": "IV", "ⅴ": "V",
+})
+
+
+def _qty_pairs(value: str) -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for match in _QUANTITY.finditer(value or ""):
+        pairs.append((_unit_class(match.group(0)), _norm_value(match.group(0))))
+    return pairs
+
+
+def _citation_key(value: str) -> str:
+    """标准号和罗马数字区段：R10.05/06 与分开写的 R10.05、R10.06 相同，Ⅳ 与 IV 相同。"""
+    text = (value or "").translate(_ROMAN_DIGITS).lower()
+    text = re.sub(
+        r"([a-z]*\d+\.)(\d+)/(\d+)",
+        lambda match: f"{match.group(1)}{match.group(2)} {match.group(1)}{match.group(3)}",
+        text,
+    )
+    tokens = sorted(set(re.findall(r"[a-z]+\d+(?:\.\d+)?|\d+(?:\.\d+)?|[a-z]{2,}", text)))
+    return " ".join(tokens)
+
+
+def _values_compatible(left: str, right: str) -> bool:
+    """同一取值的两种写法。短的只少写了另一种单位（15 years 对 15 years / 300,000 km）时不算冲突。"""
+    if _value_key(left) == _value_key(right):
+        return True
+    if re.search(r"cispr|ece|\biso\b|region", f"{left} {right}", re.I):
+        key_left, key_right = _citation_key(left), _citation_key(right)
+        if key_left and key_left == key_right:
+            return True
+    pairs_left, pairs_right = _qty_pairs(left), _qty_pairs(right)
+    if not pairs_left or not pairs_right:
+        return False
+    short, long = (pairs_left, pairs_right) if len(pairs_left) <= len(pairs_right) else (pairs_right, pairs_left)
+    by_unit: dict[str, set[str]] = {}
+    for unit, norm in long:
+        by_unit.setdefault(unit, set()).add(norm)
+    for unit, norm in short:
+        found = by_unit.get(unit) or set()
+        if norm not in found or len(found) > 1:
+            return False
+    return True
+
+
 _UNIT_RE = re.compile(r"(" + _UNIT + r")$")
 _UNIT_ALIAS = {"℃": "°c", "degc": "°c", "deg": "°", "hrs": "h", "hr": "h", "hours": "h", "hour": "h", "hs": "h", "yrs": "year", "yr": "year", "years": "year",
                "minutes": "min", "minute": "min", "sec": "s", "ohm": "ω", "times": "cycle", "cycles": "cycle", "vdc": "v", "vac": "v", "adc": "a", "ac": "a"}
@@ -310,7 +358,7 @@ def check_consistency(params: list[Param]) -> int:
             if not others:
                 param.consistency = CONSIST_SINGLE
                 continue
-            same_value = [p for p in others if _value_key(p.value) == _value_key(param.value)]
+            same_value = [p for p in others if _values_compatible(p.value, param.value)]
             differing = [p for p in others if p not in same_value and _norm_value(p.cond) == _norm_value(param.cond)]
             other_cond = [p for p in others if p not in same_value and p not in differing]
             if differing:

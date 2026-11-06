@@ -162,11 +162,29 @@ class ArchQualityCheckTests(unittest.TestCase):
         params = collect_params(rows, None)
         report = check_arch_quality([doc], [], rows, params)
         self.assertGreaterEqual(report.logic_conflicts, 1)
-        self.assertGreaterEqual(report.param_conflicts, 5)
+        self.assertGreaterEqual(report.param_conflicts, 1)
         all_notes = "\n".join(report.row_notes.values())
         self.assertIn("同条最大输出功率口径不一", all_notes)
         self.assertIn("输出电压范围前后不一致", all_notes)
-        self.assertIn("机械冲击加速度前后不一致", all_notes)
+        self.assertNotIn("机械冲击加速度前后不一致", all_notes)
+
+    def test_same_mechanical_shock_with_two_g_values_still_conflicts(self) -> None:
+        doc = SourceDoc(
+            "ldc_shock.pdf",
+            ((1, "3. Environment\nEnvironment"),),
+            tables={
+                1: [[
+                    ["Item", "Requirement"],
+                    ["Mechanical shock", "50G"],
+                    ["Mechanical shock", "40G"],
+                ]],
+            },
+        )
+        rows, _ = split_document(doc)
+        for idx, row in enumerate(rows, start=1):
+            row[0] = idx
+        report = check_arch_quality([doc], [], rows, collect_params(rows, None))
+        self.assertIn("机械冲击加速度前后不一致", "\n".join(report.row_notes.values()))
 
     def test_tbd_footnote_inside_a_condition_list_does_not_paint_the_block(self) -> None:
         from electrical_krow.arch_figures import Figure

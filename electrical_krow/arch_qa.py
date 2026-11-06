@@ -423,6 +423,13 @@ _SHOCK_G_RE = re.compile(
 )
 
 
+def _shock_name(item: str) -> str:
+    """正弦半波、碰撞和概述里的机械冲击是不同试验，不放在一起比 G 值。"""
+    text = item.lower()
+    text = re.sub(r"mechan+cal", "mechanical", text)
+    return re.sub(r"[^a-z0-9\u4e00-\u9fff]+", "", text)
+
+
 def _check_doc_spec_conflicts(rows: list[list[object]], valid_seqs: set[int] | None = None) -> list[ArchIssue]:
     """同一份文件内跨章节/跨表的关键规格范围冲突（如输出电压范围 Vo 前后不一致、机械冲击 G 值前后不一致）。"""
     by_file: dict[str, list[list[object]]] = {}
@@ -503,10 +510,15 @@ def _check_doc_spec_conflicts(rows: list[list[object]], valid_seqs: set[int] | N
                         )
                     )
 
-        if len({e[3] for e in shock_entries}) >= 2:
-            for page, seq, item, norm_g, disp in shock_entries:
+        by_shock: dict[str, list[tuple[int, int, str, str, str]]] = {}
+        for entry in shock_entries:
+            by_shock.setdefault(_shock_name(entry[2]), []).append(entry)
+        for named in by_shock.values():
+            if len({entry[3] for entry in named}) < 2:
+                continue
+            for page, seq, item, norm_g, disp in named:
                 diff_others = []
-                for opage, oseq, oitem, onorm, odisp in shock_entries:
+                for opage, oseq, oitem, onorm, odisp in named:
                     if oseq != seq and onorm != norm_g:
                         tag = f"第 {opage} 页「{oitem}」{odisp}"
                         if tag not in diff_others:

@@ -160,6 +160,22 @@ class ArchParamsTests(unittest.TestCase):
         self.assertEqual(params[6].consistency, CONSIST_COND)
         self.assertEqual(params[7].consistency, CONSIST_SINGLE)
         self.assertEqual(conflicts, 2)
+        life = [
+            p("目标寿命", "15 years", "", 13, 13),
+            p("目标寿命", "15 years / 300,000 km", "", 68, 68),
+        ]
+        self.assertEqual(check_consistency(life), 0)
+        self.assertEqual(life[0].consistency, CONSIST_SAME)
+        region = [
+            p("ESD", "Region I ~ Ⅳ", "", 18, 18),
+            p("ESD", "Region I ~ IV", "", 79, 79),
+        ]
+        self.assertEqual(check_consistency(region), 0)
+        emission = [
+            p("CE", "CISPR25 (Class 3) ECE R10.05/06", "", 18, 18),
+            p("CE", "CISPR25 (Class 3) ECE R10.06 ECE R10.05", "", 79, 79),
+        ]
+        self.assertEqual(check_consistency(emission), 0)
 
     def test_collect_params_without_model_is_rule_only_and_annotates_conflict_rows(self) -> None:
         rows = _ROWS + [_row(11, 40, "Classification：Dark Current | Specification：2mA↓(in all cases, such as IG off)", "2mA↓", item="Dark Current", cond="in all cases, such as IG off")]

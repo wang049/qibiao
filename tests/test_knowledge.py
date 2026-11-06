@@ -533,6 +533,7 @@ class FeatureLibraryTests(unittest.TestCase):
         arch_names = {card["name"] for card in arch["clauses"]}
         self.assertIn("同条中英数值要一致", arch_names)
         self.assertIn("同文件重量不得超出该文件写明的上限", arch_names)
+        self.assertIn("曲线图整张截图，旁边的数据表不裁开", arch_names)
         hsi_names = {card["name"] for card in hsi["clauses"]}
         self.assertIn("同一电机的 PWM 在同一个 ATOM", hsi_names)
         self.assertIn("三相电流分到不同 group 的同一 channel", hsi_names)

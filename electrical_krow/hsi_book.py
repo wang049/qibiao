@@ -16,7 +16,7 @@ import re
 import unicodedata
 from collections.abc import Callable
 from copy import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
 
@@ -1497,8 +1497,8 @@ def _apply_schematic(workbook: Workbook, schematic: Path | None) -> int:
                 break
         if hit is None:
             continue
-        if layout.net:
-            port.cell(row, layout.net, hit.net)
+        if layout.name:
+            port.cell(row, layout.name, hit.net)
         if external and hit.pulls:
             kinds = {item.kind for item in hit.pulls}
             if len(kinds) == 1:
@@ -1515,6 +1515,8 @@ def _apply_schematic(workbook: Workbook, schematic: Path | None) -> int:
         if STATUS_DRAFT not in shown and STATUS_CONFLICT not in shown:
             status.value = f"{shown}；{STATUS_DRAFT}" if shown else STATUS_DRAFT
         updated += 1
+    _rename_function_description(port, layout)
+    _retire_schematic_net_column(port)
     return updated
 
 
@@ -1557,8 +1559,8 @@ def _write_board_pins(workbook: Workbook, pins: list[BoardPin]) -> int:
         row = layout.header + index
         port.cell(row, 1, index)
         port.cell(row, symbol_col, pin.label)
-        if layout.net and pin.net:
-            port.cell(row, layout.net, pin.net)
+        if layout.name and pin.net:
+            port.cell(row, layout.name, pin.net)
         shown = _pull_text(pin.pulls)
         if external and shown:
             port.cell(row, external, shown)
@@ -1585,18 +1587,23 @@ def _write_board_pins(workbook: Workbook, pins: list[BoardPin]) -> int:
         port.column_dimensions[get_column_letter(layout.human)].width = 18
     last = layout.header + len(pins)
     port.auto_filter.ref = f"A{layout.header}:{get_column_letter(layout.human)}{max(last, layout.header)}"
-    _link_repeated_nets(workbook, port, layout, symbol_col)
+    _rename_function_description(port, layout)
+    _retire_schematic_net_column(port)
+    _link_repeated_nets(workbook, port, layout, symbol_col, layout.name)
     _plain_port_sheet(port, layout.header, keep_heights=True)
     return len(pins)
 
 
-def _link_repeated_nets(workbook: Workbook, port, layout: _PortLayout, symbol_col: int = 2) -> None:
+def _link_repeated_nets(
+    workbook: Workbook, port, layout: _PortLayout, symbol_col: int = 2, net_col: int = 0,
+) -> None:
     """同一个网络落在多只脚上时，点网络名打开这些脚。只有一只脚的网络不加链接。"""
-    if not layout.net:
+    column = net_col or layout.name or layout.net
+    if not column:
         return
     groups: dict[str, list[int]] = {}
     for row in range(layout.data_start, (port.max_row or layout.data_start) + 1):
-        net = _text(port.cell(row, layout.net).value)
+        net = _text(port.cell(row, column).value)
         if not net or net.upper() in _LINK_SKIP:
             continue
         groups.setdefault(net, []).append(row)
@@ -1619,7 +1626,7 @@ def _link_repeated_nets(workbook: Workbook, port, layout: _PortLayout, symbol_co
         _mark_link(title, _row_anchor(workbook, port, rows[0]), f"第{rows[0]}行 {net}")
         location = f"'{safe_index}'!A{cursor}"
         for port_row in rows:
-            _mark_link(port.cell(port_row, layout.net), location, f"{len(rows)} 处")
+            _mark_link(port.cell(port_row, column), location, f"{len(rows)} 处")
         cursor += 1
         for port_row in rows:
             label = _text(port.cell(port_row, symbol_col).value) or net
@@ -1631,7 +1638,7 @@ def _link_repeated_nets(workbook: Workbook, port, layout: _PortLayout, symbol_co
 
 
 def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolPin]) -> int:
-    """按原理图符号上的脚写端口表。球号和符号上的功能来自图纸，项目网络名留空。"""
+    """按原理图符号上的脚写端口表。网络名是这只脚朝向那一侧导线上的名字。"""
     port = _port_sheet(workbook)
     if port is None or not pins:
         return 0
@@ -1655,6 +1662,8 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
             port.cell(row, ball_col, pin.ball)
         if layout.mux and pin.function:
             port.cell(row, layout.mux, pin.function)
+        if layout.name and pin.net:
+            port.cell(row, layout.name, pin.net)
         port.cell(row, layout.status, STATUS_DRAFT)
         parts = [f"原理图 {pin.sheet}"]
         if not pin.ball:
@@ -1673,6 +1682,9 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
     wrap = {layout.status: 18, layout.mark: 42}
     if layout.mux:
         wrap[layout.mux] = 36
+    if layout.name:
+        wrap[layout.name] = 28
+        port.column_dimensions[get_column_letter(layout.name)].width = 28
     for index in range(1, len(pins) + 1):
         _wrap_port_row(port, layout.header + index, wrap)
     for column, width in wrap.items():
@@ -1684,6 +1696,9 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
     last = layout.header + len(pins)
     port.auto_filter.ref = f"A{layout.header}:{get_column_letter(layout.human)}{max(last, layout.header)}"
     _plain_port_sheet(port, layout.header, keep_heights=True)
+    _rename_function_description(port, layout)
+    _retire_schematic_net_column(port)
+    _link_repeated_nets(workbook, port, layout, symbol_col, layout.name)
     return len(pins)
 
 
@@ -1699,11 +1714,30 @@ def _apply_drawing_chip(sheet, mcu: str, header_row: int) -> None:
         sheet.cell(2, 2, f"MCU_{mcu}")
 
 
-def _hide_schematic_net_column(sheet) -> None:
-    """星驱原理图网络是模板旧列。出表不展示这一列，格子里的字仍留着。"""
+def _pin_definition_column(layout: _PortLayout) -> int:
+    """网络名写进 Pin Definition。星驱原理图网络这一列不再用。"""
+    return layout.name or layout.net
+
+
+def _rename_function_description(sheet, layout: _PortLayout) -> None:
+    """两列都叫 Pin Definition 时，后一列是功能描述。"""
+    if not layout.desc or layout.desc == layout.name:
+        return
+    current = _text(sheet.cell(layout.header, layout.desc).value)
+    if current.startswith("Pin Definition"):
+        sheet.cell(layout.header, layout.desc, "Pin Function Description")
+
+
+def _retire_schematic_net_column(sheet) -> None:
+    """星驱原理图网络不再作为一列。表头清掉，列藏起来。"""
     layout = _port_layout(sheet)
-    if layout.net:
-        sheet.column_dimensions[get_column_letter(layout.net)].hidden = True
+    if not layout.net:
+        return
+    header = sheet.cell(layout.header, layout.net)
+    header.value = None
+    for row in range(layout.data_start, (sheet.max_row or layout.data_start) + 1):
+        sheet.cell(row, layout.net).value = None
+    sheet.column_dimensions[get_column_letter(layout.net)].hidden = True
 
 
 def _reset_row_heights(sheet, first: int) -> None:
@@ -1798,6 +1832,106 @@ def _adc_row_order(pin: ChipPin) -> tuple[int, int, int, int, str]:
     number = int(re.search(r"\d+", group).group(0))
     kind = 0 if group.upper().startswith("G") else 1
     return (0, kind, number, _adc_channel_index(channels, group), pin.symbol)
+
+
+def _chips_from_schematic(pins: list[SchematicSymbolPin]) -> tuple[ChipPin, ...]:
+    """符号上的功能当作这一脚的复用，后面的 ADC、SPI、CAN 表只认这些名字。"""
+    return tuple(
+        ChipPin("", pin.ball, pin.symbol, "", "", pin.function, pin.function, pin.sheet, "")
+        for pin in pins
+    )
+
+
+_MANUAL_PAGES: dict[tuple[str, int], list[tuple[int, str]]] = {}
+_MANUAL_PACKAGE: dict[tuple[str, int, str], dict[str, ChipPin]] = {}
+
+
+def _manual_candidates(mcu: str) -> list[Path]:
+    """同一型号的芯片手册 PDF。没有这一本时，ADC 组号保持空白。"""
+    token = re.sub(r"[^A-Za-z0-9]", "", mcu or "").lower()
+    if not token.startswith("tc") or len(token) < 5:
+        return []
+    folder = Path(__file__).resolve().parents[2] / "资料" / "MCU 芯片手册"
+    if not folder.is_dir():
+        return []
+    found: list[Path] = []
+    for path in sorted(folder.glob("*.pdf")):
+        folded = re.sub(r"[^a-z0-9]", "", path.name.lower())
+        if token in folded:
+            found.append(path)
+    return found
+
+
+def _adc_mux_lines(mux: str) -> list[str]:
+    lines: list[str] = []
+    for item in present_mux(mux).split("\n"):
+        token = item.split()[0] if item.strip() else ""
+        if token and re.search(r"ADC", token, re.I) and item not in lines:
+            lines.append(item)
+    return lines
+
+
+def _manual_pins_by_ball(mcu: str, balls: set[str]) -> dict[str, ChipPin]:
+    """手册引脚按球号索引。封装取和这批球号对上最多的那一个。"""
+    wanted = {ball.upper() for ball in balls if ball}
+    if not wanted:
+        return {}
+    best: dict[str, ChipPin] = {}
+    best_hits = 0
+    for path in _manual_candidates(mcu):
+        stamp = path.stat().st_mtime_ns
+        key = (str(path), stamp)
+        pages = _MANUAL_PAGES.get(key)
+        if pages is None:
+            pages = read_pdf_pages(path)
+            _MANUAL_PAGES[key] = pages
+        packages = parse_pin_pages(pages) or ("BGA436",)
+        for package in packages:
+            cache_key = (str(path), stamp, package)
+            rows = _MANUAL_PACKAGE.get(cache_key)
+            if rows is None:
+                rows = {pin.ball.upper(): pin for pin in parse_pins(pages, package) if pin.ball}
+                _MANUAL_PACKAGE[cache_key] = rows
+            hits = sum(1 for ball in wanted if ball in rows)
+            if hits > best_hits:
+                best = rows
+                best_hits = hits
+            if hits == len(wanted):
+                return rows
+    return best if best_hits else {}
+
+
+def _merge_manual_adc(
+    pins: list[SchematicSymbolPin],
+    chips: tuple[ChipPin, ...],
+    by_ball: dict[str, ChipPin],
+) -> tuple[ChipPin, ...]:
+    """原理图符号上没有转换器名时，把手册里这个球号的 ADC 复用补进通道。"""
+    if not by_ball:
+        return chips
+    by_symbol = {pin.symbol.upper(): pin for pin in by_ball.values() if pin.symbol}
+    merged: list[ChipPin] = []
+    for pin, chip in zip(pins, chips):
+        manual = by_ball.get(pin.ball.upper()) if pin.ball else None
+        if manual is None and not pin.ball:
+            manual = by_symbol.get(pin.symbol.upper())
+        extra = _adc_mux_lines(manual.mux) if manual is not None else []
+        if not extra:
+            merged.append(chip)
+            continue
+        text = chip.mux
+        seen = set(present_mux(text).split("\n"))
+        for line in extra:
+            if line not in seen:
+                text = f"{text}；{line}" if text else line
+                seen.add(line)
+        merged.append(replace(chip, mux=text))
+    return tuple(merged)
+
+
+def _chips_with_manual_adc(pins: list[SchematicSymbolPin], mcu: str) -> tuple[ChipPin, ...]:
+    chips = _chips_from_schematic(pins)
+    return _merge_manual_adc(pins, chips, _manual_pins_by_ball(mcu, {pin.ball for pin in pins}))
 
 
 def _fill_adc_from_manual(workbook: Workbook, pins: tuple[ChipPin, ...]) -> None:
@@ -2193,6 +2327,7 @@ def _clear_template_detail_rows(workbook: Workbook, *, drop_template_chrome: boo
         SHEET_CONSTRAINT,
         SHEET_REVISION,
         SHEET_ACCEPT,
+        _JUMP_INDEX,
     }
     port = _port_sheet(workbook)
     for name in workbook.sheetnames:
@@ -2335,6 +2470,7 @@ def _write_ports_v13(
     _clear_project_banner(sheet, layout.header)
     _stamp_port_names(sheet, mcu, package, layout.header)
     sheet.cell(layout.header, layout.mux, "复用")
+    _rename_function_description(sheet, layout)
     sheet.cell(layout.header, layout.page, "页码")
     sheet.cell(layout.header, layout.excerpt, "原文摘录")
     sheet.cell(layout.header, layout.status, "核对状态")
@@ -2697,7 +2833,8 @@ def write_hsi_workbook(
     _link_detail_sheets(template_book)
     _hide_adc_spare_columns(template_book)
     if port is not None:
-        _hide_schematic_net_column(port)
+        _rename_function_description(port, _port_layout(port))
+        _retire_schematic_net_column(port)
     template_book.active = port
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -2830,8 +2967,12 @@ def revise_hsi_from_schematic(
                 raise ValueError("这份网表里没有接插件脚，未修改端口表。")
         _clear_template_detail_rows(book, drop_template_chrome=True)
         _strip_schematic_template_identity(book)
-        port = _port_sheet(book)
-        if port is not None and drawing_mcu:
+        if suffix == ".pdf":
+            chips = _chips_with_manual_adc(symbol_pins, drawing_mcu)
+            _fill_adc_from_manual(book, chips)
+            _fill_spi_from_manual(book, chips)
+            _fill_can_from_manual(book, chips)
+            _link_detail_sheets(book)
             _apply_drawing_chip(port, drawing_mcu, _port_layout(port).header)
         mcu = drawing_mcu
         pins = updated

@@ -168,6 +168,24 @@ class ArchQualityCheckTests(unittest.TestCase):
         self.assertIn("输出电压范围前后不一致", all_notes)
         self.assertIn("机械冲击加速度前后不一致", all_notes)
 
+    def test_tbd_footnote_inside_a_condition_list_does_not_paint_the_block(self) -> None:
+        from electrical_krow.arch_figures import Figure
+
+        transcript = "\n".join([
+            "1. P1 Motor NVH TEST condition",
+            "① Bench test sweep rate : Run up/down speed 200rpm/s under, engine min rpm~ rated rpm",
+            "② Load condition : Every 10Nm step up to 100Nm",
+            "*TBD : To be determined after T-car vehicle evaluation",
+        ])
+        figure = Figure(1, (20, 40, 400, 300), "", b"", "矢量图", transcript, ())
+        rows, _tables = split_document(SourceDoc("nvh.pdf", ((1, "1. Overview\n"),), figures={1: [figure]}))
+        block = next(row for row in rows if "200rpm/s" in str(row[8]) and "TBD" in str(row[8]))
+        block[0] = 1
+        report = check_arch_quality([SourceDoc("nvh.pdf", ((1, transcript),))], [], rows, collect_params(rows, None))
+        self.assertEqual(report.tbd_count, 1)
+        self.assertIn("TBD/TBC", report.row_notes[1])
+        self.assertNotIn(1, report.flagged_seqs)
+
 
 if __name__ == "__main__":
     unittest.main()

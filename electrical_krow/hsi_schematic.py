@@ -306,15 +306,18 @@ class SchematicSymbolPin:
     ball: str
     function: str
     sheet: str
+    net: str = ""
 
 
 _SCH_PIN = re.compile(r"^(P\d{1,2})_(\d{1,2})(?:/(.+))?$")
+_SCH_AN = re.compile(r"^(AN\d+)(?:/(P\d{1,2})_(\d{1,2}))?(?:/(.+))?$", re.I)
 _SCH_BALL = re.compile(r"^[A-Z]{1,2}\d{1,2}$")
 _SCH_SHEET = re.compile(r"([\w .+-]+?)\.SchDoc")
 _SCH_MCU = re.compile(r"TC\d{3}")
 # 球号文字比引脚文字高约 2.6 pt。上下两行距约 5.3 pt，取绝对最近会配到下一行。
 _BALL_DX = 50.0
 _BALL_ABOVE = 2.64
+_NET_NAME = re.compile(r"[A-Za-z].*[_/].*")
 
 
 def _norm_port_symbol(port: str, bit: str) -> str:
@@ -329,17 +332,123 @@ def _word_x(word: tuple[float, float, float, float, str]) -> float:
     return (word[0] + word[2]) / 2
 
 
+def _net_word(text: str) -> bool:
+    if not _NET_NAME.search(text) or "[" in text or " " in text:
+        return False
+    if text.startswith(("PO", "PI", "CB", "TP")):
+        return False
+    if _SCH_PIN.match(text) or _SCH_AN.match(text):
+        return False
+    return _SCH_BALL.match(text) is None
+
+
+def _touching_wire(
+    pin: tuple[float, float, float, float, str],
+    lines: list[tuple[float, float, float]],
+) -> tuple[str, float, float] | None:
+    """返回脚朝向，以及这一侧连出去的导线范围。不跨过中间的空隙。"""
+    py = _word_y(pin)
+    segs = [(x0, x1) for line_y, x0, x1 in lines if abs(line_y - py) <= 1.6]
+    left = right = None
+    for x0, x1 in segs:
+        if abs(x1 - pin[0]) <= 8 and x0 < pin[0] - 8:
+            gap = pin[0] - x1
+            if left is None or gap < left[0]:
+                left = (gap, x0, x1)
+        if abs(x0 - pin[2]) <= 8 and x1 > pin[2] + 8:
+            gap = x0 - pin[2]
+            if right is None or gap < right[0]:
+                right = (gap, x0, x1)
+    if left is None and right is None:
+        return None
+    if right is None or (left is not None and left[0] <= right[0]):
+        far = left[1]
+        changed = True
+        while changed:
+            changed = False
+            for x0, x1 in segs:
+                if abs(x1 - far) <= 2 and x0 < far:
+                    far = x0
+                    changed = True
+        return "L", far, pin[0]
+    far = right[2]
+    changed = True
+    while changed:
+        changed = False
+        for x0, x1 in segs:
+            if abs(x0 - far) <= 2 and x1 > far:
+                far = x1
+                changed = True
+    return "R", pin[2], far
+
+
+def _net_on_wire(
+    pin: tuple[float, float, float, float, str],
+    labels: list[tuple[float, float, float, float, str]],
+    lines: list[tuple[float, float, float]],
+) -> str:
+    wire = _touching_wire(pin, lines)
+    if wire is None:
+        return ""
+    side, near, far = wire
+    py = _word_y(pin)
+    best: tuple[float, str] | None = None
+    for label in labels:
+        if abs(_word_y(label) - py) > 1.6:
+            continue
+        if side == "L":
+            if label[0] > pin[0]:
+                continue
+            overlap = min(label[2], far) - max(label[0], near)
+            gap = near - label[2]
+            dist = pin[0] - label[2]
+        else:
+            if label[2] < pin[2]:
+                continue
+            overlap = min(label[2], far) - max(label[0], near)
+            gap = label[0] - far
+            dist = label[0] - pin[2]
+        if dist < 0 or not (overlap > 0 or 0 <= gap <= 18):
+            continue
+        if best is None or dist < best[0]:
+            best = (dist, label[4])
+    return best[1] if best else ""
+
+
+def _parsed_pin(text: str) -> tuple[str, str] | None:
+    """引脚符号和写在同一串里的功能。AN36/P40_6 的符号是 AN36，功能是 P40.6。"""
+    matched = _SCH_PIN.match(text)
+    if matched:
+        function = (matched.group(3) or "").strip()
+        if function.upper() == "NC":
+            function = ""
+        return _norm_port_symbol(matched.group(1), matched.group(2)), function
+    analog = _SCH_AN.match(text)
+    if analog is None:
+        return None
+    symbol = f"AN{int(analog.group(1)[2:])}"
+    parts: list[str] = []
+    if analog.group(2) and analog.group(3):
+        parts.append(_norm_port_symbol(analog.group(2), analog.group(3)))
+    rest = (analog.group(4) or "").strip()
+    if rest and rest.upper() != "NC":
+        parts.append(rest)
+    return symbol, "/".join(parts)
+
+
 def pins_from_schematic_words(
     words: list[tuple[float, float, float, float, str]],
     sheet: str,
+    lines: list[tuple[float, float, float]] | None = None,
 ) -> list[SchematicSymbolPin]:
-    """球号用同一行、略高于引脚的文字。一个球号只配一只脚。"""
-    pins = [word for word in words if _SCH_PIN.match(word[4])]
+    """球号用同一行、略高于引脚的文字。网络名取这只脚朝向那一侧导线上的名字。"""
+    pins = [word for word in words if _parsed_pin(word[4])]
     balls = [
         word
         for word in words
-        if _SCH_BALL.match(word[4]) and not _SCH_PIN.match(word[4]) and not word[4].startswith("PI")
+        if _SCH_BALL.match(word[4]) and _parsed_pin(word[4]) is None and not word[4].startswith("PI")
     ]
+    labels = [word for word in words if _net_word(word[4])]
     claims: list[tuple[float, float, int, int]] = []
     for pin_index, pin in enumerate(pins):
         py = _word_y(pin)
@@ -358,17 +467,31 @@ def pins_from_schematic_words(
             continue
         chosen[pin_index] = balls[ball_index][4]
         used_balls.add(ball_index)
+    wire_lines = lines or []
     found: list[SchematicSymbolPin] = []
     for pin_index, pin in enumerate(pins):
-        matched = _SCH_PIN.match(pin[4])
-        if matched is None:
+        parsed = _parsed_pin(pin[4])
+        if parsed is None:
             continue
-        function = (matched.group(3) or "").strip()
-        if function.upper() == "NC":
-            function = ""
-        symbol = _norm_port_symbol(matched.group(1), matched.group(2))
-        found.append(SchematicSymbolPin(symbol, chosen.get(pin_index, ""), function, sheet))
+        symbol, function = parsed
+        net = _net_on_wire(pin, labels, wire_lines)
+        found.append(SchematicSymbolPin(symbol, chosen.get(pin_index, ""), function, sheet, net))
     return found
+
+
+def _horizontal_lines(page) -> list[tuple[float, float, float]]:
+    found: list[tuple[float, float, float]] = []
+    for drawing in page.get_drawings():
+        for item in drawing.get("items", []):
+            if item[0] != "l":
+                continue
+            start, end = item[1], item[2]
+            if abs(start.y - end.y) > 0.8:
+                continue
+            x0, x1 = sorted((start.x, end.x))
+            if x1 - x0 < 8:
+                continue
+            found.append(((start.y + end.y) / 2, x0, x1))
 
 
 def read_schematic_pdf(path: Path) -> tuple[list[SchematicSymbolPin], str]:
@@ -393,10 +516,19 @@ def read_schematic_pdf(path: Path) -> tuple[list[SchematicSymbolPin], str]:
                 (word[0], word[1], word[2], word[3], word[4])
                 for word in page.get_text("words")
             ]
-            for pin in pins_from_schematic_words(words, sheet):
+            for pin in pins_from_schematic_words(words, sheet, _horizontal_lines(page)):
                 current = grouped.get(pin.symbol)
-                if current is None or (pin.function and not current.function) or (pin.ball and not current.ball):
+                if current is None:
                     grouped[pin.symbol] = pin
+                    continue
+                if (pin.function and not current.function) or (pin.ball and not current.ball) or (pin.net and not current.net):
+                    grouped[pin.symbol] = SchematicSymbolPin(
+                        pin.symbol,
+                        pin.ball or current.ball,
+                        pin.function or current.function,
+                        pin.sheet if pin.ball or pin.function else current.sheet,
+                        pin.net or current.net,
+                    )
         pins = sorted(grouped.values(), key=lambda item: _symbol_sort(item.symbol))
         return pins, mcu
     finally:
@@ -408,3 +540,6 @@ def _symbol_sort(symbol: str) -> tuple[int, int, str]:
     if matched:
         return int(matched.group(1)), int(matched.group(2)), symbol
     return 10**9, 10**9, symbol
+    analog = re.fullmatch(r"AN(\d+)", symbol, re.I)
+    if analog:
+        return 1000, int(analog.group(1)), symbol

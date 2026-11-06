@@ -130,6 +130,178 @@ def _has_segment(mask, fixed: int, span: tuple[int, int], *, vertical_line: bool
     return drawn >= 0.5 * (hi - lo)
 
 
+def _ocr_items(gray) -> list[tuple[float, float, str]]:
+    import cv2
+
+    try:
+        result = _ocr_engine()(cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR))
+    except Exception as exc:  # noqa: BLE001
+        log.info("识图失败：%s", exc)
+        return []
+    if not result or result.boxes is None or len(result.boxes) == 0:
+        return []
+    items: list[tuple[float, float, str]] = []
+    for box, text in zip(result.boxes, result.txts):
+        text = _clean(text)
+        if not text:
+            continue
+        items.append((sum(p[1] for p in box) / 4, sum(p[0] for p in box) / 4, text))
+    return items
+
+
+def _line_key(line: str) -> str:
+    return re.sub(r"\s+", " ", line or "").strip()
+
+
+def insert_missing_lines(spine: str, extra: str) -> str:
+    """以整图的行序为准。左半边多识出的句子插回它前面那一行之后，不接到末尾。"""
+    def keys(text: str) -> list[str]:
+        found: list[str] = []
+        seen: set[str] = set()
+        for line in (text or "").splitlines():
+            key = _line_key(line)
+            if key and key not in seen:
+                seen.add(key)
+                found.append(key)
+        return found
+
+    base = keys(spine)
+    more = keys(extra)
+    if not more:
+        return "\n".join(base)
+    if not base:
+        return "\n".join(more)
+    base_set = set(base)
+    after: dict[str, list[str]] = {}
+    last = ""
+    for key in more:
+        if key in base_set:
+            last = key
+        else:
+            after.setdefault(last, []).append(key)
+    out = list(after.get("", []))
+    for key in base:
+        out.append(key)
+        out.extend(after.get(key, []))
+    return "\n".join(out)
+
+
+def _prefer_left_prose(gray, lines: str) -> str:
+    """表在右侧时，整图识读会漏掉左边第一条。再识一遍左半边，把缺的编号插回原位。"""
+    _height, width = gray.shape[:2]
+    if width < 500:
+        return lines
+    merged = lines or ""
+    # 固定切到 58% 会把一行后半截切掉。多试几个宽度，同一句留读得更全的那次。
+    for frac in (0.58, 0.66, 0.72):
+        cut = int(width * frac)
+        if cut < 400:
+            continue
+        left = _line_text(_ocr_items(gray[:, :cut]))
+        if left:
+            merged = insert_missing_lines(merged, left)
+    return merged
+
+
+def _clause_cell(cell: str) -> bool:
+    """一格里有两条以上的编号要求。这种不是表的数据格。"""
+    marks = re.findall(r"(?:^|\s)(?:\d{1,2}[.)]\s|[①②③④⑤⑥⑦⑧⑨⑩])", cell or "")
+    return len(marks) >= 2
+
+
+def _text_beside_table(items: list[tuple[float, float, str]], xs: list[int], width: int) -> str:
+    """竖线围出的表以外的字，按行交回正文。表自己的格子不混进这些行。"""
+    inner = [x for x in xs if 8 < x < width - 8]
+    if not inner:
+        return ""
+    left, right = min(inner), max(inner)
+    side = [item for item in items if item[1] < left - 12 or item[1] > right + 12]
+    return _line_text(side)
+
+
+def _line_text(items: list[tuple[float, float, str]]) -> str:
+    """按行拼 OCR 文字。同一行左右分开的仍连成一句。"""
+    lines: list[str] = []
+    group: list[tuple[float, str]] = []
+    current = None
+    for cy, cx, text in sorted(items):
+        if current is None or abs(cy - current) > 14:
+            if group:
+                lines.extend(_split_wide(group))
+            group = [(cx, text)]
+            current = cy
+        else:
+            group.append((cx, text))
+    if group:
+        lines.extend(_split_wide(group))
+    return "\n".join(lines)
+
+
+def _split_wide(group: list[tuple[float, str]], gap: float = 140) -> list[str]:
+    """同一行里左右隔得很开的字分成两列，避免左栏条款和右栏格子拼成一句。"""
+    group = sorted(group)
+    lines: list[str] = []
+    chunk = [group[0][1]]
+    previous = group[0][0]
+    for x, text in group[1:]:
+        if x - previous > gap:
+            lines.append(" ".join(chunk))
+            chunk = [text]
+        else:
+            chunk.append(text)
+        previous = x
+    lines.append(" ".join(chunk))
+    return lines
+
+
+def figure_ocr(gray) -> tuple[Grid | None, str]:
+    """截图里有格线就还原成表，格线以外的句子另交出来。认不出表时，整段文字作为正文。"""
+    ys, xs, horizontal, vertical = _lines(gray)
+    items = _ocr_items(gray)
+    if not items:
+        return None, ""
+    if not ys:
+        return None, _line_text(items)
+    cells: dict[tuple[int, int], list[tuple[float, float, str]]] = {}
+    n_rows, n_cols = len(ys) - 1, len(xs) - 1
+    for _index, (cy, cx, text) in enumerate(items):
+        row = max(0, sum(1 for y in ys[1:-1] if cy > y))
+        col = max(0, sum(1 for x in xs[1:-1] if cx > x))
+        if row >= n_rows or col >= n_cols:
+            continue
+        while col > 0 and not _has_segment(vertical, xs[col], (ys[row], ys[row + 1]), vertical_line=True):
+            col -= 1
+        while row > 0 and not _has_segment(horizontal, ys[row], (xs[col], xs[col + 1]), vertical_line=False):
+            row -= 1
+        cells.setdefault((row, col), []).append((cy, cx, text))
+    grid: Grid = [["" for _ in range(n_cols)] for _ in range(n_rows)]
+    for (row, col), pieces in cells.items():
+        pieces.sort()
+        grid[row][col] = " ".join(piece[2] for piece in pieces)
+    grid = [row for row in grid if any(row)]
+    if grid:
+        keep = [c for c in range(len(grid[0])) if any(row[c] for row in grid)]
+        grid = [[row[c] for c in keep] for row in grid]
+    lines = _line_text(items)
+    # 编号要求若落进表的某一格，会被拼成一行并识错。整段改按行交回正文，格子留空。
+    if any(_clause_cell(cell) for row in grid for cell in row):
+        lines = _prefer_left_prose(gray, lines)
+        grid = [["" if _clause_cell(cell) else cell for cell in row] for row in grid]
+        grid = [row for row in grid if any(cell.strip() for cell in row)]
+        if grid:
+            keep = [c for c in range(len(grid[0])) if any(row[c].strip() for row in grid)]
+            grid = [[row[c] for c in keep] for row in grid] if keep else []
+        filled = sum(1 for row in grid for cell in row if cell.strip())
+        if len(grid) < 2 or not grid or len(grid[0]) < 2 or filled < 4:
+            return None, lines
+        return grid, lines
+    filled = sum(1 for row in grid for cell in row if cell)
+    if len(grid) < 2 or not grid or len(grid[0]) < 2 or filled < 4:
+        return None, lines
+    # 表在页面一侧时，另一侧的句子按自己的列读。整行左右拼在一起会把条款和格子搅成一句。
+    return grid, _text_beside_table(items, xs, gray.shape[1])
+
+
 def grid_from_image(gray) -> Grid | None:
     """有格线的表格图片 → 行×列的文字。认不出格线、或格里几乎没字的返回 None。"""
     ys, xs, horizontal, vertical = _lines(gray)

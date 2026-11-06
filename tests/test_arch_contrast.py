@@ -80,6 +80,38 @@ class ArchContrastTests(unittest.TestCase):
         # 大写或数字开头的是子项破折号，不是连字符
         self.assertEqual(join_lines(["300,000km", "-", "15 years"]), "300,000km - 15 years")
         self.assertEqual(join_lines(["Test condition", "-", "Motor Speed : 15rpm"]), "Test condition - Motor Speed : 15rpm")
+        listed = join_lines([
+            "Measurement items and criteria:",
+            "-",
+            "The noise criteria of 4 points.",
+            "-",
+            "No noticeable abnormal noise during 0 Torque",
+            "control",
+        ])
+        self.assertIn("criteria:\n- The noise criteria", listed)
+        self.assertIn("\n- No noticeable abnormal noise during 0 Torque control", listed)
+
+    def test_split_footnote_keeps_t_car_and_ordinal(self) -> None:
+        from electrical_krow.arch_contrast import stitch_broken_tokens
+
+        body = "\n".join([
+            "*TBD",
+            ": To be determined after T",
+            "-",
+            "car",
+            "vehicle evaluation and 1",
+            "st",
+            "Proto type",
+            "bench test",
+        ])
+        text = split_clauses(stitch_broken_tokens(body), [], "")[0][2]
+        self.assertIn("To be determined after T-car", text)
+        self.assertIn("1st Proto type bench test", text)
+        self.assertNotIn("1 Proto", text)
+
+    def test_quantity_keeps_rpm_per_second_and_drops_a_stuck_period(self) -> None:
+        self.assertIn("200rpm/s", quantities("Run up/down speed 200rpm/s under"))
+        self.assertNotIn(".Every", quantities("up to 100Nm.Every 10% of max Torque"))
 
     def test_split_clauses_breaks_on_item_marks_not_hyphens(self) -> None:
         heads = [("2", "System requirements"), ("2.5", "Quality")]
@@ -96,6 +128,52 @@ class ArchContrastTests(unittest.TestCase):
         # 短引导句「Durability」并入其后那条；「-」是连字符不是条款
         self.assertEqual(clauses[1][2], "• Durability The durability mentioned in laws must be guaranteed.")
         self.assertEqual(clauses[3][2], "1) sub-parts shall satisfy 15 years.")
+
+    def test_two_circled_items_stay_apart_and_scrap_is_dropped(self) -> None:
+        body = (
+            "2. P3 Motor NVH TEST condition\n"
+            "② Bench test sweep rate and load condition: Refer to Table 1. for driving and generation.\n"
+            "3. P3 + Engine Driving condition Motor NVH TEST condition\n"
+            "① Operating condition : Engine + P3 driving\n"
+            "② Bench test sweep rate : Run up/down speed 120rpm/s under\n"
+            "n : s n\n"
+        )
+        clauses = split_clauses(body, [], "")
+        texts = [item[2] for item in clauses]
+        self.assertTrue(any(text.startswith("2.") for text in texts))
+        self.assertTrue(any("Table 1" in text for text in texts))
+        self.assertTrue(any(text.startswith("3.") for text in texts))
+        rpm = next(text for text in texts if "120rpm/s" in text)
+        self.assertNotIn("Table 1", rpm)
+        self.assertNotIn("n : s n", rpm)
+
+    def test_missing_subitem_is_inserted_under_its_heading(self) -> None:
+        from electrical_krow.arch_ocr import insert_missing_lines
+
+        spine = "\n".join([
+            "1) P1 Generating condition",
+            "② Load condition : Every 10Nm step up to 100Nm",
+            "③ Battery condition : 90%~100% Battery system voltage(180V)",
+            "2. P3 Motor NVH TEST condition",
+            "② Bench test sweep rate and load condition: Refer to Table 1.",
+            "3. P3 + Engine Driving condition",
+            "② Bench test sweep rate : Run up/down speed 120rpm/s under",
+        ])
+        left = "\n".join([
+            "1) P1 Generating condition",
+            "① Bench test sweep rate : Run up/down speed 200rpm/s under",
+            "③ Battery condition : 90%~100% Battery system voltage(180V)",
+            "2. P3 Motor NVH TEST condition",
+            "3. P3 + Engine Driving condition",
+        ])
+        merged = insert_missing_lines(spine, left).splitlines()
+        bench = next(i for i, line in enumerate(merged) if line.startswith("① Bench"))
+        load = next(i for i, line in enumerate(merged) if line.startswith("② Load"))
+        table = next(i for i, line in enumerate(merged) if "Table 1" in line)
+        speed = next(i for i, line in enumerate(merged) if "120rpm/s" in line)
+        self.assertLess(bench, load)
+        self.assertLess(load, table)
+        self.assertLess(table, speed)
 
     def test_split_numbers_rejoin_and_toc_is_not_a_schedule(self) -> None:
         from electrical_krow.arch_contrast import page_headings, rejoin_numbers, toc_headings
@@ -401,10 +479,83 @@ class ArchContrastTests(unittest.TestCase):
                 self.assertTrue(any(str(rows.cell(r, excerpt_col).value or "").startswith("本页为数值表") for r in range(2, rows.max_row + 1)))
                 note = "\n".join(str(c.value or "") for row in book[SHEET_NOTE].iter_rows() for c in row)
                 self.assertIn("待确认", note)
+                self.assertIn("不从格子中间裁开", note)
                 self.assertIn("MCU_SWSR.pdf（99 页）：没有文字层", note)  # 读不开的文件写在说明里，不另起一张表
                 # 给业务人员看的表，不带项目内部编号和合同用语
                 for word in ("第2项", "甲方", "本期", "验收"):
                     self.assertNotIn(word, note)
+            finally:
+                book.close()
+
+    def test_split_word_and_ordinal_are_stitched_before_excerpt(self) -> None:
+        from electrical_krow.arch_contrast import stitch_broken_tokens
+
+        broken = "\n".join([
+            "1.",
+            "S",
+            "pecifications must be satisfied under all acceleration conditions.",
+            "2.",
+            "Measurement items and criteria:",
+            "-",
+            "8",
+            "th",
+            "/24",
+            "th",
+            "/48",
+            "th",
+            "orders of each motor speed should be analyzed",
+        ])
+        rows, _tables = split_document(SourceDoc("nvh.pdf", ((2, broken),)))
+        texts = [str(row[8]) for row in rows]
+        first = next(text for text in texts if "pecifications" in text)
+        self.assertIn("1. Specifications must be satisfied", first)
+        self.assertNotIn("S pecifications", first)
+        second = next(text for text in texts if "orders of each motor" in text)
+        self.assertIn("8th/24th/48th orders", second)
+        self.assertEqual(stitch_broken_tokens("S\npecifications stay whole"), "Specifications stay whole")
+
+    def test_each_original_line_keeps_its_own_translation(self) -> None:
+        from electrical_krow.arch_translate import format_bilingual_excerpt
+
+        raw = "\n".join([
+            "1. P1 Motor NVH TEST condition",
+            "① Bench test sweep rate : Run up/down speed 200rpm/s under, engine min rpm~ rated rpm",
+            "② Load condition : Every 10Nm step up to 100Nm",
+        ])
+        text = format_bilingual_excerpt(raw, "附件1. 电机NVH台架测试工况")
+        lines = text.splitlines()
+        self.assertEqual(len(lines), 3)
+        self.assertIn("电机", lines[0])
+        self.assertIn("200rpm/s under, engine min rpm~ rated rpm", lines[1])
+        self.assertIn("/", lines[1])
+        self.assertRegex(lines[1], r"[\u4e00-\u9fff]")
+        self.assertIn("10Nm", lines[2])
+        self.assertNotIn("只剩一句", text)
+
+    def test_numbered_clause_excerpt_stays_on_one_line(self) -> None:
+        from electrical_krow.arch_contrast import _display_width, _lines_needed
+
+        clause = "① Bench test sweep rate : Run up/down speed 200rpm/s under, engine min rpm~ rated rpm"
+        pages = ((1, "1. P1 Motor NVH TEST condition\n" + clause + "\n"),)
+        with tempfile.TemporaryDirectory() as raw:
+            dest = Path(raw) / "out.xlsx"
+            write_contrast([SourceDoc("nvh.pdf", pages)], [], dest)
+            book = load_workbook(dest)
+            try:
+                sheet = book[SHEET_REQS]
+                excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
+                cell = next(
+                    sheet.cell(r, excerpt_col)
+                    for r in range(2, sheet.max_row + 1)
+                    if "Bench test sweep rate" in str(sheet.cell(r, excerpt_col).value or "")
+                )
+                text = str(cell.value)
+                self.assertTrue(text.startswith(clause + " / "))
+                self.assertNotIn("\n", text)
+                width = sheet.column_dimensions[cell.column_letter].width
+                self.assertGreaterEqual(width, _display_width(text))
+                self.assertLessEqual(_lines_needed(text, width), 1)
+                self.assertTrue(cell.alignment.wrap_text)
             finally:
                 book.close()
 
@@ -421,8 +572,39 @@ class ArchContrastTests(unittest.TestCase):
             try:
                 rows = book[SHEET_REQS]
                 heights = [rows.row_dimensions[r].height for r in range(2, rows.max_row + 1)]
-                self.assertTrue(all(h >= 30 for h in heights))
-                self.assertGreater(max(heights), 30)  # 长原文的行比默认高，折行的字不被截掉
+                self.assertTrue(all(h >= 18 for h in heights))
+            finally:
+                book.close()
+
+    def test_write_contrast_puts_each_file_on_its_own_sheet(self) -> None:
+        from datetime import datetime
+
+        with tempfile.TemporaryDirectory() as raw:
+            dest = Path(raw) / "out.xlsx"
+            write_contrast(
+                [
+                    SourceDoc("260605_LDC_SR.pdf", _PAGES),
+                    SourceDoc("BHDC[总成].pdf", _PAGES),
+                ],
+                [],
+                dest,
+                now=datetime(2026, 10, 15),
+            )
+            book = load_workbook(dest)
+            try:
+                self.assertEqual(book.sheetnames, [SHEET_NOTE, "260605_LDC_SR", "BHDC_总成"])
+                self.assertNotIn(SHEET_REQS, book.sheetnames)
+                left = book["260605_LDC_SR"]
+                right = book["BHDC_总成"]
+                self.assertEqual(tuple(cell.value for cell in left[1]), REQ_COLUMNS)
+                self.assertEqual(left["A2"].value, "REQ-20261015-001")
+                self.assertEqual(right["A2"].value, "REQ-20261015-001")
+                self.assertEqual(left.max_row, right.max_row)
+                self.assertGreater(left.max_row, 2)
+                note = "\n".join(str(c.value or "") for row in book[SHEET_NOTE].iter_rows() for c in row)
+                self.assertIn("「260605_LDC_SR」", note)
+                self.assertIn("「BHDC_总成」", note)
+                self.assertIn("每个需求文件单独一张表", note)
             finally:
                 book.close()
 
@@ -431,10 +613,31 @@ class ArchContrastTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 write_contrast([], [Unreadable("BHDC.pdf", 67, "没有文字层")], Path(raw) / "x.xlsx")
 
+    def test_multi_file_progress_names_the_file_and_the_page(self) -> None:
+        from electrical_krow.arch_contrast import read_progress_detail
+
+        many = read_progress_detail(2, 23, "MCU_SWSR.pdf", 1, 1)
+        self.assertIn("第 3/23 份", many)
+        self.assertIn("第 1/1 页", many)
+        self.assertIn("MCU_SWSR.pdf", many)
+        self.assertLess(many.index("第 3/23 份"), many.index("MCU_SWSR.pdf"))
+        one = read_progress_detail(0, 1, "MCU_SWSR.pdf", 1, 1)
+        self.assertNotIn("份", one)
+        self.assertIn("第 1/1 页", one)
+
     def test_contrast_file_name_is_prefixed(self) -> None:
         from datetime import datetime
 
-        self.assertEqual(contrast_file_name(datetime(2026, 10, 15, 15, 30, 0)), "架构对照-20261015-153000.xlsx")
+        when = datetime(2026, 10, 15, 15, 30, 0)
+        self.assertEqual(contrast_file_name(when), "架构对照-20261015-153000.xlsx")
+        self.assertEqual(
+            contrast_file_name(when, ["260605_LDC_SR.pdf"]),
+            "架构对照-260605_LDC_SR-20261015-153000.xlsx",
+        )
+        self.assertEqual(
+            contrast_file_name(when, ["260605_LDC_SR.pdf", "BHDC.pdf"]),
+            "架构对照-260605_LDC_SR+BHDC-20261015-153000.xlsx",
+        )
 
     def test_write_contrast_formats_bilingual_excerpt_with_rule_and_model(self) -> None:
         import json
@@ -448,8 +651,9 @@ class ArchContrastTests(unittest.TestCase):
                 excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
                 excerpts = [str(rows.cell(r, excerpt_col).value or "") for r in range(2, rows.max_row + 1)]
                 clause_row = next(e for e in excerpts if "The supplier shall confirm every change." in e)
-                self.assertIn(" / ", clause_row)
+                self.assertIn("The supplier shall confirm every change. / ", clause_row)
                 self.assertIn("供应商应确认", clause_row)
+                self.assertNotIn("\n/ ", clause_row)
             finally:
                 book.close()
 
@@ -633,7 +837,8 @@ class ArchContrastTests(unittest.TestCase):
                 self.assertIsNotNone(rows.cell(plan_at, 1).value)
                 self.assertIsNone(rows.cell(plan_at + 1, 1).value)
                 self.assertIn("Vehicle schedule / 整车日程", str(rows.cell(plan_at + 1, excerpt_col).value))
-                self.assertTrue(any("'27.10.15" in e for e in excerpts))
+                flat = " ".join(str(cell.value or "") for row in rows.iter_rows() for cell in row)
+                self.assertIn("'27.10.15", flat)
                 self.assertFalse(any(e.startswith("本页表格") for e in excerpts))
                 self.assertTrue(any(str(m).startswith("A") for m in rows.merged_cells.ranges))
             finally:

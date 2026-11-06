@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
 from electrical_krow.arch_contrast import build_contrast, contrast_file_name
 from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, build_hsi, revise_hsi_from_schematic
-from electrical_krow.ce_bom import build_ce_bom, ce_bom_file_name
+from electrical_krow.ce_bom import DEFAULT_CE_BOM_TEMPLATE, build_ce_bom, ce_bom_file_name
 from electrical_krow.icd_book import build_icd, icd_file_name
 from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
 from electrical_krow.io_plan import write_io_sheet
@@ -1111,7 +1111,9 @@ def create_app(
                 _arch_progress_set(progress_id, 0, "write", "", done=True)
                 raise HTTPException(400, str(exc)) from exc
             _arch_progress_set(progress_id, 100, "write", "", done=True)
-            dest = request.app.state.jobs.output_dir / contrast_file_name()
+            dest = request.app.state.jobs.output_dir / contrast_file_name(
+                sources=[name for name, _data in payloads]
+            )
             dest.parent.mkdir(parents=True, exist_ok=True)
             dest.write_bytes(result.path.read_bytes())
         try:
@@ -1242,27 +1244,35 @@ def create_app(
     async def create_ce_bom(
         request: Request,
         manuals: list[UploadFile] | None = File(default=None),
-        template: UploadFile = File(...),
+        template: UploadFile | None = File(default=None),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
         """按确认的 CE BOM 表格式，从当份物料手册抽出尺寸和重量。不补手册没有的数。"""
         item = _require_session(request, authorization)
-        template_name = Path(template.filename or "").name
-        if Path(template_name).suffix.lower() not in {".xlsx", ".xlsm"}:
-            raise HTTPException(400, "CE BOM 模板请用 Excel。")
         if not manuals:
             manuals = []
-        template_bytes = await read_capped_upload(template)
         payloads: list[tuple[str, bytes]] = []
         for upload in manuals:
             name = Path(upload.filename or "").name
             if Path(name).suffix.lower() not in {".xlsx", ".xlsm", ".pdf", ".docx", ".edf"}:
                 raise HTTPException(400, f"{name or '所选文件'} 不是物料手册。请用 Excel、PDF、Word 或 EDIF（.edf）。")
             payloads.append((name, await read_capped_upload(upload)))
+        template_bytes = b""
+        template_name = ""
+        if template is not None and template.filename:
+            template_name = Path(template.filename).name
+            if Path(template_name).suffix.lower() not in {".xlsx", ".xlsm"}:
+                raise HTTPException(400, "CE BOM 模板请用 Excel。")
+            template_bytes = await read_capped_upload(template)
+        elif not DEFAULT_CE_BOM_TEMPLATE.is_file():
+            raise HTTPException(400, "找不到默认 CE BOM 表格式。")
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)
-            template_path = folder / (template_name or "template.xlsx")
-            template_path.write_bytes(template_bytes)
+            if template_bytes:
+                template_path = folder / (template_name or "template.xlsx")
+                template_path.write_bytes(template_bytes)
+            else:
+                template_path = DEFAULT_CE_BOM_TEMPLATE
             manual_paths: list[Path] = []
             for index, (name, data) in enumerate(payloads, start=1):
                 target = folder / f"{index:02d}-{name}"

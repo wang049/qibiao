@@ -61,12 +61,12 @@ _MIN_TEXT = 40
 # 「-」「┖」不算标记：PPT 导出的 PDF 里连字符会单独成行，当标记会把一个词切成两条。
 _ITEM_MARK = re.compile(r"^\(?(\d{1,2})[.)]\s*(?!\d)")
 _CIRCLED = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
-_BULLET_MARK = re.compile(r"^[•·▪■◦●○]\s*")
+_BULLET_MARK = re.compile(r"^[•·▪■◦●○✓✔√☑]\s*")
 _NOTE_MARK = re.compile(r"^[※*]\s*")
 _LEAD_CAP = 80
 # 数值与单位：数（可带符号、千分位、小数、范围）后跟常见工程单位。单位表只用于识别，不用于取值。
 _UNIT = (
-    r"(?:k|m|M|µ|μ|u|G)?(?:V(?:dc|ac|DC|AC)?|A(?:h|C|DC)?|W(?:h)?|VA|Hz|Nm|N·m|N\.m|rpm|r/min|"
+    r"(?:k|m|M|µ|μ|u|G)?(?:V(?:dc|ac|DC|AC)?|A(?:h|C|DC)?|W(?:h)?|VA|Hz|Nm|N·m|N\.m|rpm/s|rpm|r/min|"
     r"°C|℃|K|%|hr?s?|hours?|years?|yrs?|days?|min(?:utes?)?|s(?:ec)?|ms|km(?:/h)?|mm|cm|µm|μm|m|kg|g|"
     r"bar|k?Pa|MPa|dB(?:A)?|L(?:PM)?|l/min|Ω|ohm|cycles?|times|lux|J|kJ|Nm/s|°|deg)"
 )
@@ -241,8 +241,12 @@ def read_pdf_pages(path: Path, progress=None) -> SourceDoc | Unreadable:
     )
     if progress:
         progress("figures", 1, 1)
+    figures = read_figures(path, boxes, set(image_tables))
+    from electrical_krow.arch_figures import apply_outlined_titles
+
+    pages = apply_outlined_titles(path, tuple(pages), figures)
     return SourceDoc(
-        path.name, tuple(pages), tables, image_tables, read_figures(path, boxes, set(image_tables)),
+        path.name, pages, tables, image_tables, figures,
         path=str(path), lines=read_text_lines(path, boxes), table_rows=row_boxes,
     )
 
@@ -415,6 +419,48 @@ def page_body(text: str, boilerplate: frozenset[str], page_no: str = "", *, drop
 _FILLER = re.compile(r"^[.…·\-–—/|]+$")
 
 
+_AXIS_CHROME = re.compile(
+    r"^(?:dBA|dB|rpm|order|harmonic|fundamental|sideband|fun|restricted|respectively|noise|oder|gear|motor|input|output|st|nd|rd|th|p1|p3)$",
+    re.I,
+)
+
+
+def _axis_chrome_line(line: str) -> bool:
+    """坐标刻度、图名、保密水印。这种行不写进上一条要求，也不单独成条。"""
+    flat = _compact(line)
+    if not flat or _mark_of(flat):
+        return False
+    if re.fullmatch(r"[-+]?\d+(?:\.\d+)?", flat):
+        return True
+    tokens = re.findall(r"[A-Za-z]+\d*|\d+(?:st|nd|rd|th)", flat, re.I)
+    words = [token for token in tokens if re.search(r"[A-Za-z]", token)]
+    if not words or len(words) > 6:
+        return False
+    return all(_AXIS_CHROME.match(word) or re.fullmatch(r"\d+(?:st|nd|rd|th)", word, re.I) for word in words)
+
+
+def drop_axis_chrome(body: str) -> str:
+    """曲线图上的刻度和图名从正文里拿掉。编号条款和成句要求留下。"""
+    return "\n".join(line for line in (body or "").splitlines() if line.strip() and not _axis_chrome_line(line))
+
+
+def _inside_chart_shot(doc: SourceDoc, page: int, span: tuple[float, float, float, float] | None) -> bool:
+    """这张表已经画在曲线图上。文字层再写一遍就是重复。"""
+    if span is None:
+        return False
+    for figure in doc.figures.get(page, []):
+        box = getattr(figure, "box", None)
+        if not box:
+            continue
+        if not (span[0] >= box[0] - 8 and span[1] >= box[1] - 8 and span[2] <= box[2] + 8 and span[3] <= box[3] + 8):
+            continue
+        text = getattr(figure, "transcript", "") or ""
+        clauses = len(re.findall(r"(?m)^(?:\d{1,2}[.)]\s|[①②③④⑤⑥⑦⑧⑨⑩])", text))
+        if getattr(figure, "grid", ()) or clauses < 3:
+            return True
+    return False
+
+
 def is_table_block(text: str) -> bool:
     """一条里是不是表格块（坐标轴刻度、占位点、反复出现的表头）。是的话整块保留，不当需求条。"""
     tokens = _compact(text).split()
@@ -443,6 +489,55 @@ def inner_page(text: str, total: int) -> str:
 
 
 _BARE_NUMBER = re.compile(r"^\d+(?:\.\d+){0,3}\.?$")
+
+
+_ORDINAL_BIT = re.compile(r"^(?:/?\d+(?:st|nd|rd|th)?|(?:st|nd|rd|th))$", re.I)
+
+
+def stitch_broken_tokens(text: str) -> str:
+    """文字层把一个词拆成几行时拼回去。单独的大写字母接后面的小写；8、th、/24 接回 8th/24th。"""
+    lines = (text or "").splitlines()
+    out: list[str] = []
+    index = 0
+    while index < len(lines):
+        flat = _compact(lines[index])
+        if re.fullmatch(r"[A-Z]", flat) and index + 1 < len(lines):
+            nxt = _compact(lines[index + 1])
+            if nxt[:1].islower():
+                out.append(flat + nxt)
+                index += 2
+                continue
+        # 「after T / - / car」是被拆开的 T-car；「and 1 / st」是 1st。先拼上，避免 st、car 被当成碎片丢掉。
+        if re.search(r"[A-Z]$", flat) and index + 2 < len(lines) and _compact(lines[index + 1]) == "-":
+            tail = _compact(lines[index + 2])
+            if re.fullmatch(r"[a-z]{1,12}", tail):
+                out.append(f"{flat}-{tail}")
+                index += 3
+                continue
+        if (
+            re.search(r"\d$", flat)
+            and not _ORDINAL_BIT.match(flat)
+            and index + 1 < len(lines)
+            and re.fullmatch(r"(?:st|nd|rd|th)", _compact(lines[index + 1]), re.I)
+        ):
+            out.append(flat + _compact(lines[index + 1]))
+            index += 2
+            continue
+        if flat and _ORDINAL_BIT.match(flat):
+            bits = [flat]
+            look = index + 1
+            while look < len(lines) and _ORDINAL_BIT.match(_compact(lines[look])):
+                bits.append(_compact(lines[look]))
+                look += 1
+            nxt = _compact(lines[look]) if look < len(lines) else ""
+            ordinal = any(re.search(r"(?:st|nd|rd|th)$", bit, re.I) for bit in bits)
+            if ordinal and len(bits) >= 2 and nxt and re.match(r"[A-Za-z]", nxt):
+                out.append(f"{''.join(bits)} {nxt}")
+                index = look + 1
+                continue
+        out.append(lines[index])
+        index += 1
+    return "\n".join(out)
 
 
 def rejoin_numbers(lines: list[str]) -> list[str]:
@@ -566,29 +661,31 @@ def _excerpt(body: str, *, keep_short: bool) -> tuple[str, str]:
 
 
 def join_lines(lines: list[str]) -> str:
-    """把 PDF 里碎开的行拼回一段。单独一行的「-」是连字符，两边都是词时直接接上。"""
+    """把 PDF 里碎开的行拼回一段。单独一行的「-」夹在词中间是连字符；条目列举则另起一行。"""
+    pieces = [_compact(raw) for raw in lines if _compact(raw)]
     out = ""
-    pending_hyphen = False
-    for raw in lines:
-        piece = _compact(raw)
-        if not piece:
-            continue
-        if piece == "-" and out and out[-1].isalnum():
-            pending_hyphen = True
-            continue
-        if pending_hyphen:
-            # 后一段以小写字母开头才是被拆开的词（sub-parts）；大写或数字开头的是子项破折号
-            out += "-" + piece if piece[0].islower() else " - " + piece
-            pending_hyphen = False
+    index = 0
+    while index < len(pieces):
+        piece = pieces[index]
+        nxt = pieces[index + 1] if index + 1 < len(pieces) else ""
+        if piece == "-" and nxt:
+            if nxt[0].islower() and out and out[-1].isalnum():
+                out += "-" + nxt
+                index += 2
+                continue
+            if out.rstrip().endswith(":") or "\n- " in out:
+                out += "\n- " + nxt
+            else:
+                out += (" " if out else "") + "- " + nxt
+            index += 2
             continue
         if not out:
             out = piece
-        elif out.endswith("-") and piece[0].islower():
+        elif out.endswith("-") and piece[:1].islower():
             out += piece
         else:
             out += " " + piece
-    if pending_hyphen:
-        out += " -"
+        index += 1
     return out.strip()
 
 
@@ -653,6 +750,7 @@ def split_clauses(body: str, heads: list[tuple[str, str]], section: str) -> list
     没有标记的行并入上一条；标记前的短引导句（如「Durability」「以下要求须满足」）并入紧随其后的那条。
     整页没有标记时返回一条。
     """
+    body = break_before_marks(body)
     clauses: list[tuple[str, str, list[str]]] = []  # (section, mark, lines)
     pending_lead: list[str] = []
     current_section = section
@@ -693,6 +791,8 @@ def split_clauses(body: str, heads: list[tuple[str, str]], section: str) -> list
             continue
         if held:
             # 刚从上一条末尾扣下的栏目名：后面再来一个栏目名就一起留着；来的是别的（续句、按词拆开的「Such」「as」）就放回上一条
+            if _scrap_line(flat):
+                continue
             if _ends_sentence_then_label(clauses[-1][2], flat):
                 pending_lead.append(flat)
                 continue
@@ -702,6 +802,8 @@ def split_clauses(body: str, heads: list[tuple[str, str]], section: str) -> list
             held = False
             continue
         if clauses and not pending_lead and not fresh:
+            if _scrap_line(flat):
+                continue
             if _ends_sentence_then_label(clauses[-1][2], flat):
                 pending_lead.append(flat)
                 held = True
@@ -745,7 +847,7 @@ def _lead_in(segment: str) -> str:
             depth -= 1
             if depth < 0:
                 depth, drop = 0, pos + 1
-    lead = lead[drop:].lstrip(_LEAD_STRIP).strip()
+    lead = lead[drop:].lstrip(_LEAD_STRIP).lstrip(".").strip()
     lead = _ITEM_MARK.sub("", lead) if cut == 0 else lead
     if not re.search(r"[A-Za-z0-9\u00c0-\u024f\u0400-\u04ff\u3040-\u30ff\uac00-\ud7af\u4e00-\u9fff@=<>≤≥±]", lead):
         return ""  # 只剩标点（如孤零零一个「(」）不算引导词；「@」「=」这类关系符保留
@@ -1055,6 +1157,60 @@ def strip_table_lines(body: str, grids: list[Grid]) -> str:
     return "\n".join(kept)
 
 
+def _scrap_line(flat: str) -> bool:
+    """识读剩下来的碎片或粘上的表头，不能并进上一条要求。"""
+    text = (flat or "").strip()
+    if re.match(r"^(?:Table\s*\d\b|Load\s*\(|Speed rate\b|Step\s*:|\(?\s*±)", text, re.I):
+        return True
+    if re.fullmatch(r"[A-Za-z]{1,3}", text):
+        return True
+    digits = len(re.findall(r"\d", text))
+    letters = len(re.findall(r"[A-Za-z]", text))
+    if digits >= 8 and digits > letters:
+        return True
+    words = re.findall(r"[A-Za-z]+", text)
+    if len(words) < 3 or any(len(word) > 4 for word in words):
+        return False
+    short = sum(1 for word in words if len(word) <= 2)
+    return short * 2 >= len(words)
+
+
+def break_before_marks(text: str) -> str:
+    """同一段里的「1)」「2. 标题」「①」各起一行，后面才能拆成各自的条目。"""
+    text = re.sub(r"[ \t]+(?=\d{1,2}\)\s)", "\n", text or "")
+    text = re.sub(r"[ \t]+(?=\d{1,2}\.\s+[A-Z])", "\n", text)
+    text = re.sub(r"[ \t]*(?=[①②③④⑤⑥⑦⑧⑨⑩])", "\n", text)
+    return text
+
+
+def _cell_holds_clauses(cell: str) -> bool:
+    """一格里塞进了两条以上的编号要求，或一条很长的编号要求。这种格子不留在表里。"""
+    marks = re.findall(r"(?:^|\s)(?:\d{1,2}[.)]\s|[①②③④⑤⑥⑦⑧⑨⑩])", cell or "")
+    return len(marks) >= 2 or (len(marks) >= 1 and len(cell) >= 60)
+
+
+def _without_clauses(grid: tuple[tuple[str, ...], ...] | tuple) -> tuple[tuple[tuple[str, ...], ...], list[str]]:
+    """把表格格子里的编号要求拆成条款。表上只留下负荷、转速这类短格。"""
+    blobs: list[str] = []
+    kept: list[tuple[str, ...]] = []
+    for row in grid:
+        cells: list[str] = []
+        for cell in row:
+            if _cell_holds_clauses(cell):
+                blobs.append(cell)
+                cells.append("")
+            else:
+                cells.append(cell)
+        if any(cell.strip() for cell in cells):
+            kept.append(tuple(cells))
+    clauses: list[str] = []
+    for blob in blobs:
+        for _section, _mark, text in split_clauses(blob, [], ""):
+            if text.strip():
+                clauses.append(text)
+    return tuple(kept), clauses
+
+
 def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object]]]:
     """按条款拆条。返回 (条目行, 整表行)，序号由调用方补。"""
     boilerplate = boilerplate_lines(doc.pages)
@@ -1082,6 +1238,29 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
     def row(index: int, inner: str, section: str, mark: str, text: str, note: str) -> list[object]:
         return plain(index, inner, section, mark, text, quantities(text), conditions(text), note, shot=located(index, text))
 
+    def _append_chart_caption(index: int, inner: str, section: str, figure_text: str) -> None:
+        """曲线标题和说明按行摘录。纯数字和表头不摘。"""
+        for line in (figure_text or "").splitlines():
+            line = line.strip()
+            if not line or " | " in line:
+                continue
+            if re.fullmatch(r"[\d\s.,/%~+-]+", line):
+                continue
+            if len(re.findall(r"[A-Za-z]", line)) < 3:
+                continue
+            rows.append(
+                plain(
+                    index,
+                    inner,
+                    section,
+                    "",
+                    line,
+                    "",
+                    "",
+                    "曲线标题和说明按版面摘出",
+                )
+            )
+
     def emit_tables(index: int, inner: str, section: str, grids: list[Grid]) -> None:
         """按格线读出的表：认得出「项目／要求」表头的每行一条，key 进「项目」、要求格进「数值与单位」；
         认不出表头的整表作为一条：截图是整张表，原文摘录写在同一格，按表行换行。
@@ -1090,20 +1269,106 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
         from electrical_krow.arch_shots import Shot
 
         for figure in doc.figures.get(index, []):
-            hint = f"：{figure.labels}" if figure.labels else ""
-            rows.append(
-                plain(
-                    index,
-                    inner,
-                    section,
-                    "",
-                    f"本页图表（{figure.kind}）{hint}",
-                    "",
-                    "",
-                    "图表（整图截图，供对照原文；不拆条、不取数）",
-                    shot=Shot(index, None, figure.png),
+            from electrical_krow.arch_figures import _axis_scale_grid, _chart_data_table, order_clauses, transcript_kind
+
+            figure_text = order_clauses(getattr(figure, "transcript", "") or "")
+            kind = transcript_kind(figure_text)
+            # 横轴刻度和纯数字数据表只留在截图里，不写成格子、也不翻译。
+            figure_grid = getattr(figure, "grid", ())
+            if _axis_scale_grid(figure_grid) or (figure_grid and _chart_data_table([list(row) for row in figure_grid])):
+                figure_grid = ()
+            drawn = _without_clauses(figure_grid)
+            clauses = drawn[1]
+            drawn = drawn[0]
+            shot = Shot(index, None, figure.png)
+
+            def _append_original_block(text: str, note: str, block_shot) -> None:
+                """同一段编号正文收成一条，换行保留原文的行。"""
+                text = (text or "").strip()
+                if not text:
+                    return
+                rows.append(
+                    plain(
+                        index,
+                        inner,
+                        section,
+                        "",
+                        text,
+                        quantities(text),
+                        conditions(text),
+                        note,
+                        shot=block_shot,
+                    )
                 )
-            )
+
+            for clause in clauses:
+                rows.append(
+                    plain(
+                        index,
+                        inner,
+                        section,
+                        "",
+                        clause,
+                        quantities(clause),
+                        conditions(clause),
+                        "按编号摘出的要求",
+                        shot=shot,
+                    )
+                )
+                shot = None
+            if len(drawn) >= 2 and max(len(row) for row in drawn) >= 2:
+                text = "\n".join(" | ".join(cell for cell in row) for row in drawn)
+                rows.append(
+                    plain(
+                        index,
+                        inner,
+                        section,
+                        "",
+                        "本页线框表格：\n" + text,
+                        "",
+                        "",
+                        "按图中格线画出的表格，截图保留原样",
+                        shot=shot,
+                    )
+                )
+                if kind != "prose":
+                    _append_chart_caption(index, inner, section, figure_text)
+                if kind == "prose":
+                    _append_original_block(figure_text, "格线表以外的正文按原文换行摘出", shot)
+            elif kind == "table":
+                rows.append(
+                    plain(
+                        index,
+                        inner,
+                        section,
+                        "",
+                        "本页线框表格：\n" + figure_text,
+                        "",
+                        "",
+                        "矢量线框里的表格按版面摘出，截图保留原样",
+                        shot=shot,
+                    )
+                )
+            elif kind == "prose":
+                _append_original_block(figure_text, "矢量线框里的文字按原文换行摘出，截图保留原样", shot)
+            else:
+                from electrical_krow.arch_figures import chart_hint
+
+                hint = chart_hint(figure.labels)
+                rows.append(
+                    plain(
+                        index,
+                        inner,
+                        section,
+                        "",
+                        f"本页图表（{figure.kind}）{hint}",
+                        "",
+                        "",
+                        "图表（整图截图，供对照原文；不拆条、不取数）",
+                        shot=shot,
+                    )
+                )
+                _append_chart_caption(index, inner, section, figure_text)
         ocr_grids = doc.image_tables.get(index, [])
         row_boxes = doc.table_rows.get(index, [])
         parsed = [table_entries(g) for g in grids]
@@ -1113,6 +1378,9 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
             spans.append((min(b[0] for b in valid), min(b[1] for b in valid), max(b[2] for b in valid), max(b[3] for b in valid)) if valid else None)
         for grid_at, grid in enumerate([*grids, *ocr_grids]):
             ocr = grid_at >= len(grids)
+            span = spans[grid_at] if not ocr and grid_at < len(spans) else None
+            if _inside_chart_shot(doc, index, span):
+                continue
             boxes = row_boxes[grid_at] if not ocr and grid_at < len(row_boxes) else []
             how = NOTE_OCR if ocr else "按格线读出的表格"
             entries = table_entries(grid) if ocr else parsed[grid_at]
@@ -1199,10 +1467,22 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
             rows.append(plain(index, inner, section, "", text, "", "", note))
             continue
         figures = doc.figures.get(index, [])
+        body = stitch_broken_tokens(body)
         if grids:
             body = strip_table_lines(body, grids)
+        body = drop_axis_chrome(body)
         if figures:
-            body = strip_table_lines(body, [[[f.labels]] for f in figures if f.labels])
+            from electrical_krow.arch_figures import transcript_kind
+
+            chunks: list[Grid] = []
+            for figure in figures:
+                transcript = getattr(figure, "transcript", "")
+                if transcript_kind(transcript) in {"table", "prose"}:
+                    chunks.append([[line.replace(" | ", " ")] for line in transcript.splitlines() if line.strip()])
+                elif figure.labels:
+                    chunks.append([[figure.labels]])
+            if chunks:
+                body = strip_table_lines(body, chunks)
         found = page_headings(body, heads)
         if not found and not carried and toc_pages and index > max(toc_pages) and heads:
             carried = f"{heads[0][0]} {heads[0][1]}"
@@ -1281,6 +1561,23 @@ def _lines_needed(text: str, width: float) -> int:
     return total
 
 
+def _fitted_width(sheet, col: int, floor: int, cap: int = 255, rows=None) -> int:
+    """列宽按指定行里每一行字的宽度。规格表不要被旁边的长段落撑开。"""
+    needed = floor
+    chosen = rows if rows is not None else range(2, sheet.max_row + 1)
+    for row in chosen:
+        value = sheet.cell(row, col).value
+        if value is None or value == "":
+            continue
+        for line in str(value).split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            span = int(_display_width(line))
+            needed = max(needed, span + max(6, span // 10))
+    return min(cap, needed)
+
+
 def _fit_row_height(cells, widths: dict[str, int], minimum: int) -> int:
     """行高按本行最长的那格算，不让折行的字被截掉。"""
     lines = 1
@@ -1321,9 +1618,30 @@ def _style_sheet(sheet, header_row: int, widths: dict[str, int], *, body_height:
     sheet.oddFooter.center.text = "第 &P 页"
 
 
+_SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
+
+
+def _excel_sheet_titles(names: list[str]) -> dict[str, str]:
+    """每个需求文件一张表，表名用文件名。Excel 表名最长 31 字，同名再加序号。"""
+    used = {SHEET_NOTE.casefold()}
+    titles: dict[str, str] = {}
+    for index, name in enumerate(names, start=1):
+        stem = _SHEET_BAD.sub("_", Path(name).stem).strip("._ ") or f"需求{index}"
+        base = stem[:31]
+        title = base
+        number = 2
+        while title.casefold() in used:
+            suffix = f"-{number}"
+            title = f"{base[: 31 - len(suffix)]}{suffix}"
+            number += 1
+        used.add(title.casefold())
+        titles[name] = title
+    return titles
+
+
 def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Path, ask=None, now: datetime | None = None, on_progress=None) -> ContrastResult:
     """ask：可选的模型调用（messages → 回包文本），只用于给正文参数起名和归并同义参数名；None 为纯规则。now：REQ-ID 里的日期。
-    两张表：确认说明、需求清单（主表，按页码顺序含条款、表格行、整表及图表截图与原文）。"""
+    一份文件时是确认说明和需求清单。多份文件合成一本，确认说明之后每个文件一张表。"""
     from electrical_krow.arch_params import CONSIST_DIFF, collect_params
     from electrical_krow.arch_qa import check_arch_quality
 
@@ -1352,10 +1670,11 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
             row[0] = len(all_tables)
     ts = now or datetime.now()
     pngs, keep_seqs = _render_requirement_pngs(docs, all_rows, on_progress)
+    sheet_titles = _excel_sheet_titles([doc.name for doc in docs]) if len(docs) > 1 else {}
     req_map = _req_row_map(docs, all_rows, ts, with_shot=keep_seqs)
     tick(12, "check", "")
     params = collect_params(all_rows, ask)
-    quality = check_arch_quality(docs, unreadable, all_rows, params, req_map)
+    quality = check_arch_quality(docs, unreadable, all_rows, params, req_map, sheet_names=sheet_titles or None)
     tick(18, "check", "")
     note_col = COLUMNS.index("备注")
     for row in all_rows:
@@ -1367,20 +1686,40 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
     book = Workbook()
     note = book.active
     note.title = SHEET_NOTE
-    reqs_sheet = book.create_sheet(SHEET_REQS)
-    req_count, shot_count, figure_count, trans_model_used = _write_reqs(
-        reqs_sheet, docs, all_rows, ts, conflict_seqs, ask=ask, on_progress=tick, pngs=pngs, keep_seqs=keep_seqs,
-    )
+    file_col = COLUMNS.index("文件")
+    if len(docs) > 1:
+        req_count = shot_count = figure_count = 0
+        trans_model_used = False
+        for doc in docs:
+            sheet = book.create_sheet(sheet_titles[doc.name])
+            rows = [row for row in all_rows if row[file_col] == doc.name]
+            count, shots, figures, used = _write_reqs(
+                sheet, [doc], rows, ts, conflict_seqs, ask=ask, on_progress=tick, pngs=pngs, keep_seqs=keep_seqs,
+            )
+            req_count += count
+            shot_count += shots
+            figure_count += figures
+            trans_model_used = trans_model_used or used
+    else:
+        reqs_sheet = book.create_sheet(SHEET_REQS)
+        req_count, shot_count, figure_count, trans_model_used = _write_reqs(
+            reqs_sheet, docs, all_rows, ts, conflict_seqs, ask=ask, on_progress=tick, pngs=pngs, keep_seqs=keep_seqs,
+        )
     used_model = params.model_used or trans_model_used
 
     sources = "；".join(f"{doc.name}（{len(doc.pages)} 页）" for doc in docs)
+    if len(docs) > 1:
+        listed = "、".join(f"「{sheet_titles[doc.name]}」" for doc in docs)
+        req_where = f"每个需求文件单独一张表，依次为 {listed}。每张表"
+    else:
+        req_where = f"「{SHEET_REQS}」"
     lines = [
         ("用途", "把需求文件按条款拆成条目，供人工逐条确认。本表只摘原文（外文条款附同格中文直译对照），不写能否满足。"),
         ("来源文件", sources),
         ("文件内容质检", "\n".join(quality.detail_lines)),
-        ("需求清单", f"「{SHEET_REQS}」一行一条需求，版式按偏差跟踪表：REQ-ID（REQ-日期-序号）、章节、该条在原文里的截图（表格行截那一行，正文截那一段，复杂整表与图表截整表／整图；截图按列宽缩放）、原文摘录（外文条目按「原文 / 中文译文」同格双语对照呈现，原文一字不改）；「类别」是按章节和条文关键词给的建议值，须人工改定；优先级、意见、提出人、客户反馈留给人填，Currently status 默认为 To be confirmed（待确认）。截图按文字位置定位。原文截图被斜章挡住，或定位不到的条目，不写入需求清单。"),
+        ("需求清单", f"{req_where}一行一条需求。同一行原文和它的译文写在一起，中间用 / 隔开。版式按偏差跟踪表：REQ-ID（REQ-日期-序号）、章节、该条在原文里的截图（表格行截那一行，正文截那一段，复杂整表与图表截整表／整图；截图按列宽缩放）、原文摘录（外文条目按「原文 / 中文译文」同格双语对照呈现，原文一字不改）；「类别」是按章节和条文关键词给的建议值，须人工改定；优先级、意见、提出人、客户反馈留给人填，Currently status 默认为 To be confirmed（待确认）。截图按文字位置定位。原文截图被斜章挡住，或定位不到的条目，不写入需求清单。"),
         ("拆分方式", "行首「1)」「•」「※」等标记各起一条；标记前的短引导句并入其后那条；整页没有标记的按整页一条。原文只来自该页可复制文字。章节按行首的目录章节号和标题词认；本页没有标题的沿用上一页末尾的章节并在备注注明，文件开头还没有章节的留空。"),
-        ("表格与图表", f"PDF 里有格线的表按格读：表头认得出「项目」栏（Category、Item、Classification 等）和「要求」栏（Requirement、Specification、Target 等）的，每行出一条，原文摘录是「项目格：整行」，「数值与单位」是要求格原文（要求格没单位时补上单位栏），「适用条件」是 Remark／Note 格原文，表头认不出角色的栏也带表头放在这里；纵向合并的格沿用上一行。表头未按单列「项目／要求」构造的表（如开发日程、多国法规矩阵、DR 评审表、标准清单等）以及坐标图、曲线图、框图，按所在页码和章节位置统一按「一表／一图一条 REQ（附整图截图与全文）」并入「{SHEET_REQS}」。认不出「项目／要求」栏的表（如开发日程）仍是一条需求：截图是整张表。原文摘录有几行内容，就在该条下拆成几行，行与行之间是表格边框；编号、章节和截图合并成一格。职责表下一行若是 HMC、Supplier 这类列名，圆圈按该列写出；列名读不出时不写圆圈，备注写「圆圈所在列读不出，请对照原页」。斜章和页脚叠字不进表。以图片贴进 PDF 的表格，按图里的格线切格、OCR 识字后同样处理，备注标「{NOTE_OCR}」，字符可能识错，请对照原图。"),
+        ("表格与图表", f"PDF 里有格线的表按格读：表头认得出「项目」栏（Category、Item、Classification 等）和「要求」栏（Requirement、Specification、Target 等）的，每行出一条，原文摘录是「项目格：整行」，「数值与单位」是要求格原文（要求格没单位时补上单位栏），「适用条件」是 Remark／Note 格原文，表头认不出角色的栏也带表头放在这里；纵向合并的格沿用上一行。表头未按单列「项目／要求」构造的表（如开发日程、多国法规矩阵、DR 评审表、标准清单等）以及坐标图、曲线图、框图，按所在页码和章节位置统一按「一表／一图一条 REQ（附整图截图与全文）」并入「{SHEET_REQS}」。矢量线框里如果是成句的要求或表格，按版面把原文写入摘录并翻译，截图仍保留；只有刻度标签的曲线图不把线条读成数。曲线和同一高度旁边的数据表收成一张整图，截图含整张表，不从格子中间裁开；纯数字数据表只留在截图里，不摘录、不翻译。图框上方的页眉标题、编号条款、曲线标题和说明按行摘录并翻译。带 Table、Load、Speed rate 的规格表仍按表格摘录。认不出「项目／要求」栏的表（如开发日程）仍是一条需求：截图是整张表。原文摘录有几行内容，就在该条下拆成几行，行与行之间是表格边框；编号、章节和截图合并成一格。职责表下一行若是 HMC、Supplier 这类列名，圆圈按该列写出；列名读不出时不写圆圈，备注写「圆圈所在列读不出，请对照原页」。斜章和页脚叠字不进表。以图片贴进 PDF 的表格，按图里的格线切格、OCR 识字后同样处理，备注标「{NOTE_OCR}」，字符可能识错，请对照原图。"),
         ("数值与条件", "正文条目的「数值与单位」是从该条原文里机械挑出的带单位的数，每个数前带原文里紧挨着的几个字（右对齐截短）以便对应，数后紧跟的「↑」「以上」「max」一起保留；「适用条件（原文括注）」是原文括号里带数或带条件词的话。两列都不是认条，不改写、不换算，须对照「原文摘录」核对。"),
         ("取值一致性", f"程序把全文「参数 → 取值」归到一起比对：表格里一格一个数的取项目格和要求格；一格几个数的和正文条目由模型指出每个数是哪个参数的值，程序核对该字串确在原文里。同一参数、适用条件相同而取值不同的，在需求清单该条的备注里写明别处的页码和取值，并整行标红（「{CONSIST_DIFF}」）；取值不同但适用条件也不同（不同工况、不同标准）的不算冲突。归并是否恰当、不一致是笔误还是分段落条件不同，由确认人判断。"
                      + ("本次已用模型起名、归并同义参数名并生成外文条款中文对照。" if used_model else "本次未用模型，参数名是数前的引导词，归并按原名，外文条款按内置工程词典生成中文对照。")
@@ -1399,7 +1738,7 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
     note.page_setup.fitToHeight = 1
     note.auto_filter.ref = None
 
-    book.active = book[SHEET_REQS]
+    book.active = book[sheet_titles[docs[0].name] if sheet_titles else SHEET_REQS]
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tick(97, "save", "")
@@ -1484,7 +1823,10 @@ def _is_requirement_row(row: list[object], *, has_sections: bool = False, has_li
         return False
     if has_sections and not section:
         return False  # 有目录章节的文件里，目录之前的扉页/修订履历还不属于任何章节，不进需求清单
-    is_whole_block = text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表", "本页表格块"))
+    is_whole_block = text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表", "本页表格块", "本页线框表格"))
+    note = str(row[COLUMNS.index("备注")] or "")
+    if "按编号摘出" in note or "按版面摘出" in note:
+        return bool(_compact(text))
     if has_lines and not is_whole_block and shot is None and not item and not qty and len(_alnum(text)) < 35:
         return False  # 表格上方的孤立小标题或续表头（「2)」「(1)」「5.1 ES/MS - Continued」），不是需求条
     return bool(_compact(text))
@@ -1514,6 +1856,12 @@ def _render_requirement_pngs(
     ]
     pngs: dict[int, bytes] = {}
     keep: set[int] = set()
+    note_col = COLUMNS.index("备注")
+    for row in picked:
+        note = str(row[note_col] or "")
+        # 和表格同一张图里拆出的编号正文，没有单独截图也要留下
+        if "按编号摘出" in note or "按版面摘出" in note:
+            keep.add(int(row[seq_col]))
     by_doc: dict[str, list[list[object]]] = {}
     for row in picked:
         by_doc.setdefault(str(row[file_col]), []).append(row)
@@ -1576,7 +1924,156 @@ def _req_row_map(
         and (with_shot is None or int(row[seq_col]) in with_shot)
     ]
     stamp = now.strftime("%Y%m%d")
-    return {int(row[seq_col]): (number + 1, f"REQ-{stamp}-{number:03d}") for number, row in enumerate(picked, start=1)}
+    if len(docs) <= 1:
+        return {int(row[seq_col]): (number + 1, f"REQ-{stamp}-{number:03d}") for number, row in enumerate(picked, start=1)}
+    found: dict[int, tuple[int, str]] = {}
+    for doc in docs:
+        doc_rows = [row for row in picked if row[file_col] == doc.name]
+        for number, row in enumerate(doc_rows, start=1):
+            found[int(row[seq_col])] = (number + 1, f"REQ-{stamp}-{number:03d}")
+    return found
+
+
+_DRAWN_TABLE = "本页线框表格：\n"
+_GRID_BORDER = Border(
+    left=Side(style="thin", color="000000"),
+    right=Side(style="thin", color="000000"),
+    top=Side(style="thin", color="000000"),
+    bottom=Side(style="thin", color="000000"),
+)
+_GRID_HEADER_FILL = PatternFill("solid", fgColor="D6E3F0")
+_GRID_HEADER_FONT = Font(name="宋体", bold=True, size=10)
+
+
+def _ready_grid(text: str) -> list[list[str]]:
+    """凡是已经读成行列的表，都按原列写入。最右空列上的转速挪回有表头的那一列。"""
+    raw = str(text)
+    grid = _pipe_grid(raw) if raw.startswith(("本页线框表格", "本页表格", "本页图片表格")) else []
+    if not grid:
+        return []
+    from electrical_krow.arch_figures import pull_orphan_column
+
+    pulled = [list(row) for row in pull_orphan_column(tuple(tuple(cell) for cell in grid))]
+    return pulled if len(pulled) >= 2 and len(pulled[0]) >= 2 else grid
+
+
+def _req_headers(extra: int) -> list[object]:
+    """表比一列宽时，多出来的列算在「原文摘录」里，「数值与单位」整体右移。"""
+    headers = list(REQ_COLUMNS)
+    at = REQ_COLUMNS.index("原文摘录") + 1
+    for _ in range(max(extra, 0)):
+        headers.insert(at, None)
+    return headers
+
+
+def _pipe_grid(text: str) -> list[list[str]]:
+    """「列 | 列」摘录还原成同样的行列。短行补空格，表是一个完整的矩形。"""
+    body = text.split("：\n", 1)[1] if "：\n" in text else text
+    parsed = [[cell.strip() for cell in line.split("|")] for line in body.splitlines() if line.strip()]
+    width = max((len(row) for row in parsed), default=0)
+    if width < 2 or len(parsed) < 2:
+        return []
+    for row in parsed:
+        row.extend([""] * (width - len(row)))
+    return parsed
+
+
+def _grid_cell_text(text: str) -> str:
+    from electrical_krow.arch_translate import _cell_bilingual
+
+    return _cell_bilingual(text) if text else ""
+
+
+def _write_drawn_table(sheet, grid: list[list[str]], identity: list[object], extra: int = 0) -> tuple[int, int, int, int]:
+    """按原表的行、列写入，每格四边都有线。编号、章节、截图在表左侧并成一块。
+
+    表从「原文摘录」起向右占列。多出来的列已经插在「数值与单位」之前，所以这里的状态、备注、页码要跟着右移。
+    """
+    excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
+    width = len(grid[0])
+    grid_end = excerpt_col + width - 1
+    start = sheet.max_row + 1
+    side = [(11 + extra, identity[10]), (13 + extra, identity[12]), (14 + extra, identity[13])]
+    overflow = [value for col, value in side if value not in (None, "") and col <= grid_end]
+    for index, cells in enumerate(grid):
+        first = index == 0
+        values = [None] * (excerpt_col - 1 + width)
+        if first:
+            values[0] = identity[0]
+            values[2] = identity[2]
+        for col, cell in enumerate(cells):
+            values[excerpt_col - 1 + col] = _grid_cell_text(cell)
+        sheet.append(values)
+        if first:
+            for col, value in side:
+                if value not in (None, "") and col > grid_end:
+                    sheet.cell(sheet.max_row, col, value)
+            for offset, value in enumerate(overflow, start=1):
+                sheet.cell(sheet.max_row, grid_end + offset, value)
+    end = sheet.max_row
+    _merge_source_spans(sheet, start, end, excerpt_col, grid_end)
+    if end > start:
+        for col in (1, 3, 4):
+            sheet.merge_cells(start_row=start, start_column=col, end_row=end, end_column=col)
+        for col, value in side:
+            if value not in (None, "") and col > grid_end:
+                sheet.merge_cells(start_row=start, start_column=col, end_row=end, end_column=col)
+        for offset, value in enumerate(overflow, start=1):
+            if value not in (None, ""):
+                sheet.merge_cells(start_row=start, start_column=grid_end + offset, end_row=end, end_column=grid_end + offset)
+    return start, end, excerpt_col, grid_end
+
+
+def _merge_source_spans(sheet, start: int, end: int, left: int, right: int) -> None:
+    """原表里竖向或横向合并的格子，摘出来是一格有字、旁边几格为空。按这个把空格并回去。"""
+    for col in range(left, right + 1):
+        row = start
+        while row <= end:
+            if not _text(sheet.cell(row, col).value):
+                row += 1
+                continue
+            last = row
+            while last + 1 <= end and not _text(sheet.cell(last + 1, col).value):
+                filled = [other for other in range(left, right + 1) if _text(sheet.cell(last + 1, other).value)]
+                if len(filled) == 1 and filled[0] < col:
+                    break
+                if filled:
+                    last += 1
+                    continue
+                break
+            if last > row:
+                sheet.merge_cells(start_row=row, start_column=col, end_row=last, end_column=col)
+            row = last + 1
+    for row in range(start, end + 1):
+        col = left
+        while col <= right:
+            if not _text(sheet.cell(row, col).value):
+                col += 1
+                continue
+            if any(_text(sheet.cell(row, other).value) for other in range(col + 1, right + 1)):
+                col += 1
+                continue
+            if col < right:
+                sheet.merge_cells(start_row=row, start_column=col, end_row=row, end_column=right)
+            break
+
+
+def _paint_drawn_tables(sheet, ranges: list[tuple[int, int, int, int]], flagged: set[int]) -> None:
+    """样式铺完后再画表线，避免被整表的浅灰边框盖住。"""
+    align = Alignment(wrap_text=True, vertical="center")
+    for start, end, left, right in ranges:
+        from openpyxl.cell.cell import MergedCell
+
+        for row in range(start, end + 1):
+            for col in range(left, right + 1):
+                cell = sheet.cell(row, col)
+                if isinstance(cell, MergedCell):
+                    continue
+                cell.border = _GRID_BORDER
+                cell.alignment = align
+                if row == start and row not in flagged:
+                    cell.font = _GRID_HEADER_FONT
+                    cell.fill = _GRID_HEADER_FILL
 
 
 def _write_reqs(
@@ -1594,7 +2091,6 @@ def _write_reqs(
     from electrical_krow.arch_shots import render_shots
     from electrical_krow.arch_translate import format_bilingual_excerpt, table_excerpt_blocks, translate_excerpts
 
-    sheet.append(list(REQ_COLUMNS))
     sec_col, item_col, text_col, page_col, file_col, seq_col, qty_col, cond_col, note_col = (
         COLUMNS.index(k) for k in ("章节", "项目（表格栏目）", "原文摘录", "PDF页码", "文件", "序号", "数值与单位", "适用条件（原文括注）", "备注")
     )
@@ -1622,6 +2118,12 @@ def _write_reqs(
         item = str(row[item_col] or "")
         text = str(row[text_col] or "")
         raw_excerpts[seq] = f"{item}：{text}" if item and not text.startswith(item) else text
+    grids = {seq: _ready_grid(text) for seq, text in raw_excerpts.items()}
+    extra = max((len(grid[0]) - 1 for grid in grids.values() if grid), default=0)
+    excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
+    sheet.append(_req_headers(extra))
+    if extra:
+        sheet.merge_cells(start_row=1, start_column=excerpt_col, end_row=1, end_column=excerpt_col + extra)
     translations, trans_model_used = translate_excerpts(
         list(raw_excerpts.items()),
         ask,
@@ -1654,9 +2156,14 @@ def _write_reqs(
             shot_done += len(pending)
         picked = [row for row in picked if pngs.get(int(row[seq_col]))]
     shots = 0
-    figures = sum(1 for row in picked if str(row[text_col] or "").startswith("本页图表"))
+    figures = sum(
+        1
+        for row in picked
+        if len(row) > SHOT_SLOT and getattr(row[SHOT_SLOT], "png", b"")
+    )
     flagged: list[int] = []
     groups: list[tuple[int, int, bytes]] = []
+    drawn_ranges: list[tuple[int, int, int, int]] = []
     shot_col = REQ_COLUMNS.index("SR content\n原文截图") + 1
     for number, row in enumerate(picked, start=1):
         seq = int(row[seq_col])
@@ -1664,6 +2171,36 @@ def _write_reqs(
         item = str(row[item_col] or "")
         text = str(row[text_col] or "")
         source = raw_excerpts[seq]
+        grid = grids.get(seq) or []
+        if grid:
+            start, end, left, right = _write_drawn_table(
+                sheet,
+                grid,
+                [
+                    f"REQ-{stamp}-{number:03d}",
+                    None,
+                    section,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    None,
+                    STATUS_CURRENT,
+                    None,
+                    row[note_col] or "",
+                    row[page_col],
+                ],
+                extra,
+            )
+            drawn_ranges.append((start, end, left, right))
+            if seq in conflict_seqs:
+                flagged.extend(range(start, end + 1))
+            png = pngs.get(seq)
+            if png:
+                groups.append((start, end, png))
+            continue
         blocks = table_excerpt_blocks(source) if source.startswith(("本页表格", "本页图片表格")) else []
         if not blocks:
             blocks = [format_bilingual_excerpt(source, translations.get(seq, ""))]
@@ -1671,12 +2208,15 @@ def _write_reqs(
         start = sheet.max_row + 1
         for index, block in enumerate(blocks):
             first = index == 0
-            sheet.append([
+            values = [
                 f"REQ-{stamp}-{number:03d}" if first else None,
                 None,
                 section if first else None,
                 None,
                 block[:_EXCERPT_CAP],
+            ]
+            values.extend([None] * extra)
+            values.extend([
                 (row[qty_col] or "") if first else None,
                 (row[cond_col] or "") if first else None,
                 category if first else None,
@@ -1687,21 +2227,48 @@ def _write_reqs(
                 (row[note_col] or "") if first else None,
                 row[page_col] if first else None,
             ])
+            sheet.append(values)
+            if extra:
+                sheet.merge_cells(start_row=sheet.max_row, start_column=excerpt_col, end_row=sheet.max_row, end_column=excerpt_col + extra)
             if seq in conflict_seqs:
                 flagged.append(sheet.max_row)
         end = sheet.max_row
         if end > start:
-            for col in (1, 3, shot_col, 6, 7, 8, 11, 14):
+            for col in (1, 3, shot_col, *(c + extra for c in (6, 7, 8, 11, 14))):
                 sheet.merge_cells(start_row=start, start_column=col, end_row=end, end_column=col)
         png = pngs.get(seq)
         if png:
             groups.append((start, end, png))
     heights = {r: sheet.row_dimensions[r].height for r in range(2, sheet.max_row + 1) if sheet.row_dimensions[r].height}
+    from openpyxl.utils import get_column_letter
+
+    base_widths = [20, 9, 26, _REQ_SHOT_COL_WIDTH, 36, 28, 26, 16, 36, 12, 28, 36, 36, 9]
+    for _ in range(extra):
+        base_widths.insert(5, 24)
+    qty_excel = REQ_COLUMNS.index("数值与单位") + 1 + extra
+    table_rows = [row for start, end, _left, _right in drawn_ranges for row in range(start, end + 1)]
+    if table_rows:
+        # 表列只按表内的格子定宽。旁边整段工况再长，也不把 Load / Speed 表拉到一整屏。
+        base_widths[4] = _fitted_width(sheet, excerpt_col, 16, cap=110, rows=table_rows)
+        for offset in range(extra):
+            base_widths[5 + offset] = _fitted_width(sheet, excerpt_col + 1 + offset, 14, cap=28, rows=table_rows)
+    else:
+        base_widths[4] = _fitted_width(sheet, excerpt_col, base_widths[4], cap=220)
+    base_widths[5 + extra] = _fitted_width(sheet, qty_excel, base_widths[5 + extra], cap=80)
     _style_sheet(
         sheet, 1,
-        {"A": 20, "B": 9, "C": 26, "D": _REQ_SHOT_COL_WIDTH, "E": 50, "F": 28, "G": 26, "H": 16, "I": 36, "J": 12, "K": 28, "L": 36, "M": 36, "N": 9},
-        body_height=46,
+        {get_column_letter(index + 1): width for index, width in enumerate(base_widths)},
+        body_height=20,
     )
+    one_line = Alignment(wrap_text=False, vertical="center", horizontal="left")
+    for col in (qty_excel,):
+        letter = get_column_letter(col)
+        width = sheet.column_dimensions[letter].width or 36
+        for excel_row in range(2, sheet.max_row + 1):
+            cell = sheet.cell(excel_row, col)
+            value = str(cell.value or "")
+            if value and "\n" not in value and _display_width(value) + 4 <= width + 0.5:
+                cell.alignment = one_line
     for r, height in heights.items():
         sheet.row_dimensions[r].height = max(height, sheet.row_dimensions[r].height or 0)
     image_total = len(groups)
@@ -1709,19 +2276,31 @@ def _write_reqs(
         if on_progress and (image_at == 1 or image_at == image_total or image_at % 8 == 0):
             on_progress(78 + 16 * image_at / max(image_total, 1), "images", f"{image_at}/{image_total}")
         image = _scaled_xl_image(png, _REQ_SHOT_MAX_PX, _REQ_SHOT_MAX_H_PX)
-        need = min(_MAX_ROW_HEIGHT, image.height + _REQ_SHOT_ROW_PAD)
-        total = sum(sheet.row_dimensions[r].height or 36 for r in range(start, end + 1))
-        if total < need:
-            extra = (need - total) / (end - start + 1)
+        total = sum(sheet.row_dimensions[r].height or 20 for r in range(start, end + 1))
+        drawn = any(start == box[0] and end == box[1] for box in drawn_ranges)
+        if drawn:
+            # 规格表每行只留一行字的高度，避免被整页截图或折行撑高。
             for r in range(start, end + 1):
-                sheet.row_dimensions[r].height = (sheet.row_dimensions[r].height or 36) + extra
+                sheet.row_dimensions[r].height = 18
+            room = max(1, (end - start + 1) * 18 - 6)
+            if image.height > room:
+                ratio = image.width / max(image.height, 1)
+                image.height = room
+                image.width = max(1, int(room * ratio))
+        else:
+            need = min(_MAX_ROW_HEIGHT, image.height + _REQ_SHOT_ROW_PAD)
+            if total < need:
+                grow = (need - total) / (end - start + 1)
+                for r in range(start, end + 1):
+                    sheet.row_dimensions[r].height = (sheet.row_dimensions[r].height or 20) + grow
         _place_image(sheet, image, shot_col, start)
         shots += 1
     for r in flagged:
         for cell in sheet[r]:
             cell.fill = _DIFF_FILL
+    _paint_drawn_tables(sheet, drawn_ranges, set(flagged))
     if sheet.max_row >= 2:
-        status_col = REQ_COLUMNS.index("Currently status\n状态") + 1
+        status_col = REQ_COLUMNS.index("Currently status\n状态") + 1 + extra
         letter = sheet.cell(1, status_col).column_letter
         choices = DataValidation(type="list", formula1=f'"{",".join(STATUS_CHOICES)}"', allow_blank=False)
         choices.error = "请从列表中选择状态"
@@ -1772,6 +2351,14 @@ def _write_attachments(sheet, docs: list[SourceDoc], all_rows: list[list[object]
     return count
 
 
+def read_progress_detail(file_at: int, file_count: int, name: str, page: int, total: int) -> str:
+    """多份文件时先写第几份，再写这一份的第几页。单份只写页码和文件名。"""
+    page_part = f"第 {page}/{max(total, 1)} 页"
+    if file_count > 1:
+        return f"第 {file_at + 1}/{file_count} 份 · {page_part} · {name}"
+    return f"{page_part} · {name}"
+
+
 def build_contrast(sources: list[Path], dest: Path, ask=None, on_progress=None, now: datetime | None = None) -> ContrastResult:
     """on_progress(percent, stage, detail)。读文件占前 68%，写入从 70% 走到 99%，按核对、翻译、截图、保存分开报。"""
     docs: list[SourceDoc] = []
@@ -1793,7 +2380,7 @@ def build_contrast(sources: list[Path], dest: Path, ask=None, on_progress=None, 
         def page_progress(phase: str, page: int, total: int, *, _at: int = file_at, _name: str = name) -> None:
             lo, hi = spans.get(phase, (0, 18))
             local = lo + (hi - lo) * (page / max(total, 1))
-            report(((_at + local / 100) / file_count) * 68, phase, f"{_name} {page}/{total}")
+            report(((_at + local / 100) / file_count) * 68, phase, read_progress_detail(_at, file_count, _name, page, total))
 
         read = read_pdf_pages(Path(path), progress=page_progress)
         if isinstance(read, Unreadable):
@@ -1807,6 +2394,27 @@ def build_contrast(sources: list[Path], dest: Path, ask=None, on_progress=None, 
     return write_contrast(docs, unreadable, dest, ask, now, on_progress=write_progress)
 
 
-def contrast_file_name(now: datetime | None = None) -> str:
+_FILE_STEM = re.compile(r"[^\w\u4e00-\u9fff.-]+")
+
+
+def _source_label(sources: list[str] | tuple[str, ...]) -> str:
+    """输入文件名（去掉扩展名）拼进出表文件名。同名只留一次。"""
+    stems: list[str] = []
+    for name in sources:
+        stem = Path(str(name or "")).stem
+        stem = _FILE_STEM.sub("_", stem).strip("._")
+        if stem and stem not in stems:
+            stems.append(stem[:80])
+    return "+".join(stems)[:120]
+
+
+def contrast_file_name(
+    now: datetime | None = None,
+    sources: list[str] | tuple[str, ...] | None = None,
+) -> str:
+    """出表文件名：架构对照-输入文件名-时间。多份输入用加号连起来。"""
     stamp = (now or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    label = _source_label(sources or ())
+    if label:
+        return f"架构对照-{label}-{stamp}.xlsx"
     return f"架构对照-{stamp}.xlsx"

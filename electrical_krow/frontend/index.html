@@ -279,10 +279,10 @@
 
           <div id="bom-card" class="card tool-card" hidden>
             <ol class="io-steps">
-              <li><span>1</span><em data-i18n="bom.step1">读取物料手册或器件说明，以及确认的 CE BOM 表格式</em></li>
+              <li><span>1</span><em data-i18n="bom.step1">读取物料手册或 EDF。表格式固定为 3DHT200-CE BOM</em></li>
               <li><span>2</span><em data-i18n="bom.step2">按物料及规格关联，抽出长、宽、高、重量等模板栏目</em></li>
-              <li><span>3</span><em data-i18n="bom.step3">多规格、单位不一致或信息缺失标成待确认，不补写</em></li>
-              <li><span>4</span><em data-i18n="bom.step4">输出 CE BOM、字段映射和核验记录。完整度和一致性只记实测值</em></li>
+              <li><span>3</span><em data-i18n="bom.step3">模板里原有的零件行不保留</em></li>
+              <li><span>4</span><em data-i18n="bom.step4">读到的数据只写入供应商表</em></li>
             </ol>
             <form id="bom-form" class="io-form">
               <div class="io-file">
@@ -293,19 +293,11 @@
                   <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
                 </label>
               </div>
-              <div class="io-file">
-                <span class="io-file-label" data-i18n="bom.template">CE BOM 表格式</span>
-                <label class="io-file-box" data-target="bom-template" data-accept="sheet" data-kind="jobs">
-                  <input id="bom-template" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
-                  <span class="io-file-name" id="bom-template-name" data-i18n="io.fileNone">未选择文件</span>
-                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
-                </label>
-              </div>
             </form>
             <div class="io-bar">
               <button id="bom-back" type="button" class="ghost" data-i18n="io.back">返回</button>
               <div class="io-bar-end">
-                <button id="bom-build" type="button" data-i18n="bom.generate" disabled>生成 CE BOM</button>
+                <button id="bom-build" type="button" data-i18n="bom.generate">生成 CE BOM</button>
               </div>
             </div>
             <div id="bom-result" class="io-result" hidden>
@@ -725,18 +717,7 @@
       <section class="settings-panel" data-panel="about" hidden>
         <dl id="about-list" class="about-list">
           <dt data-i18n="about.client">客户端</dt><dd data-about="client">—</dd>
-          <dt data-i18n="about.sdk">识别 SDK</dt><dd data-about="sdk">—</dd>
-          <dt data-i18n="about.runtime">SDK 运行时</dt><dd data-about="runtime">—</dd>
-          <dt data-i18n="about.knowledge">知识库</dt><dd data-about="knowledge">—</dd>
-          <dt data-i18n="about.env">识别环境</dt><dd data-about="server">—</dd>
-          <dt data-i18n="about.model">默认模型</dt><dd data-about="model">—</dd>
-          <dt data-i18n="about.output">核对表目录</dt><dd data-about="output_dir" class="about-path">—</dd>
-          <dt data-i18n="about.platform">运行环境</dt><dd data-about="platform">—</dd>
         </dl>
-        <div class="about-actions">
-          <button id="about-open-output" type="button" class="ghost" data-i18n="about.openOutput">打开核对表目录</button>
-          <button id="about-copy" type="button" class="ghost" data-i18n="about.copy">复制诊断信息</button>
-        </div>
       </section>
 
       <p id="settings-msg" class="msg" hidden></p>
@@ -746,8 +727,8 @@
   </div>
     </form>
   </dialog>
-  <script src="/static/i18n.js?v=20261105b" defer></script>
-  <script src="/static/app.js?v=20261105b" defer></script>
+  <script src="/static/i18n.js?v=20261105g" defer></script>
+  <script src="/static/app.js?v=20261106a" defer></script>
   <script src="/static/kb.js?v=20261102f" defer></script>
 </body>
 </html>

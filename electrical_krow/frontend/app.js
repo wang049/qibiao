@@ -2215,7 +2215,9 @@ $("arch-build").onclick = async () => {
     loadJobs();
   } catch (err) {
     clearArchDownload();
-    setArchMsg(err.message || String(err));
+    const raw = String((err && err.message) || err || "");
+    const down = /load failed|failed to fetch|networkerror/i.test(raw);
+    setArchMsg(down ? "本机服务中断了，没有生成结果。请重新打开客户端后再点生成。" : raw);
   } finally {
     closed = true;
     window.clearInterval(poll);
@@ -2250,9 +2252,7 @@ function showBomDownload(data) {
 }
 
 function refreshBomGenerate() {
-  const manuals = $("bom-manuals").files;
-  const template = $("bom-template").files && $("bom-template").files[0];
-  $("bom-build").disabled = !template;
+  $("bom-build").disabled = false;
 }
 
 $("bom-manuals").addEventListener("change", () => {
@@ -2282,23 +2282,11 @@ $("bom-manuals").addEventListener("change", () => {
   setBomMsg("");
   refreshBomGenerate();
 });
-$("bom-template").addEventListener("change", () => {
-  syncIoFileName($("bom-template"), $("bom-template-name"));
-  clearBomDownload();
-  setBomMsg("");
-  refreshBomGenerate();
-});
 $("bom-back").onclick = () => setPanel("home");
 $("bom-build").onclick = async () => {
   const manuals = $("bom-manuals").files;
-  const template = $("bom-template").files && $("bom-template").files[0];
-  if (!template) {
-    setBomMsg(tx("bom.needTemplate"));
-    return;
-  }
   const body = new FormData();
   if (manuals && manuals.length) Array.from(manuals).forEach((file) => body.append("manuals", file));
-  body.append("template", template);
   $("bom-build").disabled = true;
   clearBomDownload();
   setBomMsg(tx("bom.working"), "ok");
@@ -3283,47 +3271,16 @@ function showSettingsTab(name) {
   document.querySelectorAll(".settings-tab").forEach((t) => {
     t.classList.toggle("is-on", t.getAttribute("data-tab") === name);
   });
-  document.querySelectorAll(".settings-panel").forEach((p) => {
-    p.hidden = p.getAttribute("data-panel") !== name;
+  document.querySelectorAll(".settings-panel").forEach((panel) => {
+    panel.hidden = panel.getAttribute("data-panel") !== name;
   });
-  const msg = $("settings-msg");
-  if (msg) msg.hidden = true;
+  if (name === "about") {
+    const client = document.querySelector('[data-about="client"]');
+    const version = lastHealth && lastHealth.versions && lastHealth.versions.client;
+    if (client && version) client.textContent = version;
+  }
   if (name === "env") loadEnvironments();
-  if (name === "about") loadAbout();
 }
-
-async function loadAbout() {
-  const list = $("about-list");
-  if (!list) return;
-  const put = (key, val) => {
-    const el = list.querySelector('[data-about="' + key + '"]');
-    if (el) el.textContent = val || "—";
-  };
-  try {
-    const h = await json("/api/health");
-    const v = h.versions || {};
-    put("client", v.client);
-    put("sdk", v.sdk);
-    put("runtime", v.runtime);
-    put("knowledge", v.knowledge);
-    put("server", (envCaption(h) ? envCaption(h) + "  " : "") + (h.server || ""));
-    put("model", prefs.model || h.model);
-    put("output_dir", h.output_dir);
-    put("platform", [v.platform, v.python ? "Python " + v.python : ""].filter(Boolean).join("  ·  "));
-  } catch (err) {
-    put("server", String(err.message || err));
-  }
-}
-
-$("about-open-output")?.addEventListener("click", async () => {
-  const msg = $("settings-msg");
-  try {
-    await json("/api/output/open", { method: "POST" });
-  } catch (err) {
-    if (msg) { msg.hidden = false; msg.classList.remove("is-info"); msg.textContent = String(err.message || err); }
-  }
-});
-
 $("about-copy")?.addEventListener("click", async () => {
   const rows = Array.from($("about-list")?.querySelectorAll("dt") || []);
   const sep = (typeof window.uiLang === "function" && window.uiLang() === "en") ? ": " : "：";

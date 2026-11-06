@@ -31,7 +31,8 @@ _TRANSLATE_PROMPT = (
     "1. 只翻译原文中实际存在的意思，绝不添加原文没有的结论（不要写“满足”“一致”“以评估为准”等评审意见）。\n"
     "2. 原文中的所有数值、公差、单位（如 15 years / 300,000 km、-40 ~ 105 °C、1mA↓、90%↑）、标准代号（如 ISO 26262、IEC 60664-1、CISPR 25、LV 124、ES95490-10、MS201-02、QC/T 895、GB/T 24347）、专有缩写（如 HMC、HKMC、LDC、Inverter、XCM、PCM、P1、P3、T-car、Proto、SOP、DV、PV、ESIR、ISIR、EOL、DFMEA、WCA、3DCS）必须原样保留，严禁换算或遗漏。\n"
     "3. 若条目是表格行（含「栏目：值 | 栏目：值」），请将栏目名与要求内容（无论英文、韩文、日文、德文等）一并译为清晰的中文。\n"
-    "4. 只输出 JSON 数组，每个元素形如 {\"序号\": 1, \"译文\": \"…\"}，不要输出任何额外说明。"
+    "4. 原文有多行时，译文必须逐行对应，行数与原文相同，不要合并、不要重新编号，不要漏掉后面的行。\n"
+    "5. 只输出 JSON 数组，每个元素形如 {\"序号\": 1, \"译文\": \"…\"}，不要输出任何额外说明。"
 )
 
 # 整句/常用子句级工程翻译（长短语优先匹配，不区分大小写）
@@ -794,6 +795,21 @@ _WORD_MAP: dict[str, str] = {
     "unit": "单位",
     "notes": "备注",
     "note": "注",
+    "value": "数值",
+    "values": "数值",
+    "name": "名称",
+    "department": "部门",
+    "rate": "速率",
+    "revision": "修订",
+    "date": "日期",
+    "author": "作者",
+    "condition": "条件",
+    "conditions": "条件",
+    "water": "水",
+    "temperature": "温度",
+    "team": "团队",
+    "generating": "发电",
+    "generation": "发电",
     "remark": "备注",
     "remarks": "备注",
     "status": "状态",
@@ -816,8 +832,14 @@ _WORD_MAP: dict[str, str] = {
     "efficiency": "效率",
     "power": "功率",
     "torque": "扭矩",
+    "tq": "扭矩",
+    "dyno": "测功机",
+    "engine": "发动机",
+    "parallel": "并联",
+    "step": "步进",
     "speed": "转速",
     "noise": "噪声",
+    "respectively": "分别",
     "weight": "重量",
     "volume": "体积",
     "size": "尺寸",
@@ -942,6 +964,9 @@ _WORD_MAP: dict[str, str] = {
     "confirm": "确认",
     "confirmed": "确认",
     "every": "每项",
+    "of": "的",
+    "max": "最大",
+    "mode": "模式",
     "change": "变更",
     "changes": "变更",
     "this": "本",
@@ -1367,19 +1392,40 @@ _OTHER_LANG_MAP: tuple[tuple[str, str], ...] = (
 )
 
 
+_UNIT_TOKEN = re.compile(
+    r"^(?:rpm|r/min|nm|lpm|kw|kpa|mpa|db|dba|dc|ac|hz|khz|mhz|bar|mm|cm|kg)$",
+    re.I,
+)
+
+
+def _kept_token(word: str) -> bool:
+    """缩写和单位不译。"""
+    if _UNIT_TOKEN.match(word):
+        return True
+    if word.isupper() and word.lower() not in _WORD_MAP and 2 <= len(word) <= 6:
+        return True
+    return False
+
+
+def _proper_names_only(words: list[str]) -> bool:
+    """词典里没有、又都大写开头的，当作译不出的专名。"""
+    if not words:
+        return False
+    if any(word.lower() in _WORD_MAP for word in words):
+        return False
+    return all(word[:1].isupper() for word in words)
+
+
 def _needs_trans_body(body: str) -> bool:
     cjk_count = len(_CJK.findall(body))
     hangul_count = len(_HANGUL.findall(body))
     kana_count = len(_KANA.findall(body))
-    # 只要含韩文或日文假名（>= 2 个字符），即存在非中文外文，需翻译为中文
     if hangul_count >= 2 or kana_count >= 2:
         return True
-    latin_words = _LATIN_WORD.findall(body)
-    cyrillic_words = _CYRILLIC_WORD.findall(body)
-    alpha_words = len(latin_words) + len(cyrillic_words)
-    if alpha_words >= 2 and cjk_count < alpha_words * 2:
-        return True
-    return False
+    words = [word for word in _LATIN_WORD.findall(body) + _CYRILLIC_WORD.findall(body) if not _kept_token(word)]
+    if not words or _proper_names_only(words):
+        return False
+    return cjk_count < len(words) * 2
 
 
 def needs_translation(text: str) -> bool:
@@ -1388,7 +1434,7 @@ def needs_translation(text: str) -> bool:
     if not raw:
         return False
     # 整页数值表、图表、表格块，以及按行抄录的整表（译文已写在各格后面），不再整段重译
-    if raw.startswith(("本页为数值表", "本页图表", "本页表格块", "本页表格", "本页图片表格")):
+    if raw.startswith(("本页为数值表", "本页图表", "本页表格块", "本页表格", "本页图片表格", "本页线框表格")):
         return False
     # 已经按「列名：内容」拆成多行的表格行，保留换行，不再压成一段
     labeled = [line.strip() for line in raw.splitlines() if line.strip()]
@@ -1398,15 +1444,12 @@ def needs_translation(text: str) -> bool:
 
 
 def _cell_bilingual(cell: str) -> str:
-    """一格对照：原文保留；整格能译成中文时写成「原文 / 中文」。译不完整的只留原文。"""
+    """一格对照：原文保留。译出了中文就写成「原文 / 中文」，单位和没译出的词留在译文里。"""
     raw = cell.strip()
     if not raw or not _needs_trans_body(raw):
         return raw
     zh = _translate_segment(raw)
     if not zh or zh == raw or not _CJK.search(zh):
-        return raw
-    leftover = [word for word in re.findall(r"[A-Za-z]{2,}", zh) if word.lower() in raw.lower()]
-    if leftover:
         return raw
     return f"{raw} / {zh}"
 
@@ -1532,7 +1575,12 @@ def rule_translate_text(text: str) -> str:
         return ""
     if raw.startswith(("本页表格", "本页图片表格")) and "：\n" in raw:
         return present_table_excerpt(raw)
-    flat = " ".join(line.strip() for line in raw.splitlines() if line.strip())
+    lines = [line.strip() for line in raw.splitlines() if line.strip()]
+    if len(lines) >= 2:
+        translated = [_translate_segment(line) for line in lines]
+        if any(line != zh and _CJK.search(zh) for line, zh in zip(lines, translated)):
+            return "\n".join(zh if zh else line for line, zh in zip(lines, translated))
+    flat = " ".join(lines)
     # 表格行：「项目名：栏目：值 | 栏目：值」
     if " | " in flat:
         parts = [_translate_segment(part) for part in flat.split(" | ")]
@@ -1581,6 +1629,9 @@ def _translate_segment(seg: str) -> str:
         pattern = re.compile(r"(?<![A-Za-z])" + re.escape(en_term) + r"(?![A-Za-z])", re.I)
         if pattern.search(out):
             out = pattern.sub(zh_term, out)
+    out = re.sub(r"\binput-dyno\b", "输入测功机", out, flags=re.I)
+    out = re.sub(r"\bmax\s+tq\s*@\s*parallel\b", "并联最大扭矩", out, flags=re.I)
+    out = re.sub(r"\bevery\s+(?=\d)", "每", out, flags=re.I)
     # 5. 对剩余常见英文单词按词边界替换（保留标准代号和全大写工程缩写）
     _keep_upper = {
         "HMC", "HKMC", "HMG", "LDC", "XCM", "PCM", "MCU", "VCU", "BMS", "OBC", "PFC", "EWP",
@@ -1602,6 +1653,13 @@ def _translate_segment(seg: str) -> str:
         low = word.lower()
         return _WORD_MAP.get(low, word)
 
+    out = re.sub(
+        r"\b(\d+)(?:st|nd|rd|th)\b(?=\s+(?:noise|order|harmonic)\b)",
+        r"\1阶",
+        out,
+        flags=re.I,
+    )
+    out = re.sub(r"(?<=\bmotor\s)(\d+)(?:st|nd|rd|th)\b", r"\1阶", out, flags=re.I)
     out = re.sub(r"\b[A-Za-z][A-Za-z.]*\b", _replace_word, out)
     # 清理多余空格（中文字之间的空格收紧）
     out = re.sub(r"(?<=[\u4e00-\u9fff])\s+(?=[\u4e00-\u9fff])", "", out)
@@ -1648,7 +1706,7 @@ def translate_excerpts(
             batch = pending[i : i + _BATCH_SIZE]
             lines = []
             for seq, text in batch:
-                snippet = text[:800] if len(text) > 800 else text
+                snippet = text[:4000] if len(text) > 4000 else text
                 lines.append(f"序号 {seq}：{snippet}")
             messages = [
                 {"role": "system", "content": _TRANSLATE_PROMPT},
@@ -1662,7 +1720,8 @@ def translate_excerpts(
                         continue
                     seq_val = entry.get("序号")
                     zh_val = str(entry.get("译文") or "").strip()
-                    if isinstance(seq_val, int) and zh_val and _CJK.search(zh_val):
+                    source = next((text for seq, text in batch if seq == seq_val), "")
+                    if isinstance(seq_val, int) and zh_val and _translation_covers(source, zh_val):
                         translations[seq_val] = zh_val
                         model_used = True
             except Exception:  # noqa: BLE001
@@ -1680,12 +1739,35 @@ def translate_excerpts(
     return translations, model_used
 
 
+def _translation_covers(source: str, zh: str) -> bool:
+    """模型只译了第一句时，不能当成整段译文。"""
+    if not zh or not _CJK.search(zh):
+        return False
+    lines = [line.strip() for line in source.splitlines() if _needs_trans_body(line.strip())]
+    if len(lines) <= 1:
+        return True
+    zh_lines = [line.strip() for line in zh.splitlines() if line.strip()]
+    return len(zh_lines) >= len(lines) and len(_CJK.findall(zh)) >= len(lines)
+
+
 def format_bilingual_excerpt(excerpt: str, zh: str) -> str:
     """将原文摘录与中文译文拼接为同格双语对照格式：「英文原文 / 中文译文」。"""
     raw = (excerpt or "").strip()
     trans = (zh or "").strip()
     if not trans or trans == raw:
         return raw
-    if "\n" in raw:
-        return f"{raw}\n/ {trans}"
+    src_lines = [line for line in raw.splitlines() if line.strip()]
+    zh_lines = [line for line in trans.splitlines() if line.strip()]
+    if len(src_lines) > 1:
+        # 模型若把多行收成一段，行数对不上，按行用词典补齐，避免译文被挤到格子底部显示不全。
+        if len(zh_lines) != len(src_lines):
+            zh_lines = [_translate_segment(line) for line in src_lines]
+        paired = []
+        for src, line in zip(src_lines, zh_lines):
+            line = line.strip().lstrip("/").strip()
+            paired.append(f"{src} / {line}" if line and line != src and _CJK.search(line) else src)
+        return "\n".join(paired)
+    trans = re.sub(r"\s*\n\s*(?=[。，、；：）)])", "", trans)
+    trans = re.sub(r"\s*\n\s*", " ", trans)
+    trans = re.sub(r" {2,}", " ", trans).strip()
     return f"{raw} / {trans}"

@@ -367,7 +367,7 @@ def _check_doc_weight_conflicts(rows: list[list[object]]) -> list[ArchIssue]:
             if str(row[_COL["章节"]] or "") in {SECTION_COVER, SECTION_TOC}:
                 continue
             text = str(row[_COL["原文摘录"]] or "")
-            if text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表", "本页表格块")):
+            if text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表", "本页表格块", "本页线框表格")):
                 continue
             seq = int(row[_COL["序号"]] or 0)
             page = int(row[_COL["PDF页码"]] or 0)
@@ -531,8 +531,10 @@ def check_arch_quality(
     all_rows: list[list[object]],
     params: ParamResult,
     req_map: dict[int, tuple[int, str]] | None = None,
+    sheet_names: dict[str, str] | None = None,
 ) -> ArchQualityReport:
-    """对拆解前的文档及拆出的条目执行内容质量检查。req_map: 序号 -> (需求清单Excel行号, REQ-ID)。"""
+    """对拆解前的文档及拆出的条目执行内容质量检查。req_map: 序号 -> (需求清单Excel行号, REQ-ID)。
+    sheet_names：多份文件时，文件名到工作表名。质检位置写在对应表上。"""
     issues: list[ArchIssue] = []
     row_notes: dict[int, str] = {}
     flagged_seqs: set[int] = set()
@@ -570,7 +572,7 @@ def check_arch_quality(
         if section in {SECTION_COVER, SECTION_TOC}:
             continue
         text = str(row[_COL["原文摘录"]] or "")
-        if text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表", "本页表格块")) or "（表格块，整块见" in text:
+        if text.startswith(("本页表格", "本页图片表格", "本页为数值表", "本页图表", "本页表格块", "本页线框表格")) or "（表格块，整块见" in text:
             continue
         seq = int(row[_COL["序号"]] or 0)
         if valid_seqs is not None and seq not in valid_seqs:
@@ -602,7 +604,9 @@ def check_arch_quality(
                 tbd_pages.append((file, page))
             label = f"「{item_name}」" if item_name else ""
             issues.append(ArchIssue("warn", "待定项", file, page, seq, f"{label}原文含待定项（TBD/TBC）"))
-            add_row_note(seq, "【内容质检】原文含待定项（TBD/TBC）", flag=True)
+            # 整段工况里夹了一句 TBD 时，不把这一大段整行涂红。单独一条 TBD 仍标红。
+            own_lines = [line.strip() for line in text.splitlines() if line.strip()]
+            add_row_note(seq, "【内容质检】原文含待定项（TBD/TBC）", flag=len(own_lines) <= 2)
 
     # 3. 同文件重量限值冲突
     for issue in _check_doc_weight_conflicts(all_rows):
@@ -651,10 +655,11 @@ def check_arch_quality(
 
     if parts:
         flagged_n = len(flagged_seqs)
+        place = "各文件对应的工作表" if sheet_names and len(sheet_names) > 1 else "需求清单"
         summary = (
             "文件内容质检：需注意（"
             + "；".join(parts)
-            + f"）。冲突行与待定项共 {flagged_n} 行已在「需求清单」整行标红并写入 M 列「备注」（可在 M 列筛选「内容质检」）。"
+            + f"）。冲突行与待定项共 {flagged_n} 行已在「{place}」整行标红并写入 M 列「备注」（可在 M 列筛选「内容质检」）。"
         )
     else:
         summary = "文件内容质检：通过（文字层可读，未发现中英冲突、内部算式冲突或同参数前后取值不一致）。"
@@ -668,7 +673,9 @@ def check_arch_quality(
     for issue in ordered_issues[:40]:
         if req_map and issue.row_seq in req_map:
             xl_row, req_id = req_map[issue.row_seq]
-            loc = f"需求清单第 {xl_row} 行（{req_id}，第 {issue.page} 页）"
+            sheet = sheet_names.get(issue.file) if sheet_names and len(sheet_names) > 1 else ""
+            where = f"「{sheet}」" if sheet else "需求清单"
+            loc = f"{where}第 {xl_row} 行（{req_id}，第 {issue.page} 页）"
         else:
             loc = f"{issue.file} 第 {issue.page} 页" if issue.page else issue.file
         detail_lines.append(f"• [{issue.kind}] {loc}：{issue.text}")

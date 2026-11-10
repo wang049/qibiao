@@ -1,12 +1,14 @@
 # 2026-11-03 原理图出表不显示模板上的芯片和变更
 
-- 状态：active
+- 状态：superseded
+- 取代：`.insights/lessons/2026-11-10-hsi-schematic-archive-keeps-template.md`
 - 条目：HSI 出表
+- 范围：仅 EDIF 接插件网表路径；PDF 归档见 `2026-11-10-hsi-schematic-pdf-keeps-template.md`
 - 闸门：`tests/test_hsi.py`（`test_schematic_lists_unconnected_connector_pin_and_clears_template_pages`）
 
 ## 代价
 
-按原理图生成的 HSI 仍显示模板封面修改人、变更记录，以及端口表上的 `TC499`、`MCU_TC499`、`BGA436`。功率板网表被看成上一份芯片文档。
+按 EDIF 接插件网表生成的 HSI 仍显示模板封面修改人、变更记录，以及端口表上的 `TC499`、`MCU_TC499`、`BGA436`。功率板网表被看成上一份芯片文档。
 
 ## 反事实
 

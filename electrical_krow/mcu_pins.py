@@ -319,7 +319,11 @@ def pin_supply_kind(symbol: str) -> str:
 
 
 def pin_class(pin: ChipPin) -> str:
-    """只按当份手册的符号、功能和复用归类。归不出的留空。"""
+    """只按当份手册的符号、功能和复用归类。归不出的留空。
+
+    规划路径用的名单：电源、地、IO、ADC、SPI、CAN、GPIO；其余能从手册认出的仍保留。
+    不把这些词写入模板 Function 列。
+    """
     supply = pin_supply_kind(pin.symbol)
     if supply:
         return supply
@@ -328,8 +332,12 @@ def pin_class(pin: ChipPin) -> str:
         return "ADC"
     if re.search(r"(?<![A-Z0-9])DAC(?![A-Z])", blob):
         return "DAC"
-    if re.search(r"(?<![A-Z0-9])(GTM|TIM|TOM|ATOM|CCU6)(?![A-Z])", blob):
-        return "Timer"
+    if re.search(r"(?<![A-Z0-9])(?:QSPI|SPI)\d", blob):
+        return "SPI"
+    if re.search(r"(?<![A-Z0-9])(?:CANXL|CAN)\d", blob):
+        return "CAN"
+    if re.search(r"(?<![A-Z0-9])(PWM|GTM|TIM|TOM|ATOM|CCU6)(?![A-Z])", blob):
+        return "PWM"
     if "寄存器" in blob or re.search(r"\bREGISTER\b", blob):
         return "寄存器"
     if pin.symbol.upper().startswith("GPIO") or "GENERAL-PURPOSE" in blob or "GENERAL PURPOSE" in blob:
@@ -345,6 +353,8 @@ def pin_class(pin: ChipPin) -> str:
         return "调试"
     if re.match(r"^PORST", symbol, re.I) or re.search(r"\bRESET\b", blob):
         return "复位"
+    if re.match(r"^P\d{1,2}[._]\d{1,2}$", symbol, re.I) or re.match(r"^PT[A-Z]\d+", symbol, re.I):
+        return "IO"
     return ""
 
 

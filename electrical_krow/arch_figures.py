@@ -21,7 +21,7 @@ _MARGIN = 6.0  # 截图四周留的边（PDF 点）
 _GAP = 14.0  # 绘图块之间相距不超过这个距离的并成一张图
 _MIN_AREA_RATIO = 0.02  # 太小的（下划线、项目符号框）不算图
 _MAX_SIDE_RATIO = 0.9  # 宽高都接近整页的是页面边框，不算图
-_MIN_CURVED = 10  # 至少这么多笔曲线或斜线才像图；只有横竖线的是表格、文字框
+_MIN_CURVED = 6  # 至少这么多笔曲线或斜线才像图；只有横竖线的是表格、文字框
 _MAX_TEXT_RATIO = 0.3  # 文字占块面积超过这个比例的是文字框，不是图
 _HEADER_BAND = 0.15  # 页顶这一段里的框是页眉表
 _LABEL_REACH = 16.0  # 紧贴图边（坐标轴名、刻度）的字算图里的标签，离这么近以内
@@ -73,6 +73,49 @@ def cluster_boxes(boxes: list[Box], gap: float = _GAP) -> list[tuple[Box, list[i
         rest.append(merged)
         clusters = rest
     return clusters
+
+
+def _point_box(points) -> Box | None:
+    pts = [point for point in points if hasattr(point, "x")]
+    if len(pts) < 2:
+        return None
+    xs = [point.x for point in pts]
+    ys = [point.y for point in pts]
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def _item_curved(item) -> int:
+    if not item or item[0] not in {"c", "l"}:
+        return 0
+    if item[0] == "c":
+        return 1
+    start, end = item[1], item[2]
+    dx = abs(start.x - end.x)
+    dy = abs(start.y - end.y)
+    if dx > 3 and dy > 3 and min(dx, dy) / max(dx, dy) > 0.3:
+        return 1
+    return 0
+
+
+def _drawing_parts(drawing: dict) -> list[tuple[Box, int]]:
+    """一张绘图指令里上下两串曲线要拆开。整框会把两张图合成一块。"""
+    parts: list[tuple[Box, int]] = []
+    for item in drawing.get("items") or []:
+        box = _point_box(item[1:])
+        if box is None:
+            continue
+        if box[2] - box[0] < 0.4 and box[3] - box[1] < 0.4:
+            continue
+        parts.append((box, _item_curved(item)))
+    if not parts:
+        rect = drawing.get("rect")
+        if not rect:
+            return []
+        return [(tuple(float(value) for value in rect), curved_strokes(drawing))]
+    grouped: list[tuple[Box, int]] = []
+    for box, members in cluster_boxes([part[0] for part in parts]):
+        grouped.append((box, sum(parts[index][1] for index in members)))
+    return grouped
 
 
 def curved_strokes(drawing: dict) -> int:
@@ -138,7 +181,7 @@ def _with_labels(words, box: Box) -> tuple[Box, str]:
     """把压在块边上和紧贴块边的标签（坐标轴名「Po (kW)」、左侧的「Derating」）纳进来，并按阅读顺序拼出图里的文字。
     只拉短行，免得把图上方的标题、段落一并圈进来。"""
     labels = _label_words(words)
-    for _ in range(3):  # 纳进一圈标签后边界外扩，可能再够到下一圈
+    for _ in range(1):  # 只收紧贴图边的一行标签，不把下一张图的标题拉进来
         reach = (box[0] - _LABEL_REACH, box[1] - _LABEL_REACH, box[2] + _LABEL_REACH, box[3] + _LABEL_REACH)
         grown = box
         for w in _words_in(labels, reach):
@@ -185,7 +228,7 @@ def _collapse_overlapping(page, figures: list[Figure], tables: list[Box] | None 
         if len(group) == 1:
             fig = group[0]
             box = _cover_tables(fig.box, tables or [], page_w, page_h)
-            text = "" if _chart_label_noise(fig.transcript) else fig.transcript
+            text = fig.transcript
             if box != fig.box or text != fig.transcript:
                 png = _render(page, box) if box != fig.box else fig.png
                 fig = Figure(fig.page, box, fig.labels, png, fig.kind, text, fig.grid)
@@ -280,14 +323,17 @@ def _chart_label_noise(text: str) -> bool:
 
 
 def _curve_chart_only(text: str, curved: int) -> bool:
-    """只有坐标曲线图不摘录。句子、规格表、普通表格都要摘录。"""
+    """只有坐标曲线图不摘录。句子、规格表都要摘录。曲线旁边的短数据表留在截图里。"""
     if curved < _MIN_CURVED:
         return False
     if _spec_table_text(text):
         return False
     if _axis_chart(text):
         return True
-    if transcript_kind(text) in {"prose", "table"}:
+    if transcript_kind(text) == "prose" and re.search(
+        r"(?:\b[A-Za-z]{4,}\b(?:\s+\b[A-Za-z]{4,}\b){2,})",
+        text or "",
+    ):
         return False
     return True
 
@@ -321,37 +367,78 @@ def _detected_tables(page) -> list[Box]:
     return boxes
 
 
-def _cover_tables(box: Box, tables: list[Box], page_w: float, page_h: float) -> Box:
-    """截图已经压进表格，或曲线同一高度旁边还有数据表时，收进整张表，不从半格切开。"""
+def _cover_tables(box: Box, tables: list[Box], page_w: float, page_h: float, siblings: list[Box] | None = None) -> Box:
+    """截图已经压进表格，或曲线同一高度旁边还有数据表时，收进整张表，不从半格切开。
+    不收已经压到另一张曲线上的表。"""
     grown = box
     limit = 0.85 * page_w * page_h
-    for _ in range(5):
-        nxt = grown
-        for table in tables:
-            if _area(table) < 200 or _contains(nxt, table):
-                continue
-            overlap = _overlap(nxt, table)
-            vertical = min(nxt[3], table[3]) - max(nxt[1], table[1])
-            alongside = overlap <= 0 and vertical > 12 and _near(nxt, table, _TABLE_BESIDE)
-            if overlap <= 0 and not alongside:
-                continue
-            wider = _union(nxt, table)
-            if _area(wider) <= limit:
-                nxt = wider
-        if nxt == grown:
-            break
-        grown = nxt
+    others = siblings or []
+    for table in tables:
+        if _area(table) < 200 or _contains(grown, table):
+            continue
+        if any(_overlap(table, sibling) > 0 for sibling in others):
+            continue
+        if table[3] < box[1] - 8 or table[1] > box[3] + 8:
+            continue
+        overlap = _overlap(box, table)
+        vertical = _vertical_overlap(box, table)
+        alongside = overlap <= 0 and vertical > 12 and _near(box, table, _TABLE_BESIDE)
+        if overlap <= 0 and not alongside:
+            continue
+        wider = _union(grown, table)
+        if _area(wider) <= limit:
+            grown = wider
     return grown
 
 
-def _grow_chart_box(box: Box, straight: list[Box], page_w: float, page_h: float) -> Box:
-    """曲线图旁边紧挨着的横竖线（数据表）并进截图范围。不再把这张表写成原文摘录。"""
+def _horizontal_gap(a: Box, b: Box) -> float:
+    if a[2] < b[0]:
+        return b[0] - a[2]
+    if b[2] < a[0]:
+        return a[0] - b[2]
+    return 0.0
+
+
+def _vertical_overlap(a: Box, b: Box) -> float:
+    return min(a[3], b[3]) - max(a[1], b[1])
+
+
+def _grow_chart_box(box: Box, straight: list[Box], page_w: float, page_h: float, siblings: list[Box] | None = None) -> Box:
+    """曲线图旁边同一高度的坐标线和数据表并进截图。不越过和另一张曲线的中线。"""
     grown = box
     limit = 0.45 * page_w * page_h
-    for _ in range(4):
+    others = siblings or []
+
+    def blocked(other: Box) -> bool:
+        cx = (other[0] + other[2]) / 2
+        cy = (other[1] + other[3]) / 2
+
+        def dist(target: Box) -> float:
+            dx = 0.0 if target[0] <= cx <= target[2] else min(abs(cx - target[0]), abs(cx - target[2]))
+            dy = 0.0 if target[1] <= cy <= target[3] else min(abs(cy - target[1]), abs(cy - target[3]))
+            return dx * dx + dy * dy
+
+        if any(dist(sibling) + 1 < dist(box) for sibling in others):
+            return True
+        if any(_overlap(other, sibling) > 0 for sibling in others):
+            return True
+        for sibling in others:
+            if sibling[0] >= box[2] and other[2] > (box[2] + sibling[0]) / 2:
+                return True
+            if sibling[2] <= box[0] and other[0] < (sibling[2] + box[0]) / 2:
+                return True
+        return False
+
+    for _ in range(3):
         nxt = grown
         for other in straight:
-            if not _near(nxt, other, _CHART_TABLE_REACH):
+            if blocked(other):
+                continue
+            if other[3] < box[1] - 24 or other[1] > box[3] + 24:
+                continue
+            if _horizontal_gap(nxt, other) > 70 and not (
+                _vertical_overlap(nxt, other) > 0 and _near(nxt, other, _CHART_TABLE_REACH)
+            ):
                 continue
             wider = _union(nxt, other)
             if _area(wider) <= limit:
@@ -573,20 +660,27 @@ def axis_tick_dump(text: str) -> bool:
     return len(re.findall(r"-?\d{2,}", text or "")) >= 4
 
 
+def _chart_caption(text: str) -> str:
+    """图名、阶次和说明留下。纯数字刻度不写进摘录。"""
+    kept = [
+        word
+        for word in (text or "").split()
+        if not re.fullmatch(r"-?\d+(?:\.\d+)?", word)
+    ]
+    return " ".join(kept)
+
+
 def chart_hint(labels: str) -> str:
-    """刻度很多时只留刻度前面的短名称。名称本身就是刻度或图名时不写。"""
-    text = (labels or "").strip()
+    """刻度很多时只留图名和说明。纯数字刻度不写。"""
+    text = " ".join(
+        word
+        for word in (labels or "").split()
+        if not re.fullmatch(r"-?\d+(?:\.\d+)?", word)
+    ).strip(" :")
     if not text:
         return ""
-    if axis_tick_dump(text):
-        kept = []
-        for word in text.split():
-            if re.search(r"\d", word):
-                break
-            kept.append(word)
-        text = " ".join(kept).strip(" :")
-        if len(text.split()) <= 1:
-            return ""
+    if axis_tick_dump(labels or "") and len(text.split()) <= 1:
+        return ""
     return f"：{text}"
 
 
@@ -1106,27 +1200,50 @@ def find_figures(path: Path, table_boxes: dict[int, list[Box]] | None = None, im
                 drawings = [d for d in page.get_drawings() if d.get("rect") is not None]
             except Exception:  # noqa: BLE001
                 drawings = []
-            boxes = [tuple(float(v) for v in d["rect"]) for d in drawings]
-            keep = [i for i, box in enumerate(boxes) if not _is_frame(box, page_w, page_h, excluded)]
-            for box, members in cluster_boxes([boxes[i] for i in keep]):
-                if not _big_enough(box, page_w, page_h, excluded):
-                    continue
-                curved = sum(curved_strokes(drawings[keep[m]]) for m in members)
-                if curved < _MIN_CURVED or _text_ratio(words, box) > _MAX_TEXT_RATIO:
-                    continue
-                candidates.append((box, "矢量图", curved))
             straight = [
                 tuple(float(v) for v in d["rect"])
                 for d in drawings
-                if d.get("rect") is not None and curved_strokes(d) == 0 and not _is_frame(tuple(float(v) for v in d["rect"]), page_w, page_h, excluded)
+                if curved_strokes(d) == 0 and not _is_frame(tuple(float(v) for v in d["rect"]), page_w, page_h, excluded)
             ]
+            pieces: list[tuple[Box, int]] = []
+            for drawing in drawings:
+                for box, curved in _drawing_parts(drawing):
+                    if curved <= 0 or _is_frame(box, page_w, page_h, excluded):
+                        continue
+                    pieces.append((box, curved))
+            curve_groups = []
+            for box, members in cluster_boxes([item[0] for item in pieces]):
+                curved = sum(pieces[index][1] for index in members)
+                if curved < _MIN_CURVED:
+                    continue
+                curve_groups.append((box, curved))
+            sibling_boxes = [item[0] for item in curve_groups]
+            for box, curved in curve_groups:
+                siblings = [other for other in sibling_boxes if other != box]
+                grown = _grow_chart_box(box, straight, page_w, page_h, siblings)
+                if not _big_enough(grown, page_w, page_h, excluded) or _text_ratio(words, grown) > _MAX_TEXT_RATIO:
+                    continue
+                candidates.append((grown, "矢量图", curved))
+            # 整页用矢量字描出来的说明图，曲线笔数很高，按一块收。真正的坐标曲线笔数少，仍各留各的。
+            heavy = [item for item in candidates if item[2] > 200]
+            light = [item for item in candidates if item[2] <= 200]
+            if len(heavy) > 1:
+                box = heavy[0][0]
+                curved = 0
+                for item_box, _kind, item_curved in heavy:
+                    box = _union(box, item_box)
+                    curved += item_curved
+                heavy = [(box, "矢量图", curved)]
+                light = [item for item in light if _overlap(item[0], box) < 0.5 * _area(item[0])]
+            candidates = heavy + light
             # 位图和矢量线叠在一起的（坐标图里的阴影块）是同一张图
+            merged = _merge_candidates(candidates)
             figures: list[Figure] = []
-            for box, kind, curved in _merge_candidates(candidates):
-                box, labels = _with_labels(words, box)
-                if curved >= _MIN_CURVED:
-                    box = _grow_chart_box(box, straight, page_w, page_h)
-                box = _cover_tables(box, tables, page_w, page_h)
+            geoms = [item[0] for item in merged]
+            for item_index, (box, kind, curved) in enumerate(merged):
+                _label_box, labels = _with_labels(words, box)
+                siblings = [geom for other_index, geom in enumerate(geoms) if other_index != item_index]
+                box = _cover_tables(box, tables, page_w, page_h, siblings)
                 transcript = transcript_of(words, box)
                 png = _render(page, box)
                 grid: tuple[tuple[str, ...], ...] = ()
@@ -1155,8 +1272,8 @@ def find_figures(path: Path, table_boxes: dict[int, list[Box]] | None = None, im
                     if part
                 )
                 if _curve_chart_only(blob, curved) or _axis_scale_grid(found_grid):
-                    # 曲线图只留整图。横轴刻度 0、5000、10000、15000 不写成表。
-                    figures.append(Figure(index, box, labels, png, kind, "", ()))
+                    # 曲线图只留整图。横轴刻度不写成表。图名和阶次留在摘录里，供对上是哪一张。
+                    figures.append(Figure(index, box, labels, png, kind, _chart_caption(labels), ()))
                     continue
                 text_grid = _pipe_table("\n".join(clean_lines))
                 if _filled(found_grid) > _filled(text_grid) and _data_table(found_grid):

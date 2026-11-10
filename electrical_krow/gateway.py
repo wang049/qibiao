@@ -27,7 +27,14 @@ from pydantic import BaseModel, Field
 
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
 from electrical_krow.arch_contrast import build_contrast, contrast_file_name
-from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, build_hsi, revise_hsi_from_schematic
+from electrical_krow.hsi_book import (
+    DEFAULT_HSI_TEMPLATE,
+    build_hsi,
+    hsi_template_by_id,
+    hsi_template_for_mcu,
+    list_hsi_templates,
+    revise_hsi_from_schematic,
+)
 from electrical_krow.ce_bom import DEFAULT_CE_BOM_TEMPLATE, build_ce_bom, ce_bom_file_name
 from electrical_krow.icd_book import build_icd, icd_file_name
 from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
@@ -809,6 +816,13 @@ def create_app(
             raise HTTPException(500, str(exc)) from exc
         return {"ok": True, "name": dest.name}
 
+    @app.get("/api/hsi/templates")
+    def hsi_templates() -> dict[str, object]:
+        """按 MCU（TC499 / TC387 / TC399）列模板。选模板不必先登录；真正出表仍要登录。"""
+        rows = list_hsi_templates()
+        default_id = "TC499" if any(row.get("id") == "TC499" for row in rows) else (rows[0]["id"] if rows else "")
+        return {"templates": rows, "default": default_id}
+
     @app.post("/api/hsi/packages")
     async def list_hsi_packages(
         request: Request,
@@ -872,6 +886,7 @@ def create_app(
         package: str = Form(default=""),
         mode: str = Form(default="mcu"),
         mcu: str = Form(default=""),
+        template_id: str = Form(default=""),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
         """按原理图生成 HSI，或按芯片手册生成。"""
@@ -883,6 +898,7 @@ def create_app(
         manual_name = Path(datasheet.filename or "").name if datasheet is not None else ""
         manual_bytes = b""
         typed_mcu = mcu.strip()
+        picked_template_id = template_id.strip()
         if chosen == "mcu":
             if Path(manual_name).suffix.lower() != ".pdf":
                 raise HTTPException(400, "芯片手册请用 PDF。")
@@ -897,7 +913,10 @@ def create_app(
             if Path(template_name).suffix.lower() not in {".xlsx", ".xlsm"}:
                 raise HTTPException(400, "HSI 模板请用 Excel。")
             template_bytes = await read_capped_upload(template)
-        elif not DEFAULT_HSI_TEMPLATE.is_file():
+        builtin_template = hsi_template_by_id(picked_template_id) if picked_template_id else None
+        if chosen == "schematic" and not template_bytes and builtin_template is None:
+            raise HTTPException(400, "请选择 HSI 模板。")
+        if not template_bytes and builtin_template is None and not DEFAULT_HSI_TEMPLATE.is_file():
             raise HTTPException(400, "当前 HSI 模板不在程序里。")
         previous_name = Path(previous.filename or "").name if previous is not None else ""
         previous_bytes = b""
@@ -934,8 +953,10 @@ def create_app(
             if template_bytes:
                 template_path = folder / template_name
                 template_path.write_bytes(template_bytes)
+            elif builtin_template is not None:
+                template_path = builtin_template
             else:
-                template_path = DEFAULT_HSI_TEMPLATE
+                template_path = hsi_template_for_mcu(typed_mcu) if typed_mcu else DEFAULT_HSI_TEMPLATE
             previous_path = None
             if previous_bytes:
                 previous_path = folder / previous_name
@@ -1176,7 +1197,7 @@ def create_app(
         previous: UploadFile | None = File(default=None),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        """按当份接插件 ICD 抽出引脚。有上一版时写出版本差异。不补当份没有的信号。"""
+        """按当份接插件 ICD 抽出引脚。有上一版时写差异总结。不补当份没有的信号。"""
         item = _require_session(request, authorization)
         name = Path(file.filename or "").name
         if Path(name).suffix.lower() not in {".xlsx", ".xlsm"}:
@@ -1245,6 +1266,7 @@ def create_app(
         request: Request,
         manuals: list[UploadFile] | None = File(default=None),
         template: UploadFile | None = File(default=None),
+        previous: UploadFile | None = File(default=None),
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
         """按确认的 CE BOM 表格式，从当份物料手册抽出尺寸和重量。不补手册没有的数。"""
@@ -1278,9 +1300,18 @@ def create_app(
                 target = folder / f"{index:02d}-{name}"
                 target.write_bytes(data)
                 manual_paths.append(target)
+            previous_path = None
+            if previous is not None and previous.filename:
+                previous_name = Path(previous.filename).name
+                if Path(previous_name).suffix.lower() not in {".xlsx", ".xlsm"}:
+                    raise HTTPException(400, "上一版 CE BOM 请用 Excel。")
+                previous_path = folder / f"previous-{previous_name}"
+                previous_path.write_bytes(await read_capped_upload(previous))
             dest_tmp = folder / "ce-bom.xlsx"
             try:
-                result = await asyncio.to_thread(build_ce_bom, manual_paths, template_path, dest_tmp)
+                result = await asyncio.to_thread(
+                    build_ce_bom, manual_paths, template_path, dest_tmp, previous_path,
+                )
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
             dest = request.app.state.jobs.output_dir / ce_bom_file_name()

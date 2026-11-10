@@ -1157,9 +1157,21 @@ def strip_table_lines(body: str, grids: list[Grid]) -> str:
     return "\n".join(kept)
 
 
+_CONTINUATION_WORDS = frozenset(
+    {"a", "an", "and", "as", "at", "by", "for", "in", "of", "on", "or", "the", "to"}
+)
+
+
+def _word_split_continuation(flat: str) -> bool:
+    """按词拆开的「as」「the」是上一句的续词，不是识读碎片。"""
+    return (flat or "").strip().lower() in _CONTINUATION_WORDS
+
+
 def _scrap_line(flat: str) -> bool:
     """识读剩下来的碎片或粘上的表头，不能并进上一条要求。"""
     text = (flat or "").strip()
+    if _word_split_continuation(text):
+        return False
     if re.match(r"^(?:Table\s*\d\b|Load\s*\(|Speed rate\b|Step\s*:|\(?\s*±)", text, re.I):
         return True
     if re.fullmatch(r"[A-Za-z]{1,3}", text):

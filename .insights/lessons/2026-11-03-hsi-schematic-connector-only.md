@@ -1,6 +1,7 @@
 # 2026-11-03 原理图出表只写接插件网络
 
-- 状态：active
+- 状态：superseded
+- 取代：`.insights/lessons/2026-11-10-hsi-schematic-archive-keeps-template.md`
 - 条目：HSI 出表
 - 闸门：`tests/test_hsi.py`（`test_revise_hsi_from_schematic_keeps_unmatched_rows`、`test_schematic_lists_unconnected_connector_pin_and_clears_template_pages`）
 

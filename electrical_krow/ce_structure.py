@@ -12,6 +12,9 @@ from pathlib import Path
 _PART_NO = re.compile(r"\d{10}")
 _WEIGHT = re.compile(r"^\d+(?:\.\d+)?\s*g$", re.I)
 _THICKNESS = re.compile(r"板料厚度\s*([0-9]+(?:\.[0-9]+)?(?:±[0-9]+(?:\.[0-9]+)?)?)\s*mm")
+_OUTLINE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*[x×X*]\s*(\d+(?:\.\d+)?)\s*[x×X*]\s*(\d+(?:\.\d+)?)"
+)
 _SKIP_VALUE = frozenset({"Material", "Mark", "Weight", "Amount", "Drawing", "Title:", "Part", "NO", "NO."})
 _NOT_MATERIAL = frozenset({
     "日期", "签字", "设计", "校对", "审核", "批准", "图样名称", "图样标记", "图样代号",
@@ -30,6 +33,9 @@ class StructureRow:
     parent: str
     source: str
     note: str
+    size_x: str = ""
+    size_y: str = ""
+    size_z: str = ""
 
 
 def _text(value: str) -> str:
@@ -93,7 +99,20 @@ def _title_row(words: list[tuple[float, float, float, float, str]], source: str)
             matched = _THICKNESS.search(" ".join(word[4] for word in words))
         if matched:
             thickness = matched.group(1) + "mm"
-    return StructureRow(title, part_no, "", thickness, weight, material, parent, source, note)
+    size_x = size_y = size_z = ""
+    outline = _below(
+        words,
+        "外形尺寸",
+        accept=lambda text: _OUTLINE.search(text.replace(" ", "")) is not None,
+    )
+    if outline:
+        found = _OUTLINE.search(outline.replace(" ", ""))
+        if found:
+            size_x, size_y, size_z = found.group(1), found.group(2), found.group(3)
+    return StructureRow(
+        title, part_no, "", thickness, weight, material, parent, source, note,
+        size_x, size_y, size_z,
+    )
 
 
 def _bom_rows(words: list[tuple[float, float, float, float, str]], source: str, parent: str) -> list[StructureRow]:
@@ -188,6 +207,9 @@ def read_structure_drawing(path: Path) -> list[StructureRow]:
                                     title.parent,
                                     path.name,
                                     title.note,
+                                    title.size_x,
+                                    title.size_y,
+                                    title.size_z,
                                 )
                             )
                         else:

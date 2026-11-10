@@ -1,6 +1,7 @@
 # 2026-11-03 原理图封面不显示模板修改说明
 
-- 状态：active
+- 状态：superseded
+- 取代：`.insights/lessons/2026-11-10-hsi-schematic-archive-keeps-template.md`
 - 条目：HSI 出表
 - 闸门：`tests/test_hsi.py`（`test_schematic_lists_unconnected_connector_pin_and_clears_template_pages`）
 

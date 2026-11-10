@@ -25,6 +25,31 @@ class BrandingTests(unittest.TestCase):
         self.assertFalse(should_handoff_macos_app())
         self.assertFalse(handoff_macos_app([]))
 
+    def test_macos_handoff_reuses_one_app_instance(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(list(cmd))
+
+            class Result:
+                returncode = 0
+
+            return Result()
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            with patch("electrical_krow.branding.runtime_python", return_value=sys.executable):
+                with patch("electrical_krow.branding.should_handoff_macos_app", return_value=True):
+                    with patch("electrical_krow.branding.macos_app_dir", return_value=root / f"{DOCK_APP_NAME}.app"):
+                        with patch("electrical_krow.branding.macos_client_app_paths", return_value=[]):
+                            with patch("electrical_krow.branding.subprocess.run", side_effect=fake_run):
+                                self.assertTrue(handoff_macos_app(["--port", "18765"]))
+        open_calls = [cmd for cmd in calls if cmd and cmd[0] == "open"]
+        self.assertEqual(len(open_calls), 1)
+        self.assertEqual(open_calls[0][0], "open")
+        self.assertTrue(str(open_calls[0][1]).endswith(f"{DOCK_APP_NAME}.app"))
+        self.assertNotIn("-n", open_calls[0])
+
     def test_window_title_is_agent_name(self) -> None:
         self.assertEqual(TITLE, "电子电器智能体")
         self.assertEqual(DOCK_APP_NAME, "电子电器智能体")

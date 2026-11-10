@@ -259,8 +259,6 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('addEventListener("beforeunload"', js.text)
         self.assertIn("/api/output/open", js.text)
         self.assertIn('tx("model.recommended")', js.text)
-        self.assertNotIn("data-pick", js.text)
-        self.assertNotIn("data-pick", self.client.get("/").text)
         self.assertIn("prefers-reduced-motion: reduce", js.text)
         self.assertIn("function motionReduced(", js.text)
         self.assertIn("function motionAttr(", js.text)
@@ -718,7 +716,9 @@ class GatewayTests(unittest.TestCase):
         self.assertIn('id="icd-file"', page)
         self.assertIn('id="bom-card"', page)
         self.assertIn('id="rail-bom"', page)
-        self.assertIn('id="bom-template"', page)
+        self.assertIn("电子件用 AD 导出的 BOM", page)
+        self.assertIn('id="bom-previous"', page)
+        self.assertNotIn('id="bom-template"', page)
         self.assertIn('id="arch-card"', page)
         self.assertIn('id="arch-files"', page)
         self.assertIn("multiple", page[page.index('id="arch-files"'):page.index('id="arch-files"') + 120])
@@ -1012,6 +1012,48 @@ class GatewayTests(unittest.TestCase):
                 },
             )
         self.assertEqual(empty.status_code, 400)
+
+    def test_hsi_templates_listed_and_schematic_requires_one(self) -> None:
+        from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, HsiResult
+
+        listed = self.client.get("/api/hsi/templates")
+        self.assertEqual(listed.status_code, 200, listed.text)
+        rows = listed.json()["templates"]
+        self.assertEqual([row["id"] for row in rows], ["TC499", "TC387", "TC399"])
+        self.assertEqual(listed.json()["default"], "TC499")
+        page = self.client.get("/")
+        self.assertIn('id="io-template-choices"', page.text)
+        self.assertIn('id="io-template"', page.text)
+        js = self.client.get("/static/app.js").text
+        self.assertIn("/api/hsi/templates", js)
+        self.assertIn("template_id", js)
+        self._login()
+        missing = self.client.post(
+            "/api/hsi",
+            data={"mode": "schematic"},
+            files={"schematic": ("board.edf", b"(edif demo)", "application/octet-stream")},
+        )
+        self.assertEqual(missing.status_code, 400)
+        self.assertIn("模板", missing.json()["detail"])
+        seen = {}
+
+        def fake_revise(base, dest, schematic, *, on_progress=None):
+            seen["base"] = Path(base)
+            dest = Path(dest)
+            dest.write_bytes(b"sch-hsi")
+            return HsiResult(dest, "TC499", "", "", 2, 0, schematic_updates=2)
+
+        with patch("electrical_krow.gateway.revise_hsi_from_schematic", side_effect=fake_revise), patch(
+            "electrical_krow.gateway.open_locally"
+        ):
+            ok = self.client.post(
+                "/api/hsi",
+                data={"mode": "schematic", "template_id": "TC499"},
+                files={"schematic": ("board.edf", b"(edif demo)", "application/octet-stream")},
+            )
+        self.assertEqual(ok.status_code, 200, ok.text)
+        self.assertEqual(seen["base"], DEFAULT_HSI_TEMPLATE)
+        self.assertEqual(ok.json()["schematic_updates"], 2)
 
     def test_inspect_requires_login_and_reports_type_pages_estimate(self) -> None:
         from electrical_krow.mock_server import DEMO_USER

@@ -6,6 +6,7 @@ import os
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from electrical_krow.paths import FRONTEND_DIR, PACKAGE_DIR
@@ -14,6 +15,7 @@ TITLE = "电子电器智能体"
 DOCK_APP_NAME = "电子电器智能体"
 BUNDLE_ID = "cn.electrical.krow.sorfill"
 LAUNCHER_NAME = "ElectricalKrow"
+_LEGACY_DOCK_APP_NAMES = ("电子电器SOR填表",)
 
 
 def icon_file(*, platform: str | None = None) -> Path | None:
@@ -216,12 +218,65 @@ def install_macos_app_bundle(
     return app
 
 
+def macos_client_app_paths(root: Path | None = None) -> list[Path]:
+    base = root if root is not None else Path.home() / "Library" / "Application Support" / "electrical-krow"
+    names = (DOCK_APP_NAME, *_LEGACY_DOCK_APP_NAMES)
+    return [base / f"{name}.app" for name in names]
+
+
+def quit_macos_client_apps(*, root: Path | None = None) -> None:
+    """关掉已打开的本机客户端，避免 Dock 叠多个图标。"""
+    if sys.platform != "darwin":
+        return
+    for app in macos_client_app_paths(root):
+        if not app.is_dir():
+            continue
+        subprocess.run(
+            ["osascript", "-e", f'tell application "{app.name}" to quit'],
+            capture_output=True,
+            check=False,
+        )
+    subprocess.run(
+        ["osascript", "-e", f'tell application id "{BUNDLE_ID}" to quit'],
+        capture_output=True,
+        check=False,
+    )
+    # 正常退出没掉的再强杀启动器
+    for app in macos_client_app_paths(root):
+        exe = app / "Contents" / "MacOS" / LAUNCHER_NAME
+        if not exe.is_file():
+            continue
+        subprocess.run(["pkill", "-f", str(exe)], capture_output=True, check=False)
+    deadline = time.time() + 2.0
+    while time.time() < deadline:
+        still = False
+        for app in macos_client_app_paths(root):
+            exe = app / "Contents" / "MacOS" / LAUNCHER_NAME
+            if not exe.is_file():
+                continue
+            found = subprocess.run(
+                ["pgrep", "-f", str(exe)],
+                capture_output=True,
+                check=False,
+            )
+            if found.returncode == 0 and (found.stdout or b"").strip():
+                still = True
+                break
+        if not still:
+            break
+        time.sleep(0.1)
+
+
 def handoff_macos_app(argv: list[str] | None = None) -> bool:
-    """用 .app 身份打开窗口，避免 Dock 显示 python3.12。父进程随即退出。"""
+    """用 .app 身份打开窗口，避免 Dock 显示 python3.12。父进程随即退出。
+
+    先关掉已有实例，再 `open`（不加 -n），Dock 只留一个图标。
+    """
     if not should_handoff_macos_app():
         return False
     app = install_macos_app_bundle(argv=argv)
-    started = subprocess.run(["open", "-n", str(app)], check=False)
+    quit_macos_client_apps()
+    started = subprocess.run(["open", str(app)], check=False)
     return started.returncode == 0
 
 

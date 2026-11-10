@@ -4,10 +4,9 @@
 方向列只写手册给出的 Input 或 Output。功能列写对得上的模板用法：Analog、Digital、PWM、SPI、CAN。对得上的模板端口名写入 Pin Definition，不对的由人改。ATOM/DTM 不写入格子。
 ADC 表按手册复用里的转换器分组，同一组排在一起并着底色。两路 EVADC 的组号留空。项目信号名不写入。
 上传网表时再写原理图网络名和外部电阻。端口名为空时不做跳转。
-手册出表保留这版模板的封面、变更记录和各页列名。各页原来的数据行、示例和说明清空。
-两条路径都不保留各页模板里的原理图图片、空行底色和边框。
-按原理图重写时，封面修改人、变更记录，以及表头里的芯片型号和封装也不保留。
-没有版本列的旧模板仍按原规则：没有上一版时变更记录只留表头，并去掉用不到的表。
+
+有原理图时：模板各页原样复制。只更新对得上的网络名和外部电阻，并写明与端口名的交叉差异。对不上的网络不新增行，也不清封面和变更记录。
+无原理图时：先认 MCU、数总脚数、按手册归类，再写入复用；手册出表清空各页示例数据行。
 """
 
 from __future__ import annotations
@@ -64,6 +63,59 @@ from electrical_krow.mcu_pins import (
 DEFAULT_HSI_TEMPLATE = (
     Path(__file__).resolve().parent / "templates" / "DHTE400-HSI-V1.3-20261023.xlsx"
 )
+_TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
+
+
+# 按原理图归档时先选 MCU 模板。有独立文件（文件名含型号）时用它，否则先共用默认底稿。
+_HSI_MCU_TEMPLATE_IDS = ("TC499", "TC387", "TC399")
+
+
+def _mcu_token(mcu: str) -> str:
+    return re.sub(r"[^A-Za-z0-9]", "", (mcu or "")).upper()
+
+
+def hsi_template_for_mcu(mcu: str) -> Path:
+    """按 MCU 选模板。有独立文件（文件名含型号）时用它，否则用默认 DHTE400。"""
+    token = _mcu_token(mcu)
+    if not token or not _TEMPLATE_DIR.is_dir():
+        return DEFAULT_HSI_TEMPLATE
+    hits: list[Path] = []
+    for path in sorted(_TEMPLATE_DIR.glob("*HSI*.xlsx")):
+        name = re.sub(r"[^A-Za-z0-9]", "", path.stem).upper()
+        if token in name:
+            hits.append(path)
+    if not hits:
+        return DEFAULT_HSI_TEMPLATE
+    dedicated = [path for path in hits if path.resolve() != DEFAULT_HSI_TEMPLATE.resolve()]
+    return dedicated[0] if dedicated else hits[0]
+
+
+def list_hsi_templates() -> list[dict[str, str]]:
+    """按 MCU 列模板（499 / 387 / 399），不是工程文件名。"""
+    rows: list[dict[str, str]] = []
+    for mcu in _HSI_MCU_TEMPLATE_IDS:
+        path = hsi_template_for_mcu(mcu)
+        if not path.is_file():
+            continue
+        rows.append({"id": mcu, "name": mcu, "file": path.name, "mcu": mcu})
+    return rows
+
+
+def hsi_template_by_id(template_id: str) -> Path | None:
+    token = (template_id or "").strip()
+    if not token:
+        return None
+    compact = _mcu_token(token)
+    for mcu in _HSI_MCU_TEMPLATE_IDS:
+        if compact == _mcu_token(mcu) or compact == mcu.lstrip("TC") or compact.endswith(mcu.lstrip("TC")):
+            path = hsi_template_for_mcu(mcu)
+            return path if path.is_file() else None
+    if not _TEMPLATE_DIR.is_dir():
+        return None
+    for path in _TEMPLATE_DIR.glob("*HSI*.xlsx"):
+        if path.stem == token or path.name == token:
+            return path
+    return None
 
 SHEET_COVER = "0_Cover"
 SHEET_HISTORY = "1_Chang History"
@@ -77,13 +129,58 @@ COL_STATUS = 22
 COL_MARK = 23
 COL_HUMAN = 24
 
+
+def _match_text(items: list[tuple[str, bool]]) -> str:
+    ok = [name for name, flag in items if flag]
+    miss = [name for name, flag in items if not flag]
+    text = f"{len(ok)}/{len(items)} 已对上"
+    if miss:
+        text += "；未对上 " + "、".join(miss)
+    return text
+
+
+def _write_port_match(sheet, header_row: int, excel_row: int, human_col: int, text: str) -> None:
+    if not human_col:
+        return
+    column = human_col + 1
+    sheet.cell(header_row, column, "匹配")
+    sheet.cell(excel_row, column, text)
+    sheet.column_dimensions[get_column_letter(column)].width = 42
+
+
+def _stamp_issue(workbook: Workbook, note: str) -> None:
+    """每次重出在变更记录记一版。模板里原来的版本号若已被清掉，就写在第一条空行。"""
+    history = _history_sheet(workbook)
+    if history is None:
+        return
+    header = None
+    limit = min(history.max_row or 1, 8)
+    width = min(history.max_column or 1, 8)
+    for row in range(1, limit + 1):
+        labels = {_text(history.cell(row, col).value) for col in range(1, width + 1)}
+        if "版本" in labels:
+            header = row
+            break
+    if header is None:
+        history.cell(1, 2, "版本")
+        history.cell(1, 4, "详细描述")
+        header = 1
+    target = header + 1
+    while any(history.cell(target, col).value not in (None, "") for col in range(1, 5)):
+        target += 1
+        if target > header + 40:
+            break
+    history.cell(target, 2, datetime.now().strftime("%Y%m%d-%H%M%S"))
+    history.cell(target, 3, date.today().isoformat())
+    history.cell(target, 4, note)
+
 STATUS_GAP = "缺项"
 STATUS_MULTI = "多候选"
 STATUS_CONFLICT = "约束冲突"
 STATUS_DRAFT = "待人工确认"
 
 _HISTORY_HEADERS = ("编号", "变更日期", "详细描述", "影响分析", "备注")
-_EVIDENCE_HEADERS = ("引脚符号", "球号", "方向", "缓冲", "功能", "复用", "页码", "原文摘录")
+_EVIDENCE_HEADERS = ("引脚符号", "球号", "方向", "缓冲", "功能", "复用", "页码", "手册分类", "原文摘录")
 _CONSTRAINT_HEADERS = (
     "引脚符号",
     "端口名",
@@ -343,9 +440,9 @@ def _placed_symbol_ball(sheet, layout: _PortLayout) -> tuple[int, int]:
             _BALL_CELL.match(under_symbol) and not _SYMBOL_CELL.match(under_symbol)
         ):
             swapped_votes += 1
-    if header_votes > swapped_votes:
-        return symbol_col, ball_col
-    return 2, 3
+    if swapped_votes > header_votes:
+        return ball_col, symbol_col
+    return symbol_col, ball_col
 
 
 def _project_cells(sheet, row: int) -> tuple[object, ...]:
@@ -621,10 +718,22 @@ def _assess(
         add_note(text)
 
     kind = pin_class(pin)
-    if kind in {"电源", "地"}:
+    if kind:
         add_note(f"手册分类：{kind}")
-    elif kind:
-        add_note("分配待人工确认")
+        if kind not in {"电源", "地"}:
+            add_note("分配待人工确认")
+    options = [
+        item.split()[0]
+        for item in present_mux(pin.mux).splitlines()
+        if item.strip()
+    ]
+    if len(options) > 1:
+        add_note("可选信号：" + "、".join(options) + "；复用不自动选择")
+    elif options:
+        add_note("可选信号：" + options[0])
+    keywords = hsi_keyword_hits(" ".join((pin.symbol, pin.function, pin.mux, _project_name(project))))
+    if keywords:
+        add_note("须进入HSI：" + "、".join(keywords))
 
     status = "；".join(flags) if flags else STATUS_DRAFT
     return status, "；".join(notes), project
@@ -1473,6 +1582,108 @@ def _schematic_note(hit: SchematicHit) -> str:
     return "；".join(parts)
 
 
+def _signal_key(name: str) -> str:
+    """端口名和原理图网络对齐。去掉分隔符，并丢掉夹在中间的单字母。"""
+    parts = re.split(r"[^A-Za-z0-9]+", (name or "").upper())
+    kept = [part for part in parts if len(part) > 1]
+    return "".join(kept)
+
+
+def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> int:
+    """模板行原样留下。只改对上的原理图网络和外部电阻，并记下和端口名的交叉差异。"""
+    port = _port_sheet(workbook)
+    if port is None:
+        return 0
+    layout = _port_layout(port)
+    symbol_col, _ball_col = _placed_symbol_ball(port, layout)
+    external = _external_state_column(port, layout.header)
+    net_col = layout.net or layout.name
+    name_col = layout.name
+    if not net_col:
+        return 0
+    hits = read_schematic(schematic)
+    board = read_board_pins(schematic)
+    if not hits and not board:
+        return 0
+    last = port.max_row or layout.header
+    data_rows = [
+        row
+        for row in range(layout.data_start, last + 1)
+        if _text(port.cell(row, symbol_col).value) or (name_col and _text(port.cell(row, name_col).value))
+    ]
+    by_key: dict[str, list[int]] = {}
+    for row in data_rows:
+        pieces = [
+            _text(port.cell(row, name_col).value) if name_col else "",
+            _text(port.cell(row, net_col).value),
+            _text(port.cell(row, symbol_col).value),
+        ]
+        for piece in pieces:
+            key = _signal_key(piece)
+            if len(key) >= 3:
+                by_key.setdefault(key, [])
+                if row not in by_key[key]:
+                    by_key[key].append(row)
+    touched: set[int] = set()
+
+    def write_net(row: int, net: str, pulls, port_name: str) -> None:
+        if not net:
+            return
+        before = _text(port.cell(row, net_col).value)
+        changed = before != net
+        if changed:
+            port.cell(row, net_col, net)
+        pull = _pull_text(pulls)
+        if external and pull and _text(port.cell(row, external).value) != pull:
+            port.cell(row, external, pull)
+            changed = True
+        parts: list[str] = []
+        if port_name and port_name != net:
+            parts.append(f"交叉：端口名 {port_name}，原理图 {net}")
+        if pulls:
+            for item in pulls:
+                parts.append(f"外部{item.kind} {item.part} {item.value} 至 {item.other}".strip())
+        elif changed:
+            parts.append("未看到接到电源或地的电阻")
+        if changed or parts:
+            parts.append("待人工复核")
+            mark = port.cell(row, layout.mark)
+            current = _text(mark.value)
+            text = "；".join(dict.fromkeys(parts))
+            if text and text not in current:
+                mark.value = f"{current}；{text}" if current else text
+            status = port.cell(row, layout.status)
+            shown = _text(status.value)
+            if STATUS_DRAFT not in shown:
+                status.value = f"{shown}；{STATUS_DRAFT}" if shown else STATUS_DRAFT
+            touched.add(row)
+
+    for row in data_rows:
+        symbol = _text(port.cell(row, symbol_col).value)
+        hit = None
+        for part in re.split(r"[/]", symbol):
+            key = pin_key(part)
+            if key and key in hits:
+                hit = hits[key]
+                break
+        if hit is None:
+            continue
+        port_name = _text(port.cell(row, name_col).value) if name_col else ""
+        write_net(row, hit.net, hit.pulls, port_name)
+    matched: set[str] = set()
+    for pin in board:
+        key = _signal_key(pin.net)
+        if len(key) < 3:
+            continue
+        for row in by_key.get(key, []):
+            port_name = _text(port.cell(row, name_col).value) if name_col else ""
+            write_net(row, pin.net, pin.pulls, port_name)
+            matched.add(pin.net)
+    if touched:
+        _link_repeated_nets(workbook, port, layout, symbol_col, net_col)
+    return len(touched)
+
+
 def _apply_schematic(workbook: Workbook, schematic: Path | None) -> int:
     """只按 MCU 引脚符号写入原理图网络和外部电阻。端口名相近但不含引脚符号时不改。"""
     if schematic is None:
@@ -1569,6 +1780,13 @@ def _write_board_pins(workbook: Workbook, pins: list[BoardPin]) -> int:
             port.cell(row, layout.mark, _board_note(pin))
         else:
             port.cell(row, layout.mark, "未进入任何网络；待人工复核")
+        _write_port_match(
+            port,
+            layout.header,
+            row,
+            layout.human,
+            _match_text([("脚号", bool(pin.label)), ("网络", bool(pin.net))]),
+        )
         for column in (1, symbol_col, layout.net, external, layout.status):
             if not column:
                 continue
@@ -1586,7 +1804,8 @@ def _write_board_pins(workbook: Workbook, pins: list[BoardPin]) -> int:
     if layout.human:
         port.column_dimensions[get_column_letter(layout.human)].width = 18
     last = layout.header + len(pins)
-    port.auto_filter.ref = f"A{layout.header}:{get_column_letter(layout.human)}{max(last, layout.header)}"
+    end_col = (layout.human or 1) + 1
+    port.auto_filter.ref = f"A{layout.header}:{get_column_letter(end_col)}{max(last, layout.header)}"
     _rename_function_description(port, layout)
     _retire_schematic_net_column(port)
     _link_repeated_nets(workbook, port, layout, symbol_col, layout.name)
@@ -1637,35 +1856,101 @@ def _link_repeated_nets(
         cursor += 1
 
 
+def _port_symbol_index(port, layout: _PortLayout, symbol_col: int) -> dict[str, list[int]]:
+    """模板已有行按归一化符号建索引，供原理图就地更新。"""
+    found: dict[str, list[int]] = {}
+    for row in range(layout.data_start, (port.max_row or layout.header) + 1):
+        symbol = _text(port.cell(row, symbol_col).value)
+        if not symbol:
+            continue
+        for key in split_symbol_parts(symbol):
+            found.setdefault(key, []).append(row)
+    return found
+
+
+def _last_filled_port_row(port, layout: _PortLayout, symbol_col: int) -> int:
+    last = layout.header
+    for row in range(layout.data_start, (port.max_row or layout.header) + 1):
+        if _text(port.cell(row, symbol_col).value) or _text(port.cell(row, 1).value):
+            last = row
+    return last
+
+
+def _set_if_changed(cell, value: object) -> bool:
+    if value in (None, ""):
+        return False
+    if _text(cell.value) == _text(value):
+        return False
+    cell.value = value
+    return True
+
+
 def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolPin]) -> int:
-    """按原理图符号上的脚写端口表。网络名是这只脚朝向那一侧导线上的名字。"""
+    """按原理图符号脚就地更新端口表。对得上的行只改变化的格子，对不上的追加，其余模板行不动。"""
     port = _port_sheet(workbook)
     if port is None or not pins:
         return 0
     layout = _port_layout(port)
-    _clear_project_banner(port, layout.header)
-    placed = _header_symbol_ball(port, layout.header)
-    symbol_col, ball_col = placed if placed else (2, 3)
-    _unmerge_from(port, layout.data_start)
-    _clear_below(port, layout.header)
-    _plain_port_sheet(port, layout.header)
+    symbol_col, ball_col = _placed_symbol_ball(port, layout)
     port.cell(layout.header, layout.status, "核对状态")
     port.cell(layout.header, layout.mark, "标记说明")
     port.cell(layout.header, layout.human, "人工修改")
-    if layout.mux:
+    if layout.mux and not _text(port.cell(layout.header, layout.mux).value):
         port.cell(layout.header, layout.mux, "复用")
-    for index, pin in enumerate(pins, start=1):
-        row = layout.header + index
-        port.cell(row, 1, index)
-        port.cell(row, symbol_col, pin.symbol)
-        if pin.ball:
-            port.cell(row, ball_col, pin.ball)
-        if layout.mux and pin.function:
-            port.cell(row, layout.mux, pin.function)
-        if layout.name and pin.net:
-            port.cell(row, layout.name, pin.net)
-        port.cell(row, layout.status, STATUS_DRAFT)
+    indexed = _port_symbol_index(port, layout, symbol_col)
+    used: set[int] = set()
+    cursor = _last_filled_port_row(port, layout, symbol_col)
+    touched: list[int] = []
+    for pin in pins:
+        keys = split_symbol_parts(pin.symbol)
+        candidates: list[int] = []
+        for key in keys:
+            for candidate in indexed.get(key, []):
+                if candidate not in candidates:
+                    candidates.append(candidate)
+        fresh = next((item for item in candidates if item not in used), 0)
+        # 同一只脚会再以别名出现，例如 AN17 和 P40.10。别名已经占了模板行时，不再追加。
+        row = fresh or (candidates[0] if candidates else 0)
+        added = False
+        if not row:
+            cursor += 1
+            row = cursor
+            added = True
+            stale = [
+                str(merged)
+                for merged in port.merged_cells.ranges
+                if merged.min_row <= row <= merged.max_row
+            ]
+            for ref in stale:
+                port.unmerge_cells(ref)
+            port.cell(row, 1, cursor - layout.header)
+            port.cell(row, symbol_col, pin.symbol)
+        else:
+            used.add(row)
+        changed = added
+        if pin.ball and _set_if_changed(port.cell(row, ball_col), pin.ball):
+            changed = True
+        symbol_now = _text(port.cell(row, symbol_col).value)
+        function_in_symbol = bool(
+            pin.function
+            and _signal_key(pin.function) in {_signal_key(part) for part in split_symbol_parts(symbol_now)}
+        )
+        if layout.mux and pin.function and not function_in_symbol and not _text(port.cell(row, layout.mux).value):
+            if _set_if_changed(port.cell(row, layout.mux), pin.function):
+                changed = True
+        if layout.net and pin.net and _set_if_changed(port.cell(row, layout.net), pin.net):
+            changed = True
+        port_name = _text(port.cell(row, layout.name).value) if layout.name else ""
+        cross = bool(pin.function and port_name and _signal_key(pin.function) != _signal_key(port_name))
+        if not changed and not cross and not added:
+            continue
+        if changed or added:
+            port.cell(row, layout.status, STATUS_DRAFT)
         parts = [f"原理图 {pin.sheet}"]
+        if added:
+            parts.append("模板无此符号，已追加")
+        if cross:
+            parts.append(f"交叉：端口名 {port_name}，符号功能 {pin.function}")
         if not pin.ball:
             parts.append("球号未在符号旁对上")
         if not pin.function:
@@ -1679,27 +1964,95 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
             port.cell(row, column).alignment = Alignment(horizontal=horizontal, vertical="center")
         if layout.mux and pin.function:
             port.cell(row, layout.mux).alignment = Alignment(wrap_text=True, vertical="center")
+        _write_port_match(
+            port,
+            layout.header,
+            row,
+            layout.human,
+            _match_text([
+                ("球号", bool(pin.ball)),
+                ("符号", bool(pin.symbol)),
+                ("复用", bool(pin.function)),
+            ]),
+        )
+        touched.append(row)
+        for key in keys:
+            indexed.setdefault(key, []).append(row)
     wrap = {layout.status: 18, layout.mark: 42}
     if layout.mux:
         wrap[layout.mux] = 36
-    if layout.name:
-        wrap[layout.name] = 28
-        port.column_dimensions[get_column_letter(layout.name)].width = 28
-    for index in range(1, len(pins) + 1):
-        _wrap_port_row(port, layout.header + index, wrap)
+    name_col = _pin_definition_column(layout)
+    if name_col:
+        wrap[name_col] = 28
+        port.column_dimensions[get_column_letter(name_col)].width = 28
+    for row in touched:
+        _wrap_port_row(port, row, wrap)
     for column, width in wrap.items():
         port.column_dimensions[get_column_letter(column)].width = width
     if symbol_col:
         port.column_dimensions[get_column_letter(symbol_col)].width = 14
     if ball_col:
         port.column_dimensions[get_column_letter(ball_col)].width = 12
-    last = layout.header + len(pins)
-    port.auto_filter.ref = f"A{layout.header}:{get_column_letter(layout.human)}{max(last, layout.header)}"
-    _plain_port_sheet(port, layout.header, keep_heights=True)
+    last = max(touched) if touched else layout.header
+    end_col = (layout.human or 1) + 1
+    port.auto_filter.ref = f"A{layout.header}:{get_column_letter(end_col)}{max(last, layout.header)}"
     _rename_function_description(port, layout)
-    _retire_schematic_net_column(port)
-    _link_repeated_nets(workbook, port, layout, symbol_col, layout.name)
-    return len(pins)
+    return len(touched)
+
+
+def _patch_spi_symbol_rows(workbook: Workbook, pins: tuple[ChipPin, ...]) -> int:
+    """SPI 页只更新符号对得上的行，不清空其余模板行。"""
+    sheet = _spi_sheet(workbook)
+    if sheet is None or not pins:
+        return 0
+    header_row = symbol_col = function_col = direction_col = 0
+    for row in range(1, 8):
+        for col in range(1, 12):
+            text = _text(sheet.cell(row, col).value).casefold()
+            if text == "pin" and not symbol_col:
+                header_row, symbol_col = row, col
+            elif text.startswith("pin f") and not function_col:
+                function_col = col
+            elif text in {"i/o", "io"} and not direction_col:
+                direction_col = col
+    if not header_row or not symbol_col:
+        return 0
+    by_symbol: dict[str, int] = {}
+    last = header_row
+    for row in range(header_row + 1, (sheet.max_row or header_row) + 1):
+        symbol = _text(sheet.cell(row, symbol_col).value)
+        if not symbol:
+            continue
+        last = row
+        for key in split_symbol_parts(symbol):
+            by_symbol.setdefault(key, row)
+    updated = 0
+    left = Alignment(horizontal="left", vertical="center", wrap_text=False)
+    wrapped = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    for pin in pins:
+        items = _spi_functions(pin)
+        if not items:
+            continue
+        row = 0
+        for key in split_symbol_parts(pin.symbol):
+            if key in by_symbol:
+                row = by_symbol[key]
+                break
+        if not row:
+            last += 1
+            row = last
+            sheet.cell(row, 1, last - header_row)
+            sheet.cell(row, symbol_col, pin.symbol).alignment = left
+            for key in split_symbol_parts(pin.symbol):
+                by_symbol.setdefault(key, row)
+        if function_col:
+            sheet.cell(row, function_col, "\n".join(token for token, _io in items)).alignment = wrapped
+        directions = [io for _token, io in items]
+        if direction_col and any(directions):
+            sheet.cell(row, direction_col, "\n".join(directions)).alignment = wrapped
+        _grow_row(sheet, row, max(len(items), 1))
+        updated += 1
+    return updated
 
 
 def _apply_drawing_chip(sheet, mcu: str, header_row: int) -> None:
@@ -2207,6 +2560,101 @@ def _clear_adc_template_constants(sheet, header_row: int) -> None:
             cell.border = plain
 
 
+_HSI_KEYWORDS = ("水温", "CAN", "LIN")
+
+
+def hsi_keyword_hits(text: str) -> list[str]:
+    """水温、CAN、LIN 这些固定词出现在当份文字里时，这条信号要进入 HSI。"""
+    raw = text or ""
+    folded = raw.upper()
+    found: list[str] = []
+    for word in _HSI_KEYWORDS:
+        if word.isascii():
+            if re.search(rf"(?<![A-Z]){word}(?![A-Z])", folded) and word not in found:
+                found.append(word)
+        elif word in raw and word not in found:
+            found.append(word)
+    return found
+
+
+def _adc_signal_name_columns(sheet) -> tuple[int, list[int]]:
+    header_row = 0
+    columns: list[int] = []
+    width = min(sheet.max_column or 1, 40)
+    for row in range(1, 8):
+        for col in range(1, width + 1):
+            compact = _text(sheet.cell(row, col).value).replace(" ", "").casefold()
+            if compact.startswith("signalname"):
+                header_row = row
+                if col not in columns:
+                    columns.append(col)
+    return header_row, columns
+
+
+def _hide_adc_signal_names(workbook: Workbook) -> None:
+    """手册出表不显示 ADC 信号名。这一列要等原理图才能填写。"""
+    sheet = _sheet(workbook, "3_ADC Table")
+    if sheet is None:
+        return
+    header_row, columns = _adc_signal_name_columns(sheet)
+    if not header_row:
+        return
+    for col in columns:
+        for row in range(header_row + 1, (sheet.max_row or header_row) + 1):
+            cell = sheet.cell(row, col)
+            if cell.value not in (None, ""):
+                cell.value = None
+        sheet.column_dimensions[get_column_letter(col)].hidden = True
+
+
+def _fill_adc_signal_names_from_port(workbook: Workbook) -> None:
+    """有原理图时，把端口表上对上的网络名写入 ADC 信号名。没对上的格子留空。"""
+    sheet = _sheet(workbook, "3_ADC Table")
+    port = _port_sheet(workbook)
+    if sheet is None or port is None:
+        return
+    header_row, columns = _adc_signal_name_columns(sheet)
+    if not header_row or not columns:
+        return
+    layout = _port_layout(port)
+    symbol_col, _ball_col = _placed_symbol_ball(port, layout)
+    net_col = layout.net or layout.name
+    names: dict[str, str] = {}
+    if net_col:
+        for row in range(layout.data_start, (port.max_row or layout.data_start) + 1):
+            symbol = _text(port.cell(row, symbol_col).value)
+            net = _text(port.cell(row, net_col).value)
+            if not symbol or not net:
+                continue
+            for key in split_symbol_parts(symbol):
+                names.setdefault(key, net)
+    pin_col = 0
+    for col in range(1, min(sheet.max_column or 1, 12) + 1):
+        compact = _text(sheet.cell(header_row, col).value).replace(" ", "").casefold()
+        if compact in {"pin", "pin_symbol"} or compact.startswith("ball"):
+            if compact.startswith("ball"):
+                pin_col = pin_col or col - 1
+            elif not pin_col:
+                pin_col = col
+    if not pin_col:
+        pin_col = 4
+    for col in columns:
+        sheet.column_dimensions[get_column_letter(col)].hidden = False
+        for row in range(header_row + 1, (sheet.max_row or header_row) + 1):
+            symbol = _text(sheet.cell(row, pin_col).value)
+            if not symbol:
+                continue
+            net = ""
+            for key in split_symbol_parts(symbol):
+                if key in names:
+                    net = names[key]
+                    break
+            if net:
+                sheet.cell(row, col, net)
+            elif sheet.cell(row, col).value not in (None, ""):
+                sheet.cell(row, col).value = None
+
+
 def _hide_adc_spare_columns(workbook: Workbook) -> None:
     """ADC 表里这版不参与复核的 R1、R3 列隐藏。模板里的阻容数值另清。"""
     sheet = _sheet(workbook, "3_ADC Table")
@@ -2511,13 +2959,26 @@ def _write_ports_v13(
             sheet.cell(excel_row, layout.mark, note)
         if row.symbol in human:
             sheet.cell(excel_row, layout.human, human[row.symbol])
+        _write_port_match(
+            sheet,
+            layout.header,
+            excel_row,
+            layout.human,
+            _match_text([
+                ("球号", bool(row.ball)),
+                ("符号", bool(row.symbol)),
+                ("复用", bool(present_mux(row.mux))),
+                ("方向", bool(row.direction)),
+            ]),
+        )
         if pin_supply_kind(row.symbol):
             sheet.row_dimensions[excel_row].hidden = True
         _wrap_port_row(sheet, excel_row, wrap)
     for column, width in wrap.items():
         sheet.column_dimensions[get_column_letter(column)].width = width
     last = layout.header + len(drafts)
-    sheet.auto_filter.ref = f"A{layout.header}:{get_column_letter(layout.human)}{max(last, layout.header)}"
+    end_col = (layout.human or 1) + 1
+    sheet.auto_filter.ref = f"A{layout.header}:{get_column_letter(end_col)}{max(last, layout.header)}"
     _plain_port_sheet(sheet, layout.header, keep_heights=True)
 
 
@@ -2586,6 +3047,17 @@ def _write_ports(
     _plain_port_sheet(sheet, 4, keep_heights=True)
 
 
+def _class_summary(pins: tuple[ChipPin, ...]) -> str:
+    counts: dict[str, int] = {}
+    for pin in pins:
+        kind = pin_class(pin) or "未分类"
+        counts[kind] = counts.get(kind, 0) + 1
+    order = ("电源", "地", "ADC", "SPI", "CAN", "GPIO", "IO", "Timer")
+    parts = [f"{name} {counts[name]}" for name in order if name in counts]
+    parts.extend(f"{name} {counts[name]}" for name in sorted(counts) if name not in order)
+    return "、".join(parts)
+
+
 def _write_evidence(workbook: Workbook, pins: tuple[ChipPin, ...]) -> None:
     sheet = _fresh_sheet(workbook, SHEET_EVIDENCE)
     _write_rows(sheet, [list(_EVIDENCE_HEADERS)])
@@ -2598,6 +3070,7 @@ def _write_evidence(workbook: Workbook, pins: tuple[ChipPin, ...]) -> None:
             pin.function,
             present_mux(pin.mux),
             pin.page,
+            pin_class(pin),
             present_excerpt(pin.excerpt),
         )
         for column, value in enumerate(values, start=1):
@@ -2783,7 +3256,13 @@ def write_hsi_workbook(
         )
         if STATUS_CONFLICT in status:
             conflict_count += 1
-        row = _pin_row(pin, project)
+        # 上一版这一列已被改过时，不再把模板端口名写回去；只记球号等差异。
+        sheet_project = project
+        if previous_rows:
+            prev = previous_rows.get(pin.symbol)
+            if prev is not None and _project_name(prev.project) != _project_name(project):
+                sheet_project = ()
+        row = _pin_row(pin, sheet_project)
         usage = _template_function(matches)
         if usage:
             usages[pin.symbol] = usage
@@ -2792,10 +3271,13 @@ def write_hsi_workbook(
     changes = _diff(previous_rows, current_rows) if previous_rows else []
     version = _next_version(mcu, package, previous_version)
     today = date.today().strftime("%Y%m%d")
+    classes = _class_summary(pins)
     if previous_rows:
-        summary = f"相对上一版 {len(changes)} 处端口差异"
+        summary = f"相对上一版 {len(changes)} 处端口差异；总脚数 {len(pins)}"
     else:
-        summary = "首次按手册生成端口表"
+        summary = f"首次按手册生成端口表；总脚数 {len(pins)}"
+    if classes:
+        summary = f"{summary}；{classes}"
     remark = _COVER_REMARK
     cover = _cover_sheet(template_book)
     history = _history_sheet(template_book)
@@ -2828,6 +3310,10 @@ def write_hsi_workbook(
     schematic_updates = _apply_schematic(template_book, schematic)
     _clear_template_detail_rows(template_book, drop_template_chrome=True)
     _fill_adc_from_manual(template_book, pins)
+    if schematic is not None:
+        _fill_adc_signal_names_from_port(template_book)
+    else:
+        _hide_adc_signal_names(template_book)
     _fill_spi_from_manual(template_book, pins)
     _fill_can_from_manual(template_book, pins)
     _link_detail_sheets(template_book)
@@ -2836,6 +3322,7 @@ def write_hsi_workbook(
         _rename_function_description(port, _port_layout(port))
         _retire_schematic_net_column(port)
     template_book.active = port
+    _stamp_issue(template_book, "按芯片手册重出")
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     tick(97, "write", "")
@@ -2939,7 +3426,7 @@ def revise_hsi_from_schematic(
     *,
     on_progress=None,
 ) -> HsiResult:
-    """按网表的接插件脚，或原理图 PDF 上认出的 MCU 脚，重写端口数据。"""
+    """有原理图时保留模板。PDF 按符号更新对上的行；EDIF 只改对上的网络名和外部电阻。"""
     suffix = schematic.suffix.lower()
     if suffix not in {".edf", ".pdf"}:
         raise ValueError("按原理图生成请用 EDIF（.edf）网表或原理图 PDF。")
@@ -2961,19 +3448,20 @@ def revise_hsi_from_schematic(
             updated = _write_schematic_symbol_pins(book, symbol_pins)
             if updated == 0:
                 raise ValueError("这份原理图 PDF 里没有认出 MCU 引脚。")
+            _patch_spi_symbol_rows(book, _chips_from_schematic(symbol_pins))
+            _fill_adc_signal_names_from_port(book)
+            port = _port_sheet(book)
+            if port is not None:
+                _apply_drawing_chip(port, drawing_mcu, _port_layout(port).header)
+            _stamp_issue(book, "按原理图归档更新")
         else:
-            updated = _write_board_pins(book, board_pins)
-            if updated == 0:
-                raise ValueError("这份网表里没有接插件脚，未修改端口表。")
-        _clear_template_detail_rows(book, drop_template_chrome=True)
-        _strip_schematic_template_identity(book)
-        if suffix == ".pdf":
-            chips = _chips_with_manual_adc(symbol_pins, drawing_mcu)
-            _fill_adc_from_manual(book, chips)
-            _fill_spi_from_manual(book, chips)
-            _fill_can_from_manual(book, chips)
-            _link_detail_sheets(book)
-            _apply_drawing_chip(port, drawing_mcu, _port_layout(port).header)
+            updated = _archive_edif_onto_template(book, schematic)
+            port = _port_sheet(book)
+            if updated:
+                _stamp_issue(book, "按原理图归档更新")
+            else:
+                _stamp_issue(book, "按原理图归档；网络未对上模板端口，格子未改")
+            _fill_adc_signal_names_from_port(book)
         mcu = drawing_mcu
         pins = updated
         if port is not None:
@@ -3024,9 +3512,12 @@ def build_hsi(
 
     report(1, "read", "")
     pages = read_pdf_pages(datasheet, on_progress=page_tick)
-    report(42, "pins", "")
+    report(40, "mcu", "")
     detected = mcu_name(datasheet.name, pages)
     mcu = mcu.strip() or detected
+    if not mcu:
+        raise ValueError("认不出 MCU 型号，未填写端口表。")
+    report(42, "mcu", mcu)
     choices = parse_pin_pages(pages)
     if not choices:
         raise ValueError("手册中没有读到封装引脚表。")
@@ -3041,7 +3532,8 @@ def build_hsi(
             raise ValueError("手册中没有封装 " + package + "。可读到：" + "、".join(choices))
         chosen = normalized[chosen]
     pins = parse_pins(pages, chosen)
-    report(48, "pins", str(len(pins)) if pins else "")
+    report(46, "pins", str(len(pins)) if pins else "")
+    report(48, "classify", _class_summary(pins))
 
     def write_progress(inner: float, stage: str, detail: str = "") -> None:
         report(50 + float(inner) * 0.49, stage, detail)

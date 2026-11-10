@@ -279,17 +279,25 @@
 
           <div id="bom-card" class="card tool-card" hidden>
             <ol class="io-steps">
-              <li><span>1</span><em data-i18n="bom.step1">读取物料手册或 EDF。表格式固定为 3DHT200-CE BOM</em></li>
-              <li><span>2</span><em data-i18n="bom.step2">按物料及规格关联，抽出长、宽、高、重量等模板栏目</em></li>
-              <li><span>3</span><em data-i18n="bom.step3">模板里原有的零件行不保留</em></li>
-              <li><span>4</span><em data-i18n="bom.step4">读到的数据只写入供应商表</em></li>
+              <li><span>1</span><em data-i18n="bom.step1">电子件用 AD 导出的 BOM，结构件用总成图纸</em></li>
+              <li><span>2</span><em data-i18n="bom.step2">电子件按 TYPE 写中文名称、用量、规格，级别默认 4</em></li>
+              <li><span>3</span><em data-i18n="bom.step3">有图的结构件为 2 级，无图子件为 3 级；3 级尺寸手填</em></li>
+              <li><span>4</span><em data-i18n="bom.step4">有上一版时只校核差异，不用上一版填当次没有的数</em></li>
             </ol>
             <form id="bom-form" class="io-form">
               <div class="io-file">
-                <span class="io-file-label" data-i18n="bom.manuals">物料手册</span>
+                <span class="io-file-label" data-i18n="bom.manuals">物料手册或 AD BOM</span>
                 <label class="io-file-box" data-target="bom-manuals" data-accept="manual" data-kind="jobs">
                   <input id="bom-manuals" type="file" multiple />
                   <span class="io-file-name" id="bom-manuals-name" data-i18n="io.fileNone">未选择文件</span>
+                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
+                </label>
+              </div>
+              <div class="io-file">
+                <span class="io-file-label" data-i18n="bom.previous">上一版 CE BOM（可选）</span>
+                <label class="io-file-box" data-target="bom-previous" data-accept="sheet" data-kind="bom">
+                  <input id="bom-previous" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                  <span class="io-file-name" id="bom-previous-name" data-i18n="io.fileNone">未选择文件</span>
                   <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
                 </label>
               </div>
@@ -349,9 +357,9 @@
               <label><input type="radio" name="io-mode" value="mcu" /><span data-i18n="io.modeMcu">按芯片手册生成</span></label>
             </div>
             <ol class="io-steps" id="io-steps-schematic" data-io-mode="schematic">
-              <li><span>1</span><em data-i18n="io.sch.step1">选择原理图网表</em></li>
-              <li><span>2</span><em data-i18n="io.sch.step2">按网表里的接插件脚写入</em></li>
-              <li><span>3</span><em data-i18n="io.sch.step3">写入网络名和外部上拉、下拉</em></li>
+              <li><span>1</span><em data-i18n="io.sch.step1">先选择 MCU 模板（如 TC499、TC387）</em></li>
+              <li><span>2</span><em data-i18n="io.sch.step2">再选择原理图网表或原理图 PDF</em></li>
+              <li><span>3</span><em data-i18n="io.sch.step3">按符号或接插件脚更新对上的格子</em></li>
               <li><span>4</span><em data-i18n="io.sch.step4">标成待人工复核</em></li>
             </ol>
             <ol class="io-steps" id="io-steps-mcu" data-io-mode="mcu" hidden>
@@ -377,8 +385,9 @@
                     <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6.2 8 10.2 12 6.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   </button>
                   <ul id="io-mcu-menu" class="io-mcu-menu" role="listbox" hidden>
-                    <li role="none"><button type="button" role="option" data-mcu="TC399">TC399</button></li>
+                    <li role="none"><button type="button" role="option" data-mcu="TC499">TC499</button></li>
                     <li role="none"><button type="button" role="option" data-mcu="TC387">TC387</button></li>
+                    <li role="none"><button type="button" role="option" data-mcu="TC399">TC399</button></li>
                     <li role="none"><button type="button" role="option" data-mcu="TC324">TC324</button></li>
                   </ul>
                 </div>
@@ -388,6 +397,17 @@
                 <div class="io-package-body">
                   <p id="io-package-status" class="io-package-status" hidden></p>
                   <div id="io-package-choices" class="io-packages"></div>
+                </div>
+              </div>
+              <div class="io-file" data-io-mode="schematic">
+                <span class="io-file-label" data-i18n="io.template">MCU 模板</span>
+                <div class="io-package-body">
+                  <div id="io-template-choices" class="io-packages" role="radiogroup" aria-label="MCU 模板"></div>
+                  <label class="io-file-box" data-target="io-template" data-accept="sheet" data-kind="hsi">
+                    <input id="io-template" type="file" accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" />
+                    <span class="io-file-name" id="io-template-name" data-i18n="io.fileNone">未选择文件</span>
+                    <span class="io-file-action" data-i18n="io.templateLocal">本机其他模板</span>
+                  </label>
                 </div>
               </div>
               <div class="io-file" data-io-mode="schematic">

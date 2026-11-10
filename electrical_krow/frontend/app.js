@@ -379,7 +379,15 @@ function fmtWhen(ts) {
   if (!isFinite(n) || n <= 0) return "";
   const d = new Date(n < 1e12 ? n * 1000 : n);
   if (!isFinite(d.getTime())) return "";
-  return d.toLocaleString(typeof window.uiLang === "function" && window.uiLang() === "en" ? "en-US" : "zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const lang = typeof window.uiLang === "function" && window.uiLang() === "en" ? "en-US" : "zh-CN";
+  const clock = d.toLocaleTimeString(lang, { hour: "2-digit", minute: "2-digit" });
+  const today = new Date();
+  const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  if (day === todayDay) return tx("record.today", { t: clock });
+  if (day === todayDay - 86400000) return tx("record.yesterday", { t: clock });
+  const date = d.toLocaleDateString(lang, { month: "numeric", day: "numeric" });
+  return date + " " + clock;
 }
 
 function startJobTimer() {
@@ -470,6 +478,7 @@ let bomSources = [];
 let recordNote = null;
 let recordOpen = {};
 let recordDraft = null;
+let recordQuery = { jobs: "", hsi: "", arch: "", icd: "", bom: "" };
 
 function renderByKind(kind) {
   if (kind === "hsi") renderHsi();
@@ -550,11 +559,41 @@ function layoutRecords(rows, kind) {
   return blocks;
 }
 
+function recordQueryOf(kind) {
+  return String(recordQuery[kind] || "");
+}
+
+function recordHaystack(row, kind) {
+  const status = String((row && row.status) || "");
+  const statusWord = status === "error" ? "失败 fail" : status === "done" ? "完成 done" : status === "running" ? "进行中 running" : status;
+  return [
+    row && row.source,
+    row && row.download,
+    row && row.mcu,
+    row && row.package,
+    row && row.group_title,
+    row && row.detail,
+    row && row.message,
+    statusWord,
+    recordFolderTitle(row || {}, kind),
+    fileNameOf(row && row.download),
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
 function folderIsOpen(kind, id, rows) {
+  if (recordQueryOf(kind).trim()) return true;
   const key = kind + ":" + id;
   if (Object.prototype.hasOwnProperty.call(recordOpen, key)) return !!recordOpen[key];
   const active = viewingJob || currentJob || "";
   return kind === "jobs" && rows.some((row) => String(row.id || "") === active);
+}
+
+function sourceAccept(kind) {
+  if (kind === "hsi") return ".pdf,.edf,application/pdf";
+  if (kind === "arch") return ".pdf,application/pdf";
+  if (kind === "bom") return ".pdf,.xlsx,.xlsm,.docx,.edf";
+  if (kind === "icd") return ".xlsx,.xlsm,.pdf";
+  return ".pdf,.docx,.xlsx,.xlsm,application/pdf";
 }
 
 function recordCard(kind, row, openAttr, openValue, title, inner) {
@@ -600,24 +639,47 @@ function recordToolbar(kind) {
       + (recordDraft.error ? "<p class='job-folder-error'>" + escText(recordDraft.error) + "</p>" : "")
       + "</form>";
   }
+  const query = recordQueryOf(kind);
   return "<div class='job-folder-bar'>"
+    + "<input class='job-search' type='search' value='" + escText(query) + "' placeholder='" + escText(tx("record.search")) + "' aria-label='" + escText(tx("record.search")) + "' />"
     + "<button type='button' class='job-new-folder' data-kind='" + escText(kind) + "'>" + tx("record.newFolder") + "</button>"
     + "<button type='button' class='job-add-source' data-kind='" + escText(kind) + "'>" + tx("record.addSource") + "</button>"
-    + "<input class='job-source-input' type='file' hidden accept='.pdf,.docx,.xlsx,.xlsm,application/pdf' />"
+    + "<input class='job-source-input' type='file' hidden accept='" + sourceAccept(kind) + "' />"
     + "</div>" + note;
 }
 
 function fillRecordHost(host, kind, rows, cardHtml, onEmpty) {
+  const query = recordQueryOf(kind).trim().toLowerCase();
+  const shown = query ? rows.filter((row) => recordHaystack(row, kind).includes(query)) : rows;
   const folders = recordFolders[kind] || [];
+  const scroll = host.scrollTop;
+  const typing = document.activeElement && host.contains(document.activeElement)
+    && document.activeElement.classList.contains("job-search");
+  const caret = typing ? document.activeElement.selectionStart : null;
   let html = recordToolbar(kind);
   if (!rows.length && !folders.length) {
     host.innerHTML = html + onEmpty();
     bindRecordChrome(host, kind);
     return;
   }
-  html += layoutRecords(rows, kind).map((block) => {
+  let blocks = layoutRecords(shown, kind);
+  if (query) {
+    blocks = blocks.filter((block) => {
+      if (block.type === "single") return true;
+      if ((block.rows || []).length) return true;
+      return String(block.title || "").toLowerCase().includes(query);
+    });
+  }
+  if (!blocks.length) {
+    html += "<p class='job-empty'>" + tx("record.noMatch") + "</p>";
+  } else if (query) {
+    html += "<p class='job-search-count'>" + tx("record.foundN", { n: shown.length, total: rows.length }) + "</p>";
+  }
+  html += blocks.map((block) => {
     if (block.type === "single") return cardHtml(block.row);
     const open = folderIsOpen(kind, block.id, block.rows);
+    const latest = (block.rows || []).reduce((max, row) => Math.max(max, Number(row.created_at || 0)), 0);
+    const when = fmtWhen(latest);
     const body = block.rows.length
       ? block.rows.map(cardHtml).join("")
       : "<p class='job-folder-empty'>" + tx("record.folderEmpty") + "</p>";
@@ -625,14 +687,29 @@ function fillRecordHost(host, kind, rows, cardHtml, onEmpty) {
       + "<button type='button' class='job-folder-head' data-folder='" + escText(kind + ":" + block.id) + "'>"
       + "<span class='job-folder-chev' aria-hidden='true'></span>"
       + "<span class='job-folder-name'>" + escText(block.title) + "</span>"
+      + (when ? "<span class='job-folder-when'>" + escText(when) + "</span>" : "")
       + "<span class='job-folder-count'>" + block.rows.length + "</span>"
       + "</button><div class='job-folder-body'>" + body + "</div></section>";
   }).join("");
   host.innerHTML = html;
   bindRecordChrome(host, kind);
+  if (typing) {
+    const input = host.querySelector(".job-search");
+    if (input) {
+      input.focus();
+      if (caret != null) input.setSelectionRange(caret, caret);
+    }
+  }
+  host.scrollTop = scroll;
 }
 
 function bindRecordChrome(host, kind) {
+  host.querySelectorAll(".job-search").forEach((input) => {
+    input.addEventListener("input", () => {
+      recordQuery[kind] = input.value;
+      renderByKind(kind);
+    });
+  });
   host.querySelectorAll(".job-new-folder").forEach((btn) => {
     btn.addEventListener("click", () => {
       recordDraft = { kind, recordId: "", name: "", error: "" };
@@ -874,6 +951,8 @@ function renderHsi() {
     const bits = [];
     const when = fmtWhen(row.created_at);
     if (when) bits.push(when);
+    const src = String(row.source || "");
+    if (src && src !== titled && fileNameOf(src) !== fileNameOf(name)) bits.push(fileNameOf(src) || src);
     if (row.pins) bits.push(tx("io.pins", { n: row.pins }));
     const meta = "<span class='job-meta'><span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span></span>";
     const inner = recordInner(tx("record.kind.hsi"), titled || recordTitle(name), meta);
@@ -1452,7 +1531,22 @@ function applyIoMode() {
     }
     el.hidden = want !== "both" && want !== mode;
   });
+  if (mode === "schematic") loadIoTemplates();
   refreshIoGenerate();
+}
+
+function selectedIoTemplateId() {
+  const picked = document.querySelector("#io-template-choices input:checked");
+  return picked ? String(picked.value || "") : "";
+}
+
+function selectedIoTemplateFile() {
+  const input = $("io-template");
+  return input && input.files && input.files[0] ? input.files[0] : null;
+}
+
+function hasIoTemplate() {
+  return !!(selectedIoTemplateFile() || selectedIoTemplateId());
 }
 
 function refreshIoGenerate() {
@@ -1461,7 +1555,8 @@ function refreshIoGenerate() {
   if (ioMode() === "schematic") {
     const file = $("io-schematic") && $("io-schematic").files && $("io-schematic").files[0];
     const name = file ? file.name.toLowerCase() : "";
-    btn.disabled = !(name.endsWith(".edf") || name.endsWith(".pdf"));
+    const schematicOk = name.endsWith(".edf") || name.endsWith(".pdf");
+    btn.disabled = !(schematicOk && hasIoTemplate());
     btn.textContent = tx("io.revise");
     return;
   }
@@ -1515,6 +1610,50 @@ function renderIoPackages(packages) {
   });
   setPackageStatus(packages.length > 1 ? tx("io.packagePick") : "", packages.length > 1 ? "pick" : "");
   refreshIoGenerate();
+}
+
+let ioTemplatesLoaded = false;
+
+function renderIoTemplates(rows, defaultId) {
+  const host = $("io-template-choices");
+  if (!host) return;
+  const keepLocal = selectedIoTemplateFile();
+  host.innerHTML = "";
+  if (!rows.length) {
+    host.innerHTML = "<p class='io-package-status is-pick'>" + escText(tx("io.templateEmpty")) + "</p>";
+    refreshIoGenerate();
+    return;
+  }
+  rows.forEach((row, index) => {
+    const id = String(row.id || "");
+    const name = String(row.name || row.file || id);
+    if (!id) return;
+    const label = document.createElement("label");
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "io-template";
+    input.value = id;
+    if (!keepLocal && (id === defaultId || (!defaultId && index === 0))) input.checked = true;
+    label.appendChild(input);
+    label.appendChild(document.createTextNode(name));
+    host.appendChild(label);
+  });
+  refreshIoGenerate();
+}
+
+async function loadIoTemplates() {
+  const host = $("io-template-choices");
+  if (!host || ioTemplatesLoaded) return;
+  host.innerHTML = "<p class='io-package-status is-reading'>" + escText(tx("io.templateLoading")) + "</p>";
+  try {
+    const data = await json("/api/hsi/templates");
+    const rows = Array.isArray(data.templates) ? data.templates : [];
+    renderIoTemplates(rows, data.default ? String(data.default) : "");
+    ioTemplatesLoaded = true;
+  } catch (err) {
+    host.innerHTML = "<p class='io-package-status is-pick'>" + escText(err.message || String(err)) + "</p>";
+    refreshIoGenerate();
+  }
 }
 
 async function loadIoPackages(file) {
@@ -1677,9 +1816,9 @@ function placeChoiceMenu(menu, anchor) {
 
 function reportPickError(target, err) {
   const msg = err.message || String(err);
-  if (target === "io-manual" || target === "io-previous" || target === "io-schematic") setIoMsg(msg);
+  if (target === "io-manual" || target === "io-previous" || target === "io-schematic" || target === "io-template") setIoMsg(msg);
   else if (target === "icd-file" || target === "icd-previous") setIcdMsg(msg);
-  else if (target === "bom-manuals" || target === "bom-template") setBomMsg(msg);
+  else if (target === "bom-manuals" || target === "bom-template" || target === "bom-previous") setBomMsg(msg);
   else if (target === "arch-files") setArchMsg(msg);
   else {
     const host = $("file-info");
@@ -1778,6 +1917,28 @@ $("io-schematic").addEventListener("change", () => {
   setIoMsg("");
   refreshIoGenerate();
 });
+if ($("io-template")) {
+  $("io-template").addEventListener("change", () => {
+    const file = selectedIoTemplateFile();
+    const name = file ? file.name.toLowerCase() : "";
+    if (file && !(name.endsWith(".xlsx") || name.endsWith(".xlsm"))) {
+      $("io-template").value = "";
+      syncIoFileName($("io-template"), $("io-template-name"));
+      setIoMsg(tx("io.needTemplate"));
+      refreshIoGenerate();
+      return;
+    }
+    if (file) {
+      document.querySelectorAll("#io-template-choices input").forEach((input) => {
+        input.checked = false;
+      });
+    }
+    syncIoFileName($("io-template"), $("io-template-name"));
+    clearIoDownload();
+    setIoMsg("");
+    refreshIoGenerate();
+  });
+}
 $("io-previous").addEventListener("change", () => {
   syncIoFileName($("io-previous"), $("io-previous-name"));
   // 换了上一版，上次的结果就不再对应当前输入
@@ -1792,6 +1953,17 @@ $("io-package-choices").addEventListener("change", () => {
   if (msg && msg.classList.contains("is-ok")) setIoMsg("");
   refreshIoGenerate();
 });
+if ($("io-template-choices")) {
+  $("io-template-choices").addEventListener("change", () => {
+    if (selectedIoTemplateId() && $("io-template")) {
+      $("io-template").value = "";
+      syncIoFileName($("io-template"), $("io-template-name"));
+    }
+    clearIoDownload();
+    setIoMsg("");
+    refreshIoGenerate();
+  });
+}
 document.querySelectorAll("input[name=io-mode]").forEach((input) => {
   input.addEventListener("change", () => {
     clearIoDownload();
@@ -1878,6 +2050,14 @@ $("io-hsi").onclick = async () => {
       setIoMsg(tx("io.needSchematic"));
       return;
     }
+    const templateFile = selectedIoTemplateFile();
+    const templateId = selectedIoTemplateId();
+    if (!templateFile && !templateId) {
+      setIoMsg(tx("io.needTemplate"));
+      return;
+    }
+    if (templateFile) body.append("template", templateFile);
+    if (templateId) body.append("template_id", templateId);
     body.append("schematic", schematic);
   } else {
     const mcu = $("io-mcu") ? $("io-mcu").value.trim() : "";
@@ -2282,11 +2462,20 @@ $("bom-manuals").addEventListener("change", () => {
   setBomMsg("");
   refreshBomGenerate();
 });
+if ($("bom-previous")) {
+  $("bom-previous").addEventListener("change", () => {
+    syncIoFileName($("bom-previous"), $("bom-previous-name"));
+    clearBomDownload();
+    setBomMsg("");
+  });
+}
 $("bom-back").onclick = () => setPanel("home");
 $("bom-build").onclick = async () => {
   const manuals = $("bom-manuals").files;
   const body = new FormData();
   if (manuals && manuals.length) Array.from(manuals).forEach((file) => body.append("manuals", file));
+  const previous = $("bom-previous") && $("bom-previous").files && $("bom-previous").files[0];
+  if (previous) body.append("previous", previous);
   $("bom-build").disabled = true;
   clearBomDownload();
   setBomMsg(tx("bom.working"), "ok");
@@ -3267,6 +3456,12 @@ $("settings-reset")?.addEventListener("click", () => {
   applyUiLang();
 });
 
+function loadAbout() {
+  const client = document.querySelector('[data-about="client"]');
+  const version = lastHealth && lastHealth.versions && lastHealth.versions.client;
+  if (client && version) client.textContent = version;
+}
+
 function showSettingsTab(name) {
   document.querySelectorAll(".settings-tab").forEach((t) => {
     t.classList.toggle("is-on", t.getAttribute("data-tab") === name);
@@ -3274,11 +3469,7 @@ function showSettingsTab(name) {
   document.querySelectorAll(".settings-panel").forEach((panel) => {
     panel.hidden = panel.getAttribute("data-panel") !== name;
   });
-  if (name === "about") {
-    const client = document.querySelector('[data-about="client"]');
-    const version = lastHealth && lastHealth.versions && lastHealth.versions.client;
-    if (client && version) client.textContent = version;
-  }
+  if (name === "about") loadAbout();
   if (name === "env") loadEnvironments();
 }
 $("about-copy")?.addEventListener("click", async () => {

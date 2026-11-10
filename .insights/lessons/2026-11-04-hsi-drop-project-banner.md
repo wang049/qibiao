@@ -16,7 +16,7 @@
 
 - 确认口径：Superevo 是某个项目，出表里不应该有。
 - 模板 `DHTE400-HSI-V1.3-20261023.xlsx` 端口表 L2 为 `Superevo pin Definition`，L2:M2 合并。第 3 行 L、M 列仍是 `Pin Definition`。
-- 手册出表、网表出表和原理图 PDF 出表都清掉含 Superevo 的表头。列名 `Pin Definition` 留下。
+- 手册出表和原理图 PDF 出表清掉含 Superevo 的表头。EDIF 归档保留模板表头。列名 `Pin Definition` 留下。
 
 ## 闸门
 

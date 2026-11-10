@@ -28,6 +28,23 @@ def _xlsx(path: Path, rows: list[list[str]], title: str = "Sheet1") -> None:
 
 
 class CeBomTests(unittest.TestCase):
+    def test_previous_bom_marks_difference_and_does_not_invent_rows(self) -> None:
+        from electrical_krow.ce_bom import _read_previous_bom, bom_field_check
+
+        self.assertEqual(
+            bom_field_check("电阻", "2", "10k", 4, {"电阻": ("1", "10k", 4)}),
+            "不一致：用量",
+        )
+        self.assertEqual(
+            bom_field_check("电阻", "2", "10k", 4, {"电阻": ("2", "10k", 4)}),
+            "一致",
+        )
+        self.assertEqual(bom_field_check("新件", "1", "", 4, {"电阻": ("1", "", 0)}), "上一版没有")
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "old.xlsx"
+            _xlsx(path, [["零件中文名称", "用量", "规格型号"], ["电阻", "1", "10k"]])
+            self.assertEqual(_read_previous_bom(path)["电阻"], ("1", "10k", 0))
+            self.assertNotIn("电容", _read_previous_bom(path))
     def test_copies_handbook_values_and_leaves_gaps(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)
@@ -182,16 +199,18 @@ class CeBomTests(unittest.TestCase):
             book = Workbook()
             sheet = book.active
             sheet.title = "供应商"
-            for col, title in enumerate(("序号", "级别1", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料", "规格型号"), start=1):
+            for col, title in enumerate(("序号", "级别", "", "", "", "", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料", "规格型号"), start=1):
                 sheet.cell(14, col, title or None)
-            sheet.merge_cells("F14:H14")
-            sheet["F15"] = "X"
-            sheet["G15"] = "Y"
-            sheet["H15"] = "Z"
+            for col, number in enumerate("12345", start=2):
+                sheet.cell(15, col, number)
+            sheet.merge_cells("J14:L14")
+            sheet["J15"] = "X"
+            sheet["K15"] = "Y"
+            sheet["L15"] = "Z"
             sheet["A16"] = 1
             sheet["B16"] = "●"
-            sheet["C16"] = "电阻"
-            sheet["E16"] = 2
+            sheet["G16"] = "电阻"
+            sheet["I16"] = 2
             book.save(template)
             book.close()
             edf = folder / "board.edf"
@@ -202,20 +221,76 @@ class CeBomTests(unittest.TestCase):
             body = saved["供应商"]
             self.assertEqual(saved.sheetnames, ["供应商"])
             self.assertEqual(body["A16"].value, 1)
-            self.assertEqual(body["B16"].value, "●")
-            self.assertIsNone(body["C16"].value)
-            self.assertEqual(body["D16"].value, "MR04X4700FTL")
-            self.assertEqual(body["E16"].value, 2)
-            self.assertIsNone(body["F16"].value)
-            self.assertEqual(body["L16"].value, "Res, 470Ω, 0402")
+            self.assertEqual(body["E16"].value, "●")
+            self.assertIsNone(body["B16"].value)
+            from electrical_krow.ce_bom import DEFAULT_CE_BOM_NAME_RULES, read_name_rules
+
+            names = read_name_rules(DEFAULT_CE_BOM_NAME_RULES)
+            self.assertEqual(body["G16"].value, names.get("res") or None)
+            self.assertEqual(body["H16"].value, "MR04X4700FTL")
+            self.assertEqual(body["I16"].value, 2)
+            self.assertIsNone(body["J16"].value)
+            self.assertEqual(body["P16"].value, "Res, 470Ω, 0402")
             self.assertEqual(body["A17"].value, 2)
-            self.assertIsNone(body["C17"].value)
-            self.assertIsNone(body["D17"].value)
-            self.assertEqual(body["E17"].value, 1)
-            self.assertEqual(body["L17"].value, "100nF")
-            self.assertIsNone(body["F17"].value)
+            self.assertEqual(body["G17"].value, names.get("cap") or None)
+            self.assertIsNone(body["H17"].value)
+            self.assertEqual(body["I17"].value, 1)
+            self.assertEqual(body["P17"].value, "100nF")
+            self.assertIsNone(body["J17"].value)
             saved.close()
             self.assertEqual(result.filled, 0)
+
+    def test_issue_version_skips_merged_title_cells(self) -> None:
+        from openpyxl.cell.cell import MergedCell
+
+        from electrical_krow.ce_bom import _place_issue_version
+
+        book = Workbook()
+        sheet = book.active
+        sheet.merge_cells("A1:B3")
+        sheet["A1"] = "标题"
+        sheet.merge_cells("A4:B13")
+        sheet["A14"] = "序号"
+        _place_issue_version(sheet, 14)
+        found = []
+        for row in sheet.iter_rows(max_row=14, max_col=6):
+            for cell in row:
+                if isinstance(cell, MergedCell) or not cell.value:
+                    continue
+                if "出表版本" in str(cell.value):
+                    found.append((cell.coordinate, str(cell.value)))
+        self.assertTrue(found)
+        book.close()
+
+    def test_name_rules_read_type_from_every_sheet(self) -> None:
+        from electrical_krow.ce_bom import read_name_rules
+
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "rules.xlsx"
+            book = Workbook()
+            res = book.active
+            res.title = "01_Resistor"
+            res.append(["Type", "类型"])
+            res.append(["Res", "贴片电阻"])
+            res.append(["Cap", None])
+            ind = book.create_sheet("03_Inductor")
+            ind.append(["Design Item ID", "Type", "类型"])
+            ind.append(["IND, 1uH", "IND", "电感"])
+            ind.append(["Bead, 2000Ω", "Bead", "磁珠"])
+            other = book.create_sheet("10_Others")
+            other.append(["Type", "类型"])
+            other.append(["*", "（未定义）"])
+            other.append(["Z", "稳压管/特殊器件"])
+            other.append(["Z", "Mark点"])
+            book.save(path)
+            book.close()
+            rules = read_name_rules(path)
+            self.assertEqual(rules["res"], "贴片电阻")
+            self.assertEqual(rules["ind"], "电感")
+            self.assertEqual(rules["bead"], "磁珠")
+            self.assertEqual(rules["z"], "稳压管/特殊器件")
+            self.assertNotIn("*", rules)
+            self.assertNotIn("cap", rules)
 
     def test_ad_bom_type_maps_to_chinese_name(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -224,14 +299,16 @@ class CeBomTests(unittest.TestCase):
             book = Workbook()
             sheet = book.active
             sheet.title = "供应商"
-            for col, title in enumerate(("序号", "级别1", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
+            for col, title in enumerate(("序号", "级别", "", "", "", "", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
                 sheet.cell(14, col, title or None)
-            sheet.merge_cells("F14:H14")
-            sheet["F15"] = "X"
-            sheet["G15"] = "Y"
-            sheet["H15"] = "Z"
+            for col, number in enumerate("12345", start=2):
+                sheet.cell(15, col, number)
+            sheet.merge_cells("J14:L14")
+            sheet["J15"] = "X"
+            sheet["K15"] = "Y"
+            sheet["L15"] = "Z"
             sheet["A16"] = 3
-            sheet["C16"] = "上盖板"
+            sheet["G16"] = "上盖板"
             book.save(template)
             book.close()
             rules = folder / "rules.xlsx"
@@ -248,17 +325,27 @@ class CeBomTests(unittest.TestCase):
                 result = build_ce_bom([bom], template, dest)
             saved = load_workbook(dest)
             body = saved["供应商"]
-            self.assertEqual(body["B16"].value, "●")
+            self.assertEqual(body["E16"].value, "●")
+            self.assertIsNone(body["B16"].value)
             self.assertEqual(body["A16"].value, 1)
-            self.assertEqual(body["C16"].value, "电容")
-            self.assertEqual(body["D16"].value, "CL05B104KB54PNC")
-            self.assertEqual(body["E16"].value, 2)
-            self.assertEqual(body["C17"].value, "微控制器")
-            self.assertIsNone(body["C18"].value)
-            self.assertEqual(body["E18"].value, 1)
-            self.assertIsNone(body["F16"].value)
+            self.assertEqual(body["G16"].value, "电容")
+            self.assertEqual(body["H16"].value, "CL05B104KB54PNC")
+            self.assertEqual(body["I16"].value, 2)
+            self.assertEqual(body["G17"].value, "微控制器")
+            self.assertIsNone(body["G18"].value)
+            self.assertEqual(body["I18"].value, 1)
+            self.assertIsNone(body["J16"].value)
             self.assertNotIn("上盖板", " ".join("" if cell.value is None else str(cell.value) for row in body.iter_rows(min_row=16, max_row=20) for cell in row))
-            self.assertEqual(saved.sheetnames, ["供应商"])
+            self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
+            match = saved["字段匹配"]
+            results = {
+                (match.cell(row, 2).value, match.cell(row, 3).value): match.cell(row, 5).value
+                for row in range(2, match.max_row + 1)
+            }
+            self.assertEqual(results[("电容", "中文名称")], "已对上")
+            self.assertEqual(results[("电容", "级别")], "已对上")
+            self.assertEqual(results[("电容", "规格型号")], "已对上")
+            self.assertEqual(results[("RC0402", "中文名称")], "未对上")
             saved.close()
             self.assertEqual(result.filled, 0)
 
@@ -276,6 +363,8 @@ class CeBomTests(unittest.TestCase):
             (1413, 1054, 1445, 1066, "31g"),
             (1555, 1029, 1610, 1041, "图样名称"),
             (1516, 1047, 1620, 1059, "保险盒接线盖板[3]"),
+            (1700, 1100, 1760, 1112, "外形尺寸"),
+            (1700, 1120, 1780, 1132, "120×80×15"),
             (1110, 400, 1400, 412, "板料厚度1.5±0.15mm"),
             (1466, 795, 1490, 807, "序号"),
             (1540, 795, 1580, 807, "零件名"),
@@ -295,8 +384,10 @@ class CeBomTests(unittest.TestCase):
         self.assertEqual(title.weight, "31g")
         self.assertEqual(title.thickness, "1.5±0.15mm")
         self.assertEqual(title.parent, "5501801726")
+        self.assertEqual((title.size_x, title.size_y, title.size_z), ("120", "80", "15"))
         details = _bom_rows(words, "cover.pdf", title.part_no)
         self.assertEqual(len(details), 1)
+        self.assertEqual(details[0].size_x, "")
         self.assertEqual(details[0].name, "PN-N铜排")
         self.assertEqual(details[0].material, "T2HO2")
         self.assertEqual(details[0].quantity, "1")
@@ -312,15 +403,17 @@ class CeBomTests(unittest.TestCase):
             book = Workbook()
             sheet = book.active
             sheet.title = "供应商"
-            for col, title in enumerate(("序号", "级别1", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
+            for col, title in enumerate(("序号", "级别", "", "", "", "", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
                 sheet.cell(14, col, title or None)
-            sheet.merge_cells("F14:H14")
-            sheet["F15"] = "X"
-            sheet["G15"] = "Y"
-            sheet["H15"] = "Z"
+            for col, number in enumerate("12345", start=2):
+                sheet.cell(15, col, number)
+            sheet.merge_cells("J14:L14")
+            sheet["J15"] = "X"
+            sheet["K15"] = "Y"
+            sheet["L15"] = "Z"
             sheet["A16"] = 3
-            sheet["C16"] = "密封圈"
-            sheet["J16"] = "=1+1"
+            sheet["G16"] = "密封圈"
+            sheet["N16"] = "=1+1"
             book.save(template)
             book.close()
             drawing = folder / "cover.pdf"
@@ -347,15 +440,16 @@ class CeBomTests(unittest.TestCase):
             saved = load_workbook(dest)
             body = saved["供应商"]
             self.assertEqual(body["A16"].value, 1)
-            self.assertEqual(body["B16"].value, "●")
-            self.assertEqual(body["C16"].value, "保险盒接线盖板")
-            self.assertEqual(body["D16"].value, "5501801798")
-            self.assertIsNone(body["E16"].value)
-            self.assertIsNone(body["F16"].value)
-            self.assertEqual(body["I16"].value, "1.5±0.15mm")
-            self.assertEqual(body["J16"].value, "31g")
-            self.assertEqual(body["K16"].value, "Al5052-O态")
-            self.assertEqual(saved.sheetnames, ["供应商"])
+            self.assertEqual(body["C16"].value, "●")
+            self.assertIsNone(body["B16"].value)
+            self.assertEqual(body["G16"].value, "保险盒接线盖板")
+            self.assertEqual(body["H16"].value, "5501801798")
+            self.assertIsNone(body["I16"].value)
+            self.assertIsNone(body["J16"].value)
+            self.assertEqual(body["M16"].value, "1.5±0.15mm")
+            self.assertEqual(body["N16"].value, "31g")
+            self.assertEqual(body["O16"].value, "Al5052-O态")
+            self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
             saved.close()
 
     def test_hardware_and_structure_stay_on_separate_supplier_sheets(self) -> None:
@@ -367,13 +461,15 @@ class CeBomTests(unittest.TestCase):
             book = Workbook()
             sheet = book.active
             sheet.title = "供应商"
-            for col, title in enumerate(("序号", "级别1", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
+            for col, title in enumerate(("序号", "级别", "", "", "", "", "零件中文名称", "零件号", "用量", "产品尺寸(mm)", "", "", "材料厚度(mm)", "产品净重（g）", "原材料"), start=1):
                 sheet.cell(14, col, title or None)
-            sheet.merge_cells("F14:H14")
-            sheet["F15"] = "X"
-            sheet["G15"] = "Y"
-            sheet["H15"] = "Z"
-            sheet["C16"] = "密封圈"
+            for col, number in enumerate("12345", start=2):
+                sheet.cell(15, col, number)
+            sheet.merge_cells("J14:L14")
+            sheet["J15"] = "X"
+            sheet["K15"] = "Y"
+            sheet["L15"] = "Z"
+            sheet["G16"] = "密封圈"
             book.save(template)
             book.close()
             rules = folder / "rules.xlsx"
@@ -408,8 +504,10 @@ class CeBomTests(unittest.TestCase):
             saved = load_workbook(dest)
             hardware = saved["供应商"]
             structure = saved["结构"]
-            self.assertEqual(hardware["C16"].value, "电容")
-            self.assertEqual(structure["C16"].value, "保险盒接线盖板")
+            self.assertEqual(hardware["E16"].value, "●")
+            self.assertEqual(hardware["G16"].value, "电容")
+            self.assertEqual(structure["C16"].value, "●")
+            self.assertEqual(structure["G16"].value, "保险盒接线盖板")
             self.assertNotIn("结构CEBOM", saved.sheetnames)
             saved.close()
 
@@ -470,7 +568,7 @@ class CeBomTests(unittest.TestCase):
             StructureRow("摩擦焊板", "", "1", "", "", "ADC12", "5501801758", "housing.pdf", ""),
             StructureRow("固化密封胶", "", "1", "", "", "瓦克988", "5501801758", "housing.pdf", ""),
         ]
-        self.assertEqual(_bom_levels(rows), [1, 2, 2])
+        self.assertEqual(_bom_levels(rows), [2, 3, 3])
         book = Workbook()
         sheet = book.active
         layout = StandardLayout("供应商", 1, 2, 3, {"X": 7, "Y": 8, "Z": 9}, 11, 6)
@@ -493,11 +591,11 @@ class CeBomTests(unittest.TestCase):
             structural=True,
             level_cols=[1, 2, 3, 4, 5],
         )
-        self.assertEqual(sheet["B3"].value, "●")
-        self.assertIsNone(sheet["C3"].value)
-        self.assertIsNone(sheet["B4"].value)
-        self.assertEqual(sheet["C4"].value, "●")
-        self.assertEqual(sheet["C5"].value, "●")
+        self.assertIsNone(sheet["B3"].value)
+        self.assertEqual(sheet["C3"].value, "●")
+        self.assertIsNone(sheet["C4"].value)
+        self.assertEqual(sheet["D4"].value, "●")
+        self.assertEqual(sheet["D5"].value, "●")
         book.close()
 
     def test_structure_table_above_header_keeps_weight_blank_without_unit(self) -> None:

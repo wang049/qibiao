@@ -1446,7 +1446,13 @@ def needs_translation(text: str) -> bool:
 def _cell_bilingual(cell: str) -> str:
     """一格对照：原文保留。译出了中文就写成「原文 / 中文」，单位和没译出的词留在译文里。"""
     raw = cell.strip()
-    if not raw or not _needs_trans_body(raw):
+    if not raw:
+        return raw
+    for table in (_PHRASE_MAP, _TERM_MAP):
+        for english, chinese in table:
+            if re.fullmatch(re.escape(english), raw, re.I):
+                return f"{raw} / {chinese}"
+    if not _needs_trans_body(raw):
         return raw
     zh = _translate_segment(raw)
     if not zh or zh == raw or not _CJK.search(zh):
@@ -1526,9 +1532,17 @@ def _template_block(cells: list[str], headers: list[str]) -> str:
         english = f"{label}: {text}" if label else text
         label_zh = _zh_only(_cell_bilingual(label), label) if label else ""
         value_zh = _zh_only(_cell_bilingual(text), text)
-        chinese = ""
-        if label_zh or value_zh:
+        # 「Due 日期」「材料 marking」这种半截译文不写。栏目译完整、取值仍是原文的，照写对照。
+        partial_label = bool(label_zh and re.search(r"[A-Za-z]{3,}", label_zh))
+        partial_value = bool(value_zh and value_zh != text and re.search(r"[A-Za-z]{3,}", value_zh))
+        if partial_label:
+            label_zh = ""
+        if partial_value:
+            chinese = ""
+        elif label_zh or (value_zh and value_zh != text):
             chinese = f"{label_zh or label}：{value_zh or text}"
+        else:
+            chinese = ""
         lines.append(_phrase(english, chinese))
     return "\n".join(lines)
 

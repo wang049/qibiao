@@ -1335,7 +1335,9 @@ QSPI5_SLSO1 O2 Master slave select output
                 self.assertIn("原理图", str(cover.cell(4, 5).value))
                 history = out["1_Chang History"]
                 self.assertEqual(history.cell(5, 2).value, "v1.3")
-                self.assertEqual(history.max_row, 5)
+                self.assertGreaterEqual(history.max_row, 6)
+                self.assertRegex(str(history.cell(6, 2).value), r"^\d{8}-\d{6}$")
+                self.assertIn("芯片手册", str(history.cell(6, 4).value))
                 port = out[[name for name in out.sheetnames if name.startswith("2_Port")][0]]
                 self.assertEqual(port.cell(3, 9).value, "Direction")
                 self.assertEqual(port.cell(3, 12).value, "Pin Definition")
@@ -1936,8 +1938,8 @@ QSPI5_SLSO1 O2 Master slave select output
                 self.assertIn("手册分类：电源", str(port.cell(symbols["VDD"], COL_MARK).value))
                 self.assertIsNone(port.cell(symbols["VDD"], 10).value)
                 self.assertEqual(port.cell(symbols["AN0"], 10).value, "Analog")
+                self.assertIn("手册分类：ADC", str(port.cell(symbols["AN0"], COL_MARK).value))
                 self.assertIn("分配待人工确认", str(port.cell(symbols["AN0"], COL_MARK).value))
-                self.assertNotIn("手册分类：ADC", str(port.cell(symbols["AN0"], COL_MARK).value))
                 self.assertNotIn("三相电流", str(port.cell(symbols["AN0"], COL_MARK).value))
                 adc = out["3_ADC Table"]
                 self.assertEqual(adc.cell(4, 2).value, "Gr")
@@ -1965,7 +1967,27 @@ B2 GPIO_0 I/O General-purpose input
         self.assertEqual(pin_class(_pin("TRST", "P22", "JTAG reset")), "调试")
         self.assertEqual(pin_class(_pin("PORST", "K20", "Power on reset")), "复位")
         self.assertEqual(pin_class(_pin("P00.8", "N7", "Port", "ADC_TMADC2CH6")), "ADC")
-        self.assertEqual(pin_class(_pin("P02.1", "F5", "Port", "GTM_TOUT17")), "Timer")
+        self.assertEqual(pin_class(_pin("P02.1", "F5", "Port", "GTM_TOUT17")), "PWM")
+
+    def test_manual_hsi_hides_adc_signal_name(self) -> None:
+        from electrical_krow.hsi_book import _hide_adc_signal_names
+
+        book = Workbook()
+        sheet = book.active
+        sheet.title = "3_ADC Table"
+        sheet.cell(4, 6, "Signal name")
+        sheet.cell(4, 12, "「Unit]")
+        sheet.cell(5, 6, "IA_S/M_TM")
+        sheet.cell(5, 12, "A")
+        _hide_adc_signal_names(book)
+        self.assertIsNone(sheet.cell(5, 6).value)
+        self.assertTrue(sheet.column_dimensions["F"].hidden)
+        self.assertEqual(sheet.cell(5, 12).value, "A")
+        self.assertFalse(sheet.column_dimensions["L"].hidden)
+        book.close()
+        self.assertEqual(pin_class(_pin("P10.3", "A1", "Port", "QSPI2_SLSO0")), "SPI")
+        self.assertEqual(pin_class(_pin("P14.0", "E19", "Port", "CAN0_TXD")), "CAN")
+        self.assertEqual(pin_class(_pin("P24.0", "L25", "Port")), "IO")
 
     def test_renaming_port_updates_every_linked_name_and_symbol(self) -> None:
         from electrical_krow.hsi_book import _link_detail_sheets
@@ -2136,16 +2158,17 @@ B2 GPIO_0 I/O General-purpose input
             try:
                 sheet = out["2_Port Assignment "]
                 symbols = [sheet.cell(row, 2).value for row in range(4, 8)]
-                self.assertIn("J402.20", symbols)
-                self.assertNotIn("P02.1", symbols)
-                self.assertNotIn("AN0", symbols)
-                self.assertIsNone(sheet.cell(4, 11).value)
-                self.assertEqual(sheet.cell(4, 12).value, "PWM_M/D_AH_GM")
+                self.assertIn("P02.1", symbols)
+                self.assertIn("AN0", symbols)
+                self.assertNotIn("J402.20", symbols)
+                self.assertEqual(sheet.cell(4, 11).value, "PWM_M/D_AH_GM")
+                self.assertEqual(sheet.cell(4, 12).value, "PWM_M_AH_GM")
                 self.assertEqual(sheet.cell(4, 15).value, "下拉 68kΩ")
-                self.assertIn("待人工复核", str(sheet.cell(4, 23).value))
+                self.assertIn("交叉", str(sheet.cell(4, 23).value))
                 self.assertIn("R822A", str(sheet.cell(4, 23).value))
-                self.assertNotIn("原理图网络", str(sheet.cell(4, 23).value))
-                self.assertNotIn("P02.1", str(sheet.cell(4, 23).value))
+                self.assertIn("待人工复核", str(sheet.cell(4, 23).value))
+                self.assertEqual(sheet.cell(5, 12).value, "IA_S/M_TM")
+                self.assertEqual(sheet.cell(5, 11).value, "AI_IU_CH1_M2")
             finally:
                 out.close()
 
@@ -2221,63 +2244,29 @@ B2 GPIO_0 I/O General-purpose input
             schematic = root / "board.edf"
             schematic.write_text(edif, encoding="utf-8")
             result = revise_hsi_from_schematic(base, dest, schematic)
-            self.assertEqual(result.schematic_updates, 2)
+            self.assertEqual(result.schematic_updates, 0)
             out = load_workbook(dest)
             try:
                 sheet = out["2_Port Assignment "]
-                self.assertIsNone(sheet.cell(2, 12).value)
+                self.assertEqual(sheet.cell(1, 1).value, "TC499 Port Assignment [Main Table]")
+                self.assertEqual(sheet.cell(2, 2).value, "MCU_TC499")
+                self.assertEqual(sheet.cell(2, 12).value, "Superevo pin Definition")
+                self.assertEqual(sheet.cell(3, 11).value, "星驱原理图网络")
                 self.assertEqual(sheet.cell(3, 12).value, "Pin Definition")
-                self.assertEqual(sheet.cell(3, 13).value, "Pin Function Description")
-                self.assertTrue(sheet.column_dimensions["K"].hidden)
-                self.assertIsNone(sheet.cell(3, 11).value)
-                rows = {
-                    sheet.cell(row, 2).value: row
-                    for row in range(4, 7)
-                    if sheet.cell(row, 2).value
-                }
-                self.assertEqual(set(rows), {"J501.1", "J501.2"})
-                empty = rows["J501.1"]
-                linked = rows["J501.2"]
-                self.assertIsNone(sheet.cell(empty, 11).value)
-                self.assertIsNone(sheet.cell(empty, 12).value)
-                self.assertEqual(sheet.cell(empty, 23).value, "未进入任何网络；待人工复核")
-                self.assertNotIn("接插件", str(sheet.cell(empty, 23).value))
-                self.assertIsNone(sheet.cell(linked, 11).value)
-                self.assertEqual(sheet.cell(linked, 12).value, "SIG")
-                self.assertEqual(sheet.cell(linked, 23).value, "未看到接到电源或地的电阻；待人工复核")
-                self.assertNotIn("原理图网络", str(sheet.cell(linked, 23).value))
-                self.assertEqual(sheet.cell(3, 22).value, "核对状态")
-                self.assertEqual(sheet.cell(3, 23).value, "标记说明")
-                self.assertEqual(sheet.cell(3, 24).value, "人工修改")
-                self.assertGreaterEqual(sheet.column_dimensions["W"].width, 36)
-                self.assertTrue(sheet.cell(linked, 23).alignment.wrap_text)
-                end = str(sheet.auto_filter.ref).split(":")[-1]
-                self.assertGreaterEqual(end[0], "W")
-                self.assertEqual(out["3_ADC Table"].cell(4, 6).value, "Signal name")
-                self.assertIsNone(out["3_ADC Table"].cell(9, 6).value)
-                self.assertIsNone(out["3_ADC Table"].cell(9, 8).value)
-                self.assertEqual(out["Cover"].cell(1, 4).value, "修改人")
-                self.assertIsNone(out["Cover"].cell(2, 4).value)
-                self.assertIsNone(out["Cover"].cell(1, 5).value)
-                self.assertIsNone(out["Cover"].cell(2, 5).value)
+                self.assertIsNone(sheet.cell(4, 2).value)
+                self.assertEqual(out["Cover"].cell(2, 4).value, "殷桂来")
+                self.assertEqual(out["Cover"].cell(2, 5).value, "修改K和L列对应原理图的网络名")
                 self.assertEqual(out["Cover"].cell(2, 3).value, "硬件版本识别")
-                self.assertEqual(out["1_Chang History"].cell(1, 2).value, "版本")
-                self.assertIsNone(out["1_Chang History"].cell(2, 2).value)
-                self.assertIsNone(out["1_Chang History"].cell(2, 4).value)
-                self.assertEqual(sheet.cell(1, 1).value, "Port Assignment [Main Table]")
-                self.assertIsNone(sheet.cell(2, 2).value)
-                self.assertEqual(sheet.cell(3, 2).value, "Ball")
-                self.assertIsNone(sheet.cell(3, 11).value)
-                self.assertIsNone(out["3_ADC Table"].cell(2, 2).value)
+                self.assertEqual(out["1_Chang History"].cell(2, 2).value, "v1.3")
+                self.assertRegex(str(out["1_Chang History"].cell(3, 2).value), r"^\d{8}-\d{6}$")
+                self.assertIn("未对上", str(out["1_Chang History"].cell(3, 4).value))
                 page = out["3_ADC Table"]
-                self.assertEqual(page.cell(4, 6).fill.fgColor.rgb, "FFD9E2F3")
-                self.assertTrue(page.cell(9, 6).fill.patternType in (None, "none"))
-                self.assertIsNone(page.cell(9, 6).border.left)
-                self.assertEqual(list(page.conditional_formatting), [])
-                self.assertEqual(page._images, [])
-                self.assertEqual(out["7_Dead Time"]._images, [])
-                with zipfile.ZipFile(dest) as package:
-                    self.assertFalse(any(name.endswith("drawing_dead_time.xml") for name in package.namelist()))
+                self.assertEqual(page.cell(2, 2).value, "MCU_TC499")
+                self.assertEqual(page.cell(9, 6).value, "IA_S/M_TM")
+                self.assertEqual(page.cell(9, 8).value, "IT=(UT-2.5)/0.001511")
+                self.assertEqual(page.cell(9, 6).fill.fgColor.rgb, "FF92D050")
+                self.assertEqual(len(page._images), 1)
+                self.assertTrue(list(page.conditional_formatting))
             finally:
                 out.close()
 
@@ -2322,6 +2311,12 @@ B2 GPIO_0 I/O General-purpose input
             port.cell(3, 10, "Function")
             port.cell(3, 11, "星驱原理图网络")
             port.cell(3, 12, "Pin Definition")
+            port.cell(4, 2, "P00.1")
+            port.cell(4, 12, "GND")
+            port.cell(5, 2, "P00.2")
+            port.cell(5, 12, "GND")
+            port.cell(6, 2, "AN0")
+            port.cell(6, 12, "SIG")
             book.save(base)
             book.close()
             schematic = root / "board.edf"
@@ -2335,20 +2330,21 @@ B2 GPIO_0 I/O General-purpose input
                     for row in range(4, 8)
                     if sheet.cell(row, 2).value
                 }
-                first = rows["J1.1"]
-                second = rows["J1.2"]
-                single = rows["J1.3"]
-                self.assertIsNone(sheet.cell(first, 11).value)
+                self.assertEqual(set(rows), {"P00.1", "P00.2", "AN0"})
+                first = rows["P00.1"]
+                second = rows["P00.2"]
+                single = rows["AN0"]
+                self.assertEqual(sheet.cell(first, 11).value, "GND")
                 self.assertEqual(sheet.cell(first, 12).value, "GND")
-                self.assertEqual(sheet.cell(second, 12).value, "GND")
+                self.assertEqual(sheet.cell(second, 11).value, "GND")
+                self.assertEqual(sheet.cell(single, 11).value, "SIG")
                 self.assertEqual(sheet.cell(single, 12).value, "SIG")
                 self.assertEqual(
-                    sheet.cell(first, 12).hyperlink.location,
-                    sheet.cell(second, 12).hyperlink.location,
+                    sheet.cell(first, 11).hyperlink.location,
+                    sheet.cell(second, 11).hyperlink.location,
                 )
-                self.assertIn("跳转索引", sheet.cell(first, 12).hyperlink.location)
-                self.assertIsNone(sheet.cell(single, 12).hyperlink)
-                self.assertIsNone(sheet.cell(first, 2).hyperlink)
+                self.assertIn("跳转索引", sheet.cell(first, 11).hyperlink.location)
+                self.assertIsNone(sheet.cell(single, 11).hyperlink)
                 index = out["跳转索引"]
                 listed = [
                     index.cell(row, 1).value
@@ -2356,9 +2352,9 @@ B2 GPIO_0 I/O General-purpose input
                     if index.cell(row, 1).value
                 ]
                 self.assertIn("GND（2 处）", listed)
-                self.assertTrue(any("J1.1" in str(item) for item in listed))
-                self.assertTrue(any("J1.2" in str(item) for item in listed))
-                self.assertFalse(any("J1.3" in str(item) for item in listed))
+                self.assertTrue(any("P00.1" in str(item) for item in listed))
+                self.assertTrue(any("P00.2" in str(item) for item in listed))
+                self.assertFalse(any("AN0" in str(item) for item in listed))
             finally:
                 out.close()
 
@@ -2649,13 +2645,142 @@ B2 GPIO_0 I/O General-purpose input
                 self.assertIn("未标功能", str(sheet.cell(plain, 23).value))
                 self.assertIn("TC499", str(sheet.cell(1, 1).value))
                 self.assertEqual(sheet.cell(2, 2).value, "MCU_TC499")
-                self.assertEqual(sheet.cell(3, 2).value, "Ball")
-                self.assertIsNone(sheet.cell(2, 12).value)
+                self.assertEqual(sheet.cell(3, 2).value, r"BGA436\Ball")
+                self.assertEqual(sheet.cell(2, 12).value, "Superevo pin Definition")
                 self.assertEqual(sheet.cell(3, 12).value, "Pin Definition")
             finally:
                 out.close()
 
-    def test_board_pins_drop_template_yellow_and_purple_rows(self) -> None:
+    def test_schematic_pdf_updates_matched_rows_and_keeps_others(self) -> None:
+        import pymupdf
+
+        from electrical_krow.hsi_book import revise_hsi_from_schematic
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            drawing = root / "sheet.pdf"
+            doc = pymupdf.open()
+            page = doc.new_page(width=842, height=595)
+            page.insert_text((40, 40), "CB10_MCU DIO.SchDoc", fontsize=10)
+            page.insert_text((40, 60), "SAK-TC499PP-20MF400MS AB", fontsize=10)
+            page.insert_text((100, 220), "P14_0/ASCLIN0_ATX", fontsize=6)
+            page.insert_text((78, 217), "E19", fontsize=6)
+            doc.save(drawing)
+            doc.close()
+            base = root / "base.xlsx"
+            dest = root / "out.xlsx"
+            book = Workbook()
+            cover = book.active
+            cover.title = "Cover"
+            cover.cell(1, 4, "修改人")
+            cover.cell(2, 4, "殷桂来")
+            history = book.create_sheet("1_Chang History")
+            history.cell(1, 2, "版本")
+            history.cell(2, 2, "v1.3")
+            port = book.create_sheet("2_Port Assignment ")
+            port.cell(1, 1, "TC499 Port Assignment [Main Table]")
+            port.cell(2, 2, "MCU_TC499")
+            port.cell(3, 2, r"BGA436\Ball")
+            port.cell(3, 3, "Pin_Symbol")
+            port.cell(3, 9, "Direction")
+            port.cell(3, 10, "Function")
+            port.cell(3, 12, "Pin Definition")
+            port.cell(4, 2, "W13")
+            port.cell(4, 3, "AN0")
+            port.cell(4, 10, "Analog")
+            port.cell(4, 12, "IA_S/M_TM")
+            port.cell(5, 2, "A1")
+            port.cell(5, 3, "P14.0")
+            port.cell(5, 10, "Digital")
+            adc = book.create_sheet("3_ADC Table")
+            adc.cell(4, 6, "Signal name")
+            adc.cell(9, 6, "IA_S/M_TM")
+            book.save(base)
+            book.close()
+            result = revise_hsi_from_schematic(base, dest, drawing)
+            self.assertEqual(result.schematic_updates, 1)
+            out = load_workbook(dest)
+            try:
+                sheet = out["2_Port Assignment "]
+                self.assertEqual(sheet.cell(4, 3).value, "AN0")
+                self.assertEqual(sheet.cell(4, 10).value, "Analog")
+                self.assertEqual(sheet.cell(4, 12).value, "IA_S/M_TM")
+                self.assertEqual(sheet.cell(5, 3).value, "P14.0")
+                self.assertEqual(sheet.cell(5, 2).value, "E19")
+                self.assertEqual(sheet.cell(5, 19).value, "ASCLIN0_ATX")
+                self.assertEqual(sheet.cell(5, 10).value, "Digital")
+                self.assertEqual(out["Cover"].cell(2, 4).value, "殷桂来")
+                self.assertEqual(out["1_Chang History"].cell(2, 2).value, "v1.3")
+                self.assertRegex(str(out["1_Chang History"].cell(3, 2).value), r"^\d{8}-\d{6}$")
+                self.assertEqual(out["3_ADC Table"].cell(9, 6).value, "IA_S/M_TM")
+            finally:
+                out.close()
+
+    def test_schematic_symbol_follows_body_when_header_is_swapped(self) -> None:
+        from electrical_krow.hsi_book import _write_schematic_symbol_pins
+        from electrical_krow.hsi_schematic import SchematicSymbolPin
+
+        book = Workbook()
+        book.active.title = "Cover"
+        port = book.create_sheet("2_Port Assignment ")
+        port.cell(3, 2, r"BGA436\Ball")
+        port.cell(3, 3, "Pin_Symbol")
+        port.cell(3, 9, "Direction")
+        port.cell(3, 10, "Function")
+        port.cell(3, 11, "星驱原理图网络")
+        port.cell(3, 12, "Pin Definition")
+        port.cell(4, 2, "P02.1")
+        port.cell(4, 3, "F5")
+        port.cell(4, 11, "DPO_DRV_UH_M1")
+        port.cell(4, 12, "PWM_M_AH_GM")
+        written = _write_schematic_symbol_pins(
+            book,
+            [
+                SchematicSymbolPin("P02.1", "F5", "ERAY0_RXDA2", "CB10", ""),
+                SchematicSymbolPin("P99.1", "A1", "", "CB10", "NEW_NET"),
+            ],
+        )
+        self.assertEqual(written, 2)
+        self.assertEqual(port.cell(4, 2).value, "P02.1")
+        self.assertEqual(port.cell(4, 3).value, "F5")
+        self.assertEqual(port.cell(4, 11).value, "DPO_DRV_UH_M1")
+        self.assertEqual(port.cell(4, 12).value, "PWM_M_AH_GM")
+        self.assertIn("交叉", str(port.cell(4, 23).value))
+        self.assertEqual(port.cell(5, 2).value, "P99.1")
+        self.assertEqual(port.cell(5, 3).value, "A1")
+        self.assertEqual(port.cell(5, 11).value, "NEW_NET")
+        book.close()
+
+    def test_alias_pin_does_not_append_a_second_row(self) -> None:
+        from electrical_krow.hsi_book import _write_schematic_symbol_pins
+        from electrical_krow.hsi_schematic import SchematicSymbolPin
+
+        book = Workbook()
+        book.active.title = "Cover"
+        port = book.create_sheet("2_Port Assignment ")
+        port.cell(3, 2, "Pin_Symbol")
+        port.cell(3, 3, "Ball")
+        port.cell(3, 9, "Direction")
+        port.cell(3, 10, "Function")
+        port.cell(3, 12, "Pin Definition")
+        port.cell(4, 2, "AN17/P40_10")
+        port.cell(4, 3, "Y8")
+        port.cell(4, 12, "6V6_P_LDO_AI")
+        written = _write_schematic_symbol_pins(
+            book,
+            [
+                SchematicSymbolPin("P40.10", "Y8", "", "第427页", ""),
+                SchematicSymbolPin("AN17", "", "P40.10", "第427页", ""),
+            ],
+        )
+        self.assertEqual(written, 1)
+        self.assertEqual(port.cell(4, 2).value, "AN17/P40_10")
+        self.assertEqual(port.cell(4, 3).value, "Y8")
+        self.assertEqual(port.cell(4, 12).value, "6V6_P_LDO_AI")
+        self.assertIsNone(port.cell(5, 2).value)
+        self.assertIn("交叉", str(port.cell(4, 23).value))
+        self.assertNotIn("已追加", str(port.cell(4, 23).value))
+        book.close()
         from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, _write_board_pins
         from electrical_krow.hsi_schematic import BoardPin
 

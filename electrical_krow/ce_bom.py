@@ -72,7 +72,7 @@ DEFAULT_CE_BOM_NAME_RULES = (
     Path(__file__).resolve().parents[2]
     / "资料"
     / "CE BOM"
-    / "CE BOM 器件中文名称对应规则示例_20261103.xlsx"
+    / "CE BOM 器件中文名称对应规则示例_20261110.xlsx"
 )
 
 
@@ -411,19 +411,27 @@ def _column_rule(col: int, layout: StandardLayout, fields: dict[str, list[int]])
 
 
 def read_name_rules(path: Path) -> dict[str, str]:
-    """Type 到零件中文名称。同一 Type 多行时用第一行。"""
+    """Type 到零件中文名称。各页都读。同一 Type 多行时用第一次写出的类型。"""
     if not path.is_file():
         return {}
     book = load_workbook(path, read_only=True, data_only=True)
     try:
-        ws = book[book.sheetnames[0]]
         found: dict[str, str] = {}
-        for row in ws.iter_rows(min_row=2, max_col=2, values_only=True):
-            kind = _text(row[0])
-            name = _text(row[1]) if len(row) > 1 else ""
-            if not kind or not name or kind.casefold() == "type":
+        for ws in book.worksheets:
+            rows = list(ws.iter_rows(values_only=True))
+            if not rows:
                 continue
-            found.setdefault(kind.casefold(), name)
+            header = [_text(cell).casefold() for cell in rows[0]]
+            type_at = next((index for index, label in enumerate(header) if label == "type"), None)
+            name_at = next((index for index, label in enumerate(header) if label in {"类型", "中文名称"}), None)
+            if type_at is None or name_at is None:
+                continue
+            for row in rows[1:]:
+                kind = _text(row[type_at]) if type_at < len(row) else ""
+                name = _text(row[name_at]) if name_at < len(row) else ""
+                if not kind or not name or kind in {"*", "type"} or name == "（未定义）":
+                    continue
+                found.setdefault(kind.casefold(), name)
         return found
     finally:
         book.close()
@@ -434,6 +442,7 @@ class AdBomLine:
     kind: str
     quantity: str
     part_no: str
+    spec: str = ""
 
 
 def read_ad_bom(path: Path) -> list[AdBomLine] | None:
@@ -459,6 +468,7 @@ def read_ad_bom(path: Path) -> list[AdBomLine] | None:
         qty_at = folded.index("quantity")
         pn_at = folded.index("manufacture pn") if "manufacture pn" in folded else -1
         fitted_at = folded.index("fitted") if "fitted" in folded else -1
+        spec_at = folded.index("comment") if "comment" in folded else -1
         lines: list[AdBomLine] = []
         for row in ws.iter_rows(min_row=header_at + 2, max_col=len(header), values_only=True):
             cells = [_text(cell) for cell in row]
@@ -474,6 +484,7 @@ def read_ad_bom(path: Path) -> list[AdBomLine] | None:
                     kind,
                     cells[qty_at] if qty_at < len(cells) else "",
                     cells[pn_at] if pn_at >= 0 and pn_at < len(cells) else "",
+                    cells[spec_at] if spec_at >= 0 and spec_at < len(cells) else "",
                 )
             )
         return lines
@@ -576,17 +587,42 @@ class SupplierFill:
     parent: str = ""
     spec: str = ""
     level: int = 0
+    size_x: str = ""
+    size_y: str = ""
+    size_z: str = ""
 
 
 _FORM_LABELS = frozenset({"项目", "PSS", "选型单元", "预选供应商", "研发部门", "总成图", "爆炸图"})
 
 
+_ELECTRONIC_LEVEL = 4
+
+
 def _level_columns(rows: list[list[str]], header_i: int, sub_i: int, fields: dict[str, list[int]]) -> list[int]:
-    """级别 1 到 5 按表头下一行的数字从左到右。"""
+    """级别 1 到 5 按表头下一行的数字从左到右。
+
+    表头只在第一格写「级别」，后面 2、3、4、5 写在下一行。
+    """
     sub = rows[sub_i] if 0 <= sub_i < len(rows) else []
+    header = rows[header_i] if 0 <= header_i < len(rows) else []
+    cols: list[int] = []
+    for col in fields.get("级别") or []:
+        if col not in cols:
+            cols.append(col)
+        nxt = col + 1
+        while nxt < len(sub):
+            head = header[nxt].strip() if nxt < len(header) else ""
+            if head and "级别" not in _compact_name(head):
+                break
+            label = sub[nxt].strip()
+            if not label.isdigit() or not (1 <= int(label) <= 5):
+                break
+            if nxt not in cols:
+                cols.append(nxt)
+            nxt += 1
     numbered: list[tuple[int, int]] = []
     plain: list[int] = []
-    for col in fields.get("级别") or []:
+    for col in cols:
         label = sub[col].strip() if col < len(sub) else ""
         if label.isdigit():
             numbered.append((int(label), col))
@@ -599,7 +635,7 @@ def _level_columns(rows: list[list[str]], header_i: int, sub_i: int, fields: dic
 
 
 def _bom_levels(rows: list) -> list[int]:
-    """明细里的本图零件是 1 级，挂在它下面的子件是 2 级。上级总成不在本表时不往下降。"""
+    """有图纸的本图零件是 2 级，明细里没有单独图纸的子件是 3 级。上级总成不在本表时不降级。"""
     keys: dict[str, int] = {}
     for index, row in enumerate(rows):
         if row.part_no and row.part_no not in keys:
@@ -609,10 +645,10 @@ def _bom_levels(rows: list) -> list[int]:
 
     def depth(index: int, seen: set[int]) -> int:
         if index in seen:
-            return 1
+            return 2
         parent = rows[index].parent
         if not parent or parent not in keys or keys[parent] == index:
-            return 1
+            return 2
         return min(depth(keys[parent], seen | {index}) + 1, 5)
 
     return [depth(index, set()) for index in range(len(rows))]
@@ -655,6 +691,195 @@ def _show_supplier_data(sheet: Worksheet, data_start: int) -> None:
         sheet.auto_filter.ref = None
 
 
+def bom_field_check(
+    name: str,
+    quantity: str,
+    spec: str,
+    level: int,
+    previous: dict[str, tuple[str, str, int]] | None,
+) -> str:
+    """和已有 CE BOM 对名称。只标差异，不改当次抽出的数。"""
+    if previous is None:
+        return ""
+    key = (name or "").strip()
+    if not key or key not in previous:
+        return "上一版没有"
+    old_qty, old_spec, old_level = previous[key]
+    diffs: list[str] = []
+    if (quantity or "") != (old_qty or ""):
+        diffs.append("用量")
+    if (spec or "") != (old_spec or ""):
+        diffs.append("规格型号")
+    if level and old_level and level != old_level:
+        diffs.append("级别")
+    return "一致" if not diffs else "不一致：" + "、".join(diffs)
+
+
+def _read_previous_bom(path: Path) -> dict[str, tuple[str, str, int]]:
+    """已有 CE BOM 按零件中文名称索引用量和规格。读不到表头就返回空。"""
+    book = load_workbook(path, data_only=True)
+    found: dict[str, tuple[str, str, int]] = {}
+    try:
+        for sheet in book.worksheets:
+            width = min(sheet.max_column or 1, 40)
+            height = min(sheet.max_row or 1, 30)
+            header = name_col = qty_col = spec_col = 0
+            for row in range(1, height + 1):
+                name_at = qty_at = spec_at = 0
+                for col in range(1, width + 1):
+                    compact = re.sub(r"\s+", "", str(sheet.cell(row, col).value or ""))
+                    if "零件中文名称" in compact or compact in {"中文名称", "名称"}:
+                        name_at = col
+                    elif "用量" in compact and not qty_at:
+                        qty_at = col
+                    elif "规格" in compact and not spec_at:
+                        spec_at = col
+                if name_at and qty_at:
+                    header, name_col, qty_col, spec_col = row, name_at, qty_at, spec_at
+                    break
+            if not header or not name_col:
+                continue
+            for row in range(header + 1, (sheet.max_row or header) + 1):
+                name = str(sheet.cell(row, name_col).value or "").strip()
+                if not name or "名称" in name:
+                    continue
+                qty = str(sheet.cell(row, qty_col).value or "").strip() if qty_col else ""
+                if qty.endswith(".0"):
+                    qty = qty[:-2]
+                spec = str(sheet.cell(row, spec_col).value or "").strip() if spec_col else ""
+                found.setdefault(name, (qty, spec, 0))
+    finally:
+        book.close()
+    return found
+
+
+def _supplier_match(line: SupplierFill, structural: bool) -> str:
+    """这一行里，输入对上了哪些列。3 级件的尺寸按会议留空，不算没对上。"""
+    items = [
+        ("中文名称", bool(line.name)),
+        ("零件号", bool(line.part_no)),
+        ("用量", bool(line.quantity)),
+        ("级别", bool(line.level)),
+    ]
+    if not structural:
+        items.append(("规格型号", bool(line.spec)))
+    ok = [name for name, flag in items if flag]
+    miss = [name for name, flag in items if not flag]
+    text = f"{len(ok)}/{len(items)} 已对上"
+    if miss:
+        text += "；未对上 " + "、".join(miss)
+    if structural and line.level >= 3:
+        text += "；三级件无独立图纸，尺寸不提取"
+    elif structural and line.size_x:
+        text += "；尺寸取自外形尺寸"
+    elif structural:
+        text += "；外形尺寸未标注，不从散落尺寸读取"
+    return text
+
+
+def _match_column(sheet: Worksheet, header_row: int, level_cols: list[int] | None = None) -> int:
+    last = 0
+    width = sheet.max_column or 1
+    for col in range(1, width + 1):
+        if sheet.cell(header_row, col).value not in (None, ""):
+            last = max(last, col)
+        below = header_row + 1
+        if below <= (sheet.max_row or 1) and sheet.cell(below, col).value not in (None, ""):
+            last = max(last, col)
+    for col in level_cols or []:
+        last = max(last, col + 1)
+    column = last + 1
+    while not _cell_writable(sheet, header_row, column):
+        column += 1
+    sheet.cell(header_row, column, "匹配")
+    return column
+
+
+def _cell_writable(sheet: Worksheet, row: int, col: int) -> bool:
+    return not isinstance(sheet.cell(row, col), MergedCell)
+
+
+def _field_rows(kind: str, line: SupplierFill) -> list[tuple[str, str, str, str, str, str]]:
+    """每个字段一行。已对上表示输入里有这个值并且写进了表。"""
+    fields = [
+        ("中文名称", line.name),
+        ("零件号", line.part_no),
+        ("用量", line.quantity),
+        ("级别", str(line.level or "")),
+    ]
+    if kind == "电子件":
+        fields.append(("规格型号", line.spec))
+    else:
+        size = "×".join(value for value in (line.size_x, line.size_y, line.size_z) if value)
+        if line.level >= 3:
+            fields.append(("尺寸", ""))
+            fields.append(("材料", line.material))
+        else:
+            fields.append(("尺寸", size))
+            fields.append(("材料", line.material))
+    rows: list[tuple[str, str, str, str, str, str]] = []
+    for field_name, value in fields:
+        if kind == "结构件" and line.level >= 3 and field_name == "尺寸":
+            result, note = "未提取", "三级件无独立图纸"
+        elif value:
+            result, note = "已对上", "电子件默认4级" if kind == "电子件" and field_name == "级别" else ""
+        else:
+            result, note = "未对上", ""
+        rows.append((kind, line.name or line.part_no, field_name, value, result, note))
+    return rows
+
+
+def _write_field_match(book, electronic: list[SupplierFill], structural: list[SupplierFill]) -> None:
+    if "字段匹配" in book.sheetnames:
+        del book["字段匹配"]
+    sheet = book.create_sheet("字段匹配")
+    sheet.append(["类别", "零件", "字段", "写入值", "结果", "说明"])
+    body: list[tuple[str, str, str, str, str, str]] = []
+    for line in electronic:
+        body.extend(_field_rows("电子件", line))
+    for line in structural:
+        body.extend(_field_rows("结构件", line))
+    for row in body:
+        sheet.append(list(row))
+    header_fill = PatternFill("solid", fgColor="1E3A5F")
+    ok_fill = PatternFill("solid", fgColor="C6EFCE")
+    miss_fill = PatternFill("solid", fgColor="FFE699")
+    for cell in sheet[1]:
+        cell.fill = header_fill
+        cell.font = Font(name="宋体", bold=True, color="FFFFFF")
+    for row in range(2, sheet.max_row + 1):
+        result = str(sheet.cell(row, 5).value or "")
+        fill = ok_fill if result == "已对上" else miss_fill
+        for col in range(1, 7):
+            cell = sheet.cell(row, col)
+            cell.fill = fill
+            cell.alignment = Alignment(vertical="center", wrap_text=True)
+    totals = [row for row in body if row[0] == "电子件"]
+    matched = sum(1 for row in totals if row[4] == "已对上")
+    sheet.cell(1, 8, "电子件字段")
+    sheet.cell(1, 9, f"{matched}/{len(totals)} 已对上" if totals else "无电子件")
+    for col, width in enumerate((12, 22, 12, 28, 12, 28), start=1):
+        sheet.column_dimensions[get_column_letter(col)].width = width
+    sheet.freeze_panes = "A2"
+    sheet.auto_filter.ref = f"A1:F{max(sheet.max_row, 1)}"
+
+
+def _place_issue_version(sheet: Worksheet, header_row: int) -> None:
+    """版本写在表头上方的空格。合并单元格不能写，改写到表头右侧。"""
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    for row in range(header_row - 1, 0, -1):
+        if not (_cell_writable(sheet, row, 1) and _cell_writable(sheet, row, 2)):
+            continue
+        if sheet.cell(row, 1).value in (None, "") and sheet.cell(row, 2).value in (None, ""):
+            sheet.cell(row, 1, "出表版本")
+            sheet.cell(row, 2, stamp)
+            return
+    col = (sheet.max_column or 1) + 1
+    while not _cell_writable(sheet, header_row, col):
+        col += 1
+    sheet.cell(header_row, col, f"出表版本 {stamp}")
+
+
 def _write_supplier_lines(
     sheet: Worksheet,
     layout: StandardLayout,
@@ -663,6 +888,7 @@ def _write_supplier_lines(
     *,
     structural: bool,
     level_cols: list[int] | None = None,
+    previous: dict[str, tuple[str, str, int]] | None = None,
 ) -> tuple[int, list[tuple[str, ...]]]:
     """从数据区第一行写入。序号从 1 起。产品尺寸不补造。"""
     name_col = fields["名称"][0] if fields["名称"] else -1
@@ -676,6 +902,14 @@ def _write_supplier_lines(
     levels = level_cols if level_cols is not None else (fields.get("级别") or [])
     if name_col < 0:
         return 0, []
+    match_col = _match_column(sheet, layout.header_row, levels)
+    check_col = 0
+    if previous is not None:
+        check_col = match_col + 1
+        while not _cell_writable(sheet, layout.header_row, check_col):
+            check_col += 1
+        sheet.cell(layout.header_row, check_col, "校核")
+        sheet.column_dimensions[get_column_letter(check_col)].width = 22
     excel_row = layout.data_start
     notes: list[tuple[str, ...]] = []
     named = 0
@@ -696,8 +930,19 @@ def _write_supplier_lines(
             sheet.cell(excel_row, material_col + 1, line.material)
         if spec_col >= 0 and line.spec:
             sheet.cell(excel_row, spec_col + 1, line.spec)
+        if structural and line.level == 2:
+            for axis, value in (("X", line.size_x), ("Y", line.size_y), ("Z", line.size_z)):
+                col = layout.axes.get(axis)
+                if col is not None and value:
+                    sheet.cell(excel_row, col + 1, value)
         if line.level and 1 <= line.level <= len(levels):
             sheet.cell(excel_row, levels[line.level - 1] + 1, "●")
+        sheet.cell(excel_row, match_col, _supplier_match(line, structural))
+        if check_col:
+            verdict = bom_field_check(line.name, line.quantity, line.spec, line.level, previous)
+            sheet.cell(excel_row, check_col, verdict)
+            if verdict and verdict != "一致":
+                notes.append(("校核", line.name or f"第{excel_row}行", "", "", verdict))
         who = line.name or f"第{excel_row}行"
         if line.name:
             named += 1
@@ -707,8 +952,10 @@ def _write_supplier_lines(
             notes.append(("用量", who, "", "", f"{who} 用量留空"))
         if "盖板" in line.name and not line.thickness:
             notes.append(("盖板", line.name, "", "", f"第{excel_row}行盖板缺材料厚度，不补造"))
-        if structural:
-            notes.append(("尺寸", who, "", "", f"{who} 缺产品尺寸。结构件必填，不从标注里取"))
+        if structural and line.level >= 3:
+            notes.append(("尺寸", who, "", "", f"{who} 为3级件，无图，尺寸手动填写"))
+        elif structural:
+            notes.append(("尺寸", who, "", "", f"{who} 缺产品尺寸。2级件不从散落标注里取长宽高"))
             if not line.weight:
                 notes.append(("净重", who, "", "", f"{who} 缺净重。结构件必填，按体积×密度。体积或密度未给定，不计算"))
             if not line.material:
@@ -724,7 +971,13 @@ def _write_supplier_lines(
     return named, notes
 
 
-def _build_standard_ce_bom(manuals: list[Path], template: Path, dest: Path, layout: StandardLayout) -> CeBomResult:
+def _build_standard_ce_bom(
+    manuals: list[Path],
+    template: Path,
+    dest: Path,
+    layout: StandardLayout,
+    previous: Path | None = None,
+) -> CeBomResult:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(template, dest)
     book = load_workbook(dest, data_only=False)
@@ -777,12 +1030,18 @@ def _build_standard_ce_bom(manuals: list[Path], template: Path, dest: Path, layo
         ad_lines.extend(parsed)
     rules = read_name_rules(DEFAULT_CE_BOM_NAME_RULES)
     edf_fills = [
-        SupplierFill(rules.get(kind.casefold(), ""), part_no, quantity, spec=item or value, level=1)
+        SupplierFill(rules.get(kind.casefold(), ""), part_no, quantity, spec=item or value, level=_ELECTRONIC_LEVEL)
         for kind, item, value, _footprint, part_no, quantity, _refs in edf_rows
     ]
     missing_types: dict[str, int] = {}
     ad_fills = [
-        SupplierFill(rules.get(line.kind.casefold(), ""), line.part_no, line.quantity, level=1)
+        SupplierFill(
+            rules.get(line.kind.casefold(), ""),
+            line.part_no,
+            line.quantity,
+            spec=line.spec,
+            level=_ELECTRONIC_LEVEL,
+        )
         for line in ad_lines
     ]
     for line in ad_lines:
@@ -806,45 +1065,71 @@ def _build_standard_ce_bom(manuals: list[Path], template: Path, dest: Path, layo
             row.note,
             row.parent,
             level=level,
+            size_x=row.size_x if level == 2 else "",
+            size_y=row.size_y if level == 2 else "",
+            size_z=row.size_z if level == 2 else "",
         )
         for row, level in zip(structure_rows, _bom_levels(structure_rows), strict=True)
     ]
     level_cols = _level_columns(rows, header_i, sub_i, fields)
+    previous_rows = _read_previous_bom(previous) if previous is not None and previous.is_file() else None
     hardware_fills = [*edf_fills, *ad_fills]
     named = 0
     if hardware_fills and structure_fills:
         structure_sheet = book.copy_worksheet(sheet)
         structure_sheet.title = "结构"
-        named, ad_notes = _write_supplier_lines(sheet, layout, fields, hardware_fills, structural=False, level_cols=level_cols)
-        _, structure_notes = _write_supplier_lines(structure_sheet, layout, fields, structure_fills, structural=True, level_cols=level_cols)
+        named, ad_notes = _write_supplier_lines(
+            sheet, layout, fields, hardware_fills, structural=False, level_cols=level_cols, previous=previous_rows,
+        )
+        _, structure_notes = _write_supplier_lines(
+            structure_sheet, layout, fields, structure_fills, structural=True, level_cols=level_cols, previous=previous_rows,
+        )
         missing_notes.extend(ad_notes)
         missing_notes.extend(structure_notes)
         missing_notes.append(
-            ("结构", str(len(structure_fills)), "", "", "硬件写入供应商，结构写入「结构」。两张表都用供应商的列。级别按明细父子。产品尺寸不从标注里取。")
+            ("结构", str(len(structure_fills)), "", "", "硬件写入供应商，结构写入「结构」。电子件为4级。上传的二维图是2级，明细子件是3级。尺寸和材料只从2级图已标注处读取。")
         )
     elif structure_fills:
-        named, structure_notes = _write_supplier_lines(sheet, layout, fields, structure_fills, structural=True, level_cols=level_cols)
+        named, structure_notes = _write_supplier_lines(
+            sheet, layout, fields, structure_fills, structural=True, level_cols=level_cols, previous=previous_rows,
+        )
         missing_notes.extend(structure_notes)
         missing_notes.append(
-            ("结构", str(len(structure_fills)), "", "", "结构图写入供应商。级别按明细父子。产品尺寸不从标注里取。")
+            ("结构", str(len(structure_fills)), "", "", "上传的二维图是2级，明细子件是3级。尺寸和材料只从2级图已标注处读取，3级件不提取。")
         )
     elif hardware_fills:
-        _, ad_notes = _write_supplier_lines(sheet, layout, fields, hardware_fills, structural=False, level_cols=level_cols)
+        _, ad_notes = _write_supplier_lines(
+            sheet, layout, fields, hardware_fills, structural=False, level_cols=level_cols, previous=previous_rows,
+        )
         missing_notes.extend(ad_notes)
+    if previous_rows:
+        written_names = {line.name for line in [*hardware_fills, *structure_fills] if line.name}
+        for old_name in previous_rows:
+            if old_name not in written_names:
+                missing_notes.append(("校核", old_name, "", "", f"上一版有 {old_name}，当次输入没有，不补行"))
     blank = sum(1 for note in missing_notes if note[0] in {"名称", "用量", "盖板", "尺寸", "净重", "原材料"})
+    checked = sum(1 for note in missing_notes if note[0] == "校核")
+    _write_field_match(book, hardware_fills, structure_fills)
+    _place_issue_version(sheet, layout.header_row)
     _show_supplier_data(sheet, layout.data_start)
     if structure_fills and hardware_fills and "结构" in book.sheetnames:
+        _place_issue_version(book["结构"], layout.header_row)
         _show_supplier_data(book["结构"], layout.data_start)
     book.save(dest)
     book.close()
     written = len(structure_fills) if structure_fills and not hardware_fills else len(hardware_fills)
-    return CeBomResult(dest, written, 0, blank, 0, [(row[1], row[2], row[4]) for row in mapping_rows], True)
+    return CeBomResult(dest, written, 0, blank, checked, [(row[1], row[2], row[4]) for row in mapping_rows], True)
 
 
-def build_ce_bom(manuals: list[Path], template: Path, dest: Path) -> CeBomResult:
+def build_ce_bom(
+    manuals: list[Path],
+    template: Path,
+    dest: Path,
+    previous: Path | None = None,
+) -> CeBomResult:
     layout = _find_standard_layout(template)
     if layout is not None:
-        return _build_standard_ce_bom(manuals, template, dest, layout)
+        return _build_standard_ce_bom(manuals, template, dest, layout, previous)
     columns = _template_columns(template)
     observations: list[Observation] = []
     unread: list[str] = []

@@ -1,6 +1,7 @@
 # 2026-10-27 功率板网表不按端口名改 HSI
 
-- 状态：active
+- 状态：superseded
+- 取代：`.insights/lessons/2026-11-10-hsi-schematic-archive-keeps-template.md`
 - 条目：HSI 出表
 - 闸门：`tests/test_hsi.py`（`test_revise_hsi_from_schematic_keeps_unmatched_rows`、`test_schematic_writes_net_and_external_pull_for_review`）
 

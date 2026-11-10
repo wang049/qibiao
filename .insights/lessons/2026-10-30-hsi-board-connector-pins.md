@@ -1,6 +1,7 @@
 # 2026-10-30 功率板按自己的接插件脚出表
 
-- 状态：active
+- 状态：superseded
+- 取代：`.insights/lessons/2026-11-10-hsi-schematic-archive-keeps-template.md`
 - 条目：HSI 出表
 - 闸门：`tests/test_hsi.py`（`test_revise_hsi_from_schematic_keeps_unmatched_rows`）
 

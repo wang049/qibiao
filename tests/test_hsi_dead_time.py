@@ -125,6 +125,9 @@ class DeadTimeSheetTests(unittest.TestCase):
             dead = book.create_sheet("7_Dead Time")
             dead["C4"] = "Dead time of PWM-H and PWM-L shall be set 1.6μs；"
             dead["C5"] = "Add Short Pulse Inhibition Time: 1.6μs；"
+            reg = book.create_sheet("22_3041寄存器配置表")
+            reg["A2"] = "bit1"
+            reg["E2"] = '=BITAND(BITRSHIFT(HEX2DEC(INDIRECT("F"&(ROW()-0))),0),1)'
             book.save(base)
             book.close()
             (root / "board.edf").write_text(edif, encoding="utf-8")
@@ -136,6 +139,8 @@ class DeadTimeSheetTests(unittest.TestCase):
                 self.assertEqual(page["K7"].value, "μs")
                 self.assertIn("TEXT(J7", str(page["C4"].value))
                 self.assertIn("TEXT(J8", str(page["C5"].value))
+                sheet = saved["22_3041寄存器配置表"]
+                self.assertTrue(any("B2" in str(item.sqref) for item in sheet.data_validations.dataValidation))
             finally:
                 saved.close()
             self.assertIn("1.6μs", _drawing_xml(dest))

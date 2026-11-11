@@ -1,7 +1,7 @@
 """按 DHTE400 HSI V1.3（2026-10-23）出一份手册对应的 HSI。
 
 端口表的引脚只写当份手册：符号、球号、缓冲、上下拉、供电、方向、复用、页码、原文摘录。
-方向列只写手册给出的 Input 或 Output。功能列写对得上的模板用法：Analog、Digital、PWM、SPI、CAN。对得上的模板端口名写入 Pin Definition，不对的由人改。ATOM/DTM 不写入格子。
+方向列只写手册给出的 Input 或 Output。功能列写对得上的模板用法：Analog、Digital、PWM、SPI、CAN。没有原理图时 Pin Definition 和 Pin Function Description 留空，不把模板里的旧端口名和项目说明写进去。ATOM/DTM 不写入格子。
 ADC 表按手册复用里的转换器分组，同一组排在一起并着底色。两路 EVADC 的组号留空。项目信号名不写入。
 上传网表时再写原理图网络名和外部电阻。端口名为空时不做跳转。
 
@@ -735,6 +735,12 @@ def _assess(
     kind = pin_class(pin)
     if kind:
         add_note(f"手册分类：{kind}")
+        if kind == "ADC":
+            channels = _adc_channel_names(pin)
+            group = _adc_group(channels)
+            channel_no = _adc_channel_index(channels, group)
+            if group and channel_no < 10**6:
+                add_note(f"分组：{group} Ch{channel_no}")
         if kind not in {"电源", "地"}:
             add_note("分配待人工确认")
     options = [
@@ -914,6 +920,16 @@ def _drop_column_fills(sheet) -> None:
         dim.fill = PatternFill(fill_type=None)
         if dim.max and dim.max > 200:
             dim.max = dim.min or 1
+
+
+def _show_workbook_normally(workbook: Workbook) -> None:
+    """有原理图时回到白底普通视图。行上的黄、粉底会涂满空白列，和分页预览一起去掉。这次写入的绿色留下。"""
+    _strip_workbook_highlights(workbook)
+    for sheet in workbook.worksheets:
+        _drop_column_fills(sheet)
+        view = sheet.sheet_view
+        view.view = "normal"
+        view.topLeftCell = "A1"
 
 
 def _drop_cell_highlights(sheet) -> None:
@@ -1506,7 +1522,7 @@ def _link_detail_sheets(workbook: Workbook) -> None:
         else:
             bind(port.cell(row, symbol_col), item["symbol_hits"], row, symbol, name_source=name_cell)
         if item["ball"]:
-            bind(port.cell(row, ball_col), item["ball_hits"], row, item["ball"], name_source=name_cell, follow_value=False)
+            bind(port.cell(row, ball_col), item["ball_hits"], row, item["ball"], name_source=name_cell)
         if layout.net:
             bind(port.cell(row, layout.net), item["net_hits"], row, item["net"])
     _build_jump_index(workbook, port, entries)
@@ -1664,8 +1680,14 @@ def _pin_alias_text(text: str) -> bool:
     return bool(parts) and all(pin_key(part) for part in parts)
 
 
+def _remember_replaced_name(parts: list[str], before: str, net: str) -> None:
+    """引脚信号名改成原理图网络名时，标记里留下模板原来的名字。"""
+    if before and before != net:
+        parts.append(f"交叉：端口名 {before}，原理图 {net}")
+
+
 def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> tuple[int, dict[str, dict[str, str]]]:
-    """模板行原样留下。只改对上的原理图网络和外部电阻，并记下和端口名的交叉差异。"""
+    """模板行原样留下。导线网络名写入 Pin Definition，不写星驱原理图网络。"""
     port = _port_sheet(workbook)
     facts: dict[str, dict[str, str]] = {}
     if port is None:
@@ -1673,9 +1695,8 @@ def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> tuple[in
     layout = _port_layout(port)
     symbol_col, _ball_col = _placed_symbol_ball(port, layout)
     external = _external_state_column(port, layout.header)
-    net_col = layout.net or layout.name
     name_col = layout.name
-    if not net_col:
+    if not name_col:
         return 0, facts
     hits = read_schematic(schematic)
     board = read_board_pins(schematic)
@@ -1691,7 +1712,6 @@ def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> tuple[in
     for row in data_rows:
         pieces = [
             _text(port.cell(row, name_col).value) if name_col else "",
-            _text(port.cell(row, net_col).value),
             _text(port.cell(row, symbol_col).value),
         ]
         for piece in pieces:
@@ -1701,25 +1721,26 @@ def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> tuple[in
                 if row not in by_key[key]:
                     by_key[key].append(row)
     touched: set[int] = set()
+    matched_rows: set[int] = set()
 
     def write_net(row: int, net: str, pulls, port_name: str) -> None:
         if not net:
             return
-        before = _text(port.cell(row, net_col).value)
+        matched_rows.add(row)
+        before = _text(port.cell(row, name_col).value)
         changed = before != net
         if changed:
-            _mark_new(port.cell(row, net_col, net))
-            symbol = _text(port.cell(row, symbol_col).value)
-            for key in split_symbol_parts(symbol):
-                slot = facts.setdefault(key, {"net": "", "function": ""})
-                slot["net"] = net
+            _mark_new(port.cell(row, name_col, net))
+        symbol = _text(port.cell(row, symbol_col).value)
+        for key in split_symbol_parts(symbol):
+            slot = facts.setdefault(key, {"net": "", "function": ""})
+            slot["net"] = net
         pull = _pull_text(pulls)
         if external and pull and _text(port.cell(row, external).value) != pull:
             _mark_new(port.cell(row, external, pull))
             changed = True
         parts: list[str] = []
-        if port_name and port_name != net:
-            parts.append(f"交叉：端口名 {port_name}，原理图 {net}")
+        _remember_replaced_name(parts, before, net)
         if pulls:
             for item in pulls:
                 parts.append(f"外部{item.kind} {item.part} {item.value} 至 {item.other}".strip())
@@ -1736,9 +1757,7 @@ def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> tuple[in
             shown = _text(status.value)
             if "待人工复核" not in shown:
                 status.value = f"{shown}；待人工复核" if shown else "待人工复核"
-            _mark_new(port.cell(row, symbol_col))
-            _mark_new(port.cell(row, _ball_col))
-            _mark_new(status)
+                _mark_new(status)
             touched.add(row)
 
     for row in data_rows:
@@ -1751,7 +1770,7 @@ def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> tuple[in
                 break
         if hit is None:
             continue
-        port_name = _text(port.cell(row, name_col).value) if name_col else ""
+        port_name = _text(port.cell(row, name_col).value)
         write_net(row, hit.net, hit.pulls, port_name)
     matched: set[str] = set()
     for pin in board:
@@ -1762,8 +1781,7 @@ def _archive_edif_onto_template(workbook: Workbook, schematic: Path) -> tuple[in
             port_name = _text(port.cell(row, name_col).value) if name_col else ""
             write_net(row, pin.net, pin.pulls, port_name)
             matched.add(pin.net)
-    if touched:
-        _link_repeated_nets(workbook, port, layout, symbol_col, net_col)
+    workbook._hsi_schematic_nets = bool(matched_rows)
     return len(touched), facts
 
 
@@ -1791,7 +1809,8 @@ def _apply_schematic(workbook: Workbook, schematic: Path | None) -> int:
                 break
         if hit is None:
             continue
-        if layout.name:
+        before = _text(port.cell(row, layout.name).value) if layout.name else ""
+        if layout.name and hit.net:
             _mark_new(port.cell(row, layout.name, hit.net))
         if external and hit.pulls:
             kinds = {item.kind for item in hit.pulls}
@@ -1802,7 +1821,10 @@ def _apply_schematic(workbook: Workbook, schematic: Path | None) -> int:
                 _mark_new(port.cell(row, external, "上拉/下拉"))
         mark = port.cell(row, layout.mark)
         current = _text(mark.value)
-        note = _schematic_note(hit)
+        note_parts: list[str] = []
+        _remember_replaced_name(note_parts, before, hit.net)
+        note_parts.append(_schematic_note(hit))
+        note = "；".join(part for part in note_parts if part)
         mark.value = f"{current}；{note}" if current else note
         _mark_new(mark)
         status = port.cell(row, layout.status)
@@ -2009,9 +2031,11 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
         mux_changed = False
         if layout.mux and shown_function and not function_in_symbol and not _text(port.cell(row, layout.mux).value):
             mux_changed = bool(_set_if_changed(port.cell(row, layout.mux), shown_function))
-        net_changed = bool(layout.net and pin.net and _set_if_changed(port.cell(row, layout.net), pin.net))
         port_name = _text(port.cell(row, layout.name).value) if layout.name else ""
-        cross = bool(pin.net and port_name and _signal_key(pin.net) != _signal_key(port_name))
+        net_changed = bool(
+            layout.name and pin.net and port_name != pin.net and _set_if_changed(port.cell(row, layout.name), pin.net)
+        )
+        cross = bool(net_changed and port_name)
         review = ball_changed or net_changed or cross
         if not review and not mux_changed:
             continue
@@ -2020,8 +2044,8 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
             indexed.setdefault(key, []).append(row)
         if not review:
             continue
-        _mark_new(port.cell(row, symbol_col))
-        _mark_new(port.cell(row, ball_col))
+        if ball_changed:
+            _mark_new(port.cell(row, ball_col))
         _mark_new(port.cell(row, layout.status, "待人工复核"))
         parts = [f"原理图 {pin.sheet}"]
         if cross:
@@ -2285,14 +2309,35 @@ def _adc_group(channels: list[str]) -> str:
     return ""
 
 
-def _adc_channel_index(channels: list[str], group: str) -> int:
+def _adc_channel_numbers(channels: list[str], group: str) -> list[int]:
+    found: list[int] = []
     if not group:
-        return 10**6
+        return found
     for token in channels:
         matched = re.search(rf"{re.escape(group)}CH(\d+)", token, re.I)
-        if matched:
-            return int(matched.group(1))
+        if not matched:
+            continue
+        number = int(matched.group(1))
+        if number not in found:
+            found.append(number)
+    return found
+
+
+def _adc_channel_index(channels: list[str], group: str) -> int:
+    numbers = _adc_channel_numbers(channels, group)
+    if len(numbers) == 1:
+        return numbers[0]
     return 10**6
+
+
+def _adc_channel_text(channels: list[str], group: str) -> str:
+    """组里只有一个通道号时，通道列先写 Ch。手册里的转换器名仍留在后面。"""
+    body = "\n".join(channels)
+    index = _adc_channel_index(channels, group)
+    if index >= 10**6:
+        return body
+    head = f"Ch{index}"
+    return f"{head}\n{body}" if body else head
 
 
 def _merge_adc_groups(sheet, first: int, last: int, group_col: int) -> None:
@@ -2482,7 +2527,7 @@ def _fill_adc_from_manual(workbook: Workbook, pins: tuple[ChipPin, ...]) -> None
         if group_col and group:
             sheet.cell(row, group_col, group)
         if channel_col and channels:
-            channel = sheet.cell(row, channel_col, "\n".join(channels))
+            channel = sheet.cell(row, channel_col, _adc_channel_text(channels, group))
             channel.alignment = wrapped
             _mark_new(channel)
         pin_cell = sheet.cell(row, symbol_col, pin.symbol)
@@ -3179,15 +3224,9 @@ def _write_ports_v13(
         sheet.cell(excel_row, 6, row.supply or None)
         if layout.direction and row.direction:
             sheet.cell(excel_row, layout.direction, row.direction)
-        usage = (usages or {}).get(row.symbol, "")
-        if layout.function and usage:
-            sheet.cell(excel_row, layout.function, usage)
-        name = _project_name(row.project)
-        if layout.name and name:
-            sheet.cell(excel_row, layout.name, name)
-        desc = _field(row.project, 1)
-        if layout.desc and desc:
-            sheet.cell(excel_row, layout.desc, desc)
+        kind = pin_class(by_symbol[row.symbol]) if row.symbol in by_symbol else ""
+        if layout.function and kind:
+            sheet.cell(excel_row, layout.function, kind)
         sheet.cell(excel_row, layout.mux, present_mux(row.mux))
         sheet.cell(excel_row, layout.page, row.page)
         sheet.cell(excel_row, layout.excerpt, present_excerpt(excerpts.get(row.symbol, "")))
@@ -3201,7 +3240,7 @@ def _write_ports_v13(
             excel_row,
             (
                 1, ball_col, symbol_col, 4, 5, 6,
-                layout.direction, layout.function, layout.name, layout.desc,
+                layout.direction, layout.function,
                 layout.mux, layout.page, layout.excerpt, layout.status, layout.mark, layout.human,
             ),
         )
@@ -3270,9 +3309,6 @@ def _write_ports(
             sheet.cell(excel_row, column, value)
         if row.direction:
             sheet.cell(excel_row, 8, row.direction)
-        name = _project_name(row.project)
-        if name:
-            sheet.cell(excel_row, 10, name)
         sheet.cell(excel_row, 14, present_mux(row.mux))
         sheet.cell(excel_row, 20, row.page)
         sheet.cell(excel_row, 21, present_excerpt(excerpts.get(row.symbol, "")))
@@ -3284,7 +3320,7 @@ def _write_ports(
         _mark_filled(
             sheet,
             excel_row,
-            (1, 2, 3, 4, 5, 6, 7, 8, 10, 14, 20, 21, COL_STATUS, COL_MARK, COL_HUMAN),
+            (1, 2, 3, 4, 5, 6, 7, 8, 14, 20, 21, COL_STATUS, COL_MARK, COL_HUMAN),
         )
         if pin_supply_kind(row.symbol):
             sheet.row_dimensions[excel_row].hidden = True
@@ -3539,22 +3575,6 @@ def write_hsi_workbook(
     _write_history(history, today, changes)
     _write_ports(port, mcu, package, drafts, pins, human, usages)
     _stamp_adc_mcu(template_book, mcu)
-    _write_evidence(template_book, pins)
-    _write_constraints(
-        template_book, pins, grouped, shared, sub_map=sub_map, llm_by_sym=llm_by_sym, allocation=allocation,
-    )
-    _write_kept_sheet(
-        template_book,
-        SHEET_REVISION,
-        revision_snapshot,
-        [list(_REVISION_HEADERS)],
-    )
-    _write_kept_sheet(
-        template_book,
-        SHEET_ACCEPT,
-        accept_snapshot,
-        [list(_ACCEPT_HEADERS)],
-    )
     _drop_unused_template_sheets(template_book)
     _sync_cover_toc(cover, template_book.sheetnames)
     _link_home(template_book)
@@ -3724,6 +3744,10 @@ def revise_hsi_from_schematic(
         if port is not None:
             _rename_function_description(port, _port_layout(port))
             _retire_schematic_net_column(port)
+            layout = _port_layout(port)
+            symbol_col, _ball_col = _placed_symbol_ball(port, layout)
+            if layout.name and getattr(book, "_hsi_schematic_nets", False):
+                _link_repeated_nets(book, port, layout, symbol_col, layout.name)
         _link_detail_sheets(book)
         mcu = drawing_mcu
         pins = updated
@@ -3733,10 +3757,11 @@ def revise_hsi_from_schematic(
                 mcu = raw.split("_", 1)[1]
         if on_progress is not None:
             on_progress(80, "write", str(updated))
+        _show_workbook_normally(book)
+        _bind_3041_results(book)
         saved = Path(dest)
         saved.parent.mkdir(parents=True, exist_ok=True)
         combos = list(getattr(book, "_hsi_jump_combos", []) or [])
-        _bind_3041_results(book)
         book.save(saved)
     finally:
         book.close()

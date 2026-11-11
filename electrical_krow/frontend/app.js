@@ -1441,15 +1441,16 @@ const FLOWS = {
         { k: "q", q: "有原理图？", yes: [
           { k: "p", t: "读原理图", d: "PDF 按符号脚，EDIF 按网络名和外部电阻" },
           { k: "q", q: "符号对得上模板？", yes: [
-            { k: "p", t: "更新这一行", d: "球号变了才改。导线网络名和模板不同才写入。空的复用可以填上，只标这一格" },
-            { k: "q", q: "端口名和网络名相同？", yes: [
+            { k: "p", t: "更新这一行", d: "球号变了才改。导线网络名写入 Pin Definition。空的复用可以填上，只标这一格" },
+            { k: "q", q: "和模板原名相同？", yes: [
               { k: "p", t: "不写交叉", d: "核对状态不因另一个脚号改动" },
             ], no: [
-              { k: "p", t: "写交叉说明", d: "端口名留下。网络名标绿，状态写待人工复核" },
+              { k: "p", t: "写交叉说明", d: "格子改成原理图上的名字，标记留下模板原名" },
             ]},
           ], no: [
             { k: "p", t: "不新增这一行", d: "对不上的脚和网络都不补" },
           ]},
+          { k: "p", t: "去掉星驱原理图网络列", d: "这一列不进入输出。后面的列和公式左移" },
           { k: "p", t: "后面各页只改读到的网络名", d: "ADC、SPI、CAN 没读到导线名就保持模板原文" },
           { k: "p", t: "补回跳转", d: "一对一直接跳，一对多先打开跳转索引" },
           { k: "p", t: "死区时间可以改", d: "7_Dead Time 的 μs 改一格，要求文字和时序图跟着变" },
@@ -1482,7 +1483,8 @@ const FLOWS = {
           ], no: [
             { k: "p", t: "Do not add this row", d: "Leave unmatched pins and nets out" },
           ]},
-          { k: "p", t: "Later sheets use the wire net only", d: "ADC, SPI, and CAN keep the template text when no wire name was read" },
+          { k: "p", t: "Drop the project net column", d: "The Xingqu schematic-net column is removed. Later columns and formulas shift left" },
+          { k: "p", t: "Later sheets use the wire net only", d: "ADC signal name, and SPI or CAN Net Name. Unread cells keep the template text" },
           { k: "p", t: "Restore jumps", d: "One hit jumps directly. Several hits open the index" },
           { k: "p", t: "Dead time stays editable", d: "Change the μs cell on 7_Dead Time. The requirement text and the timing figure follow it" },
           { k: "p", t: "3041 uses a bit dropdown", d: "One or two bits choose 0, 1, or 2. Wider fields are typed. The register word and the nanosecond result follow" },

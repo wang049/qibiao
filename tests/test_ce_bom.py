@@ -222,6 +222,13 @@ class CeBomTests(unittest.TestCase):
             self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
             self.assertEqual(body["A16"].value, 1)
             self.assertEqual(body["E16"].value, "●")
+            for coord in ("E16", "E17"):
+                mark = body[coord]
+                self.assertEqual(mark.alignment.horizontal, "center")
+                self.assertEqual(mark.alignment.vertical, "center")
+                self.assertFalse(mark.alignment.wrap_text)
+                self.assertEqual(mark.font.name, "宋体")
+                self.assertEqual(mark.font.size, 14)
             self.assertIsNone(body["B16"].value)
             from electrical_krow.ce_bom import DEFAULT_CE_BOM_NAME_RULES, read_name_rules
 
@@ -337,16 +344,19 @@ class CeBomTests(unittest.TestCase):
             self.assertIsNone(body["J16"].value)
             self.assertNotIn("上盖板", " ".join("" if cell.value is None else str(cell.value) for row in body.iter_rows(min_row=16, max_row=20) for cell in row))
             self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
-            self.assertGreaterEqual(saved["字段匹配"].column_dimensions["D"].width, 17)
             match = saved["字段匹配"]
-            results = {
-                (match.cell(row, 2).value, match.cell(row, 3).value): match.cell(row, 5).value
-                for row in range(2, match.max_row + 1)
-            }
-            self.assertEqual(results[("电容", "中文名称")], "已对上")
-            self.assertEqual(results[("电容", "级别")], "已对上")
-            self.assertEqual(results[("电容", "规格型号")], "已对上")
-            self.assertEqual(results[("RC0402", "中文名称")], "未对上")
+            self.assertGreaterEqual(match.column_dimensions["B"].width, 17)
+            self.assertEqual(match.max_row, 5)
+            self.assertIn("电子件 3 个零件，2 个已对上", str(match.cell(1, 1).value))
+            by_name = {match.cell(row, 3).value: row for row in range(3, match.max_row + 1)}
+            by_part = {match.cell(row, 2).value: row for row in range(3, match.max_row + 1)}
+            cap = by_name["电容"]
+            self.assertEqual(match.cell(cap, 5).value, 4)
+            self.assertEqual(match.cell(cap, 6).value, "0.1uF")
+            self.assertEqual(match.cell(cap, 9).value, "已对上")
+            resistor = by_part["RC0402"]
+            self.assertEqual(match.cell(resistor, 3).value, "未对上")
+            self.assertIn("中文名称", str(match.cell(resistor, 9).value))
             saved.close()
             self.assertEqual(result.filled, 0)
 
@@ -642,6 +652,79 @@ class CeBomTests(unittest.TestCase):
         self.assertEqual(details[1].material, "ADC12")
         self.assertEqual(details[1].quantity, "1")
         self.assertNotIn("/", details[1].name)
+
+    def test_parenthetical_view_sizes_fill_xyz_and_skip_local_notes(self) -> None:
+        from electrical_krow.ce_structure import _title_row
+
+        words = [
+            (1555, 1020, 1610, 1032, "图样名称"),
+            (1516, 1040, 1620, 1052, "电机控制器壳体"),
+            (1299.6, 989.3, 1306.0, 1004.2, "("),
+            (1306.6, 989.3, 1345.3, 1004.2, "465.22"),
+            (1348.7, 989.3, 1355.1, 1004.2, ")"),
+            (1693.4, 1268.2, 1708.4, 1274.6, "("),
+            (1693.4, 1235.4, 1708.4, 1267.6, "297.1"),
+            (1693.4, 1226.1, 1708.4, 1232.5, ")"),
+            (1665.1, 540.8, 1680.0, 547.3, "("),
+            (1665.1, 520.9, 1680.0, 540.2, "111"),
+            (1665.1, 512.7, 1680.0, 519.2, ")"),
+            (1656.0, 1202.0, 1662.4, 1216.9, "3"),
+            (1671.1, 1202.0, 1690.4, 1216.9, "0.1"),
+            (1656.0, 1216.9, 1707.6, 1231.8, "(全周槽)"),
+            (1024.1, 1014.3, 1037.0, 1029.2, "25"),
+            (1040.0, 1014.3, 1072.0, 1029.2, "(max)"),
+        ]
+        title = _title_row(words, "housing.pdf")
+        self.assertIsNotNone(title)
+        assert title is not None
+        self.assertEqual((title.size_x, title.size_y, title.size_z), ("465.22", "297.1", "111"))
+
+    def test_drawing_view_png_stops_before_the_notes(self) -> None:
+        import pymupdf
+        from electrical_krow.ce_structure import _view_png
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=1000, height=800)
+        page.draw_rect(pymupdf.Rect(80, 80, 400, 360), color=(0, 0, 0), width=3)
+        page.insert_text((700, 140), "1.壳体材料要求写在右边不进图片", fontsize=11, fontname="china-s")
+        page.insert_text((700, 640), "图样名称", fontsize=11, fontname="china-s")
+        png = _view_png(page)
+        doc.close()
+        self.assertTrue(png.startswith(b"\x89PNG"))
+        from io import BytesIO
+        from PIL import Image
+
+        with Image.open(BytesIO(png)) as image:
+            self.assertLess(image.width, 1000)
+
+    def test_level_two_picture_is_embedded(self) -> None:
+        import pymupdf
+        from electrical_krow.ce_bom import StandardLayout, SupplierFill, _write_supplier_lines
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=40, height=20)
+        page.draw_rect(pymupdf.Rect(2, 2, 30, 16), color=(0, 0, 0), width=1)
+        png = page.get_pixmap(dpi=72).tobytes("png")
+        doc.close()
+        book = Workbook()
+        sheet = book.active
+        layout = StandardLayout("供应商", 1, 2, 3, {"X": 6, "Y": 7, "Z": 8}, 10, 3)
+        fields = {
+            "序号": [0], "级别": [1], "名称": [2], "零件号": [3], "图片": [4],
+            "用量": [5], "厚度": [], "原材料": [], "规格型号": [],
+        }
+        _write_supplier_lines(
+            sheet, layout, fields,
+            [
+                SupplierFill("壳体", "5501801758", "1", level=2, picture=png),
+                SupplierFill("摩擦焊板", level=3),
+            ],
+            structural=True,
+            level_cols=[1, 2, 3],
+        )
+        self.assertEqual(len(sheet._images), 1)
+        self.assertGreater(sheet.row_dimensions[3].height or 0, 20)
+        book.close()
 
     def test_multiple_specs_are_not_chosen(self) -> None:
         with tempfile.TemporaryDirectory() as raw:

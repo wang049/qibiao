@@ -1545,14 +1545,14 @@ const FLOWS = {
     zh: {
       title: "CE BOM",
       input: ["电子件用 AD 导出的 Excel", "结构件用二维图", "上一版可以不选"],
-      output: ["供应商表，电子件级别为 4", "字段匹配页逐字段写已对上或未对上", "结构件另起一张同样的列"],
+      output: ["供应商表，电子件级别为 4", "字段匹配页一个零件一行", "结构件另起一张同样的列"],
       bound: ["规则表没有的 TYPE，中文名称留空", "3 级件不提取尺寸", "上一版多出来的零件不补"],
       steps: [
         { k: "q", q: "是电子件？", yes: [
           { k: "p", t: "读 AD 导出的 Excel", d: "取 TYPE、数量、规格型号" },
           { k: "p", t: "TYPE 对中文名称", d: "规则表没有的名称留空" },
           { k: "p", t: "级别写成 4", d: "特殊层级留给人工改" },
-          { k: "p", t: "另起字段匹配页", d: "每个字段写已对上或未对上，并给出合计" },
+          { k: "p", t: "另起字段匹配页", d: "一个零件一行。缺的字段标未对上，页首写合计" },
         ], no: [
           { k: "q", q: "是这张二维图上的零件？", yes: [
             { k: "p", t: "定为 2 级", d: "只读图上标明的外形尺寸、材料、图样代号、质量" },
@@ -1571,14 +1571,14 @@ const FLOWS = {
     en: {
       title: "CE BOM",
       input: ["An AD Excel BOM for electronic parts", "A 2D drawing for structure", "A previous BOM is optional"],
-      output: ["A supplier sheet, with electronic parts at level 4", "A field-match sheet marking each field matched or not", "Structure on a second sheet with the same columns"],
+      output: ["A supplier sheet, with electronic parts at level 4", "A field-match sheet with one row per part", "Structure on a second sheet with the same columns"],
       bound: ["Leave the Chinese name blank when TYPE is not in the rules", "Do not extract sizes for level-3 parts", "Do not add parts that exist only in the previous file"],
       steps: [
         { k: "q", q: "Electronic parts?", yes: [
           { k: "p", t: "Read the AD Excel", d: "Take TYPE, quantity, and spec" },
           { k: "p", t: "Map TYPE to the Chinese name", d: "Leave the name blank when the rules have no TYPE" },
           { k: "p", t: "Write level 4", d: "Leave unusual levels for a person to edit" },
-          { k: "p", t: "Add a field-match sheet", d: "Mark each field matched or not, and show the total" },
+          { k: "p", t: "Add a field-match sheet", d: "One row per part. Mark a missing field, and put the total at the top" },
         ], no: [
           { k: "q", q: "Part on this drawing?", yes: [
             { k: "p", t: "Level 2", d: "Read only the labeled outline, material, drawing number, and mass" },

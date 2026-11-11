@@ -410,7 +410,7 @@ def _column_rule(col: int, layout: StandardLayout, fields: dict[str, list[int]])
     if col in fields["零件号"]:
         return "零件号", "", "有则填。空着不补"
     if col in fields["图片"]:
-        return "图片", "", "暂不处理"
+        return "图片", "", "2级件放入本图视图，3级件不放"
     if col == layout.axes["X"]:
         return "尺寸X", "mm", "电子件可不填，结构件必填。结构件没有外形尺寸时记入核验，不从标注里取"
     if col == layout.axes["Y"]:
@@ -608,6 +608,7 @@ class SupplierFill:
     size_x: str = ""
     size_y: str = ""
     size_z: str = ""
+    picture: bytes = b""
 
 
 _FORM_LABELS = frozenset({"项目", "PSS", "选型单元", "预选供应商", "研发部门", "总成图", "爆炸图"})
@@ -817,70 +818,100 @@ def _cell_writable(sheet: Worksheet, row: int, col: int) -> bool:
     return not isinstance(sheet.cell(row, col), MergedCell)
 
 
-def _field_rows(kind: str, line: SupplierFill) -> list[tuple[str, str, str, str, str, str]]:
-    """每个字段一行。已对上表示输入里有这个值并且写进了表。"""
-    fields = [
-        ("中文名称", line.name),
-        ("零件号", line.part_no),
-        ("用量", line.quantity),
-        ("级别", str(line.level or "")),
-    ]
-    if kind == "电子件":
-        fields.append(("规格型号", line.spec))
-    else:
-        size = "×".join(value for value in (line.size_x, line.size_y, line.size_z) if value)
-        if line.level >= 3:
-            fields.append(("尺寸", ""))
-            fields.append(("材料", line.material))
-        else:
-            fields.append(("尺寸", size))
-            fields.append(("材料", line.material))
-    rows: list[tuple[str, str, str, str, str, str]] = []
-    for field_name, value in fields:
-        if kind == "结构件" and line.level >= 3 and field_name == "尺寸":
-            result, note = "未提取", "三级件无独立图纸"
-        elif value:
-            result, note = "已对上", "电子件默认4级" if kind == "电子件" and field_name == "级别" else ""
-        else:
-            result, note = "未对上", ""
-        rows.append((kind, line.name or line.part_no, field_name, value, result, note))
-    return rows
+_MATCH_HEADERS = ("类别", "零件号", "中文名称", "用量", "级别", "规格型号", "尺寸", "材料", "结果", "说明")
+_MATCH_MISS = "未对上"
+
+
+def _match_number(value: str) -> object:
+    return int(value) if value.isdigit() else value
+
+
+def _part_match(kind: str, line: SupplierFill) -> dict[str, object]:
+    """一个零件一行。用不上的字段留空，缺的写未对上。"""
+    size = "×".join(value for value in (line.size_x, line.size_y, line.size_z) if value)
+    skip_size = kind == "结构件" and line.level >= 3
+    cells: dict[str, object] = {
+        "类别": kind,
+        "零件号": line.part_no or _MATCH_MISS,
+        "中文名称": line.name or _MATCH_MISS,
+        "用量": _match_number(line.quantity) if line.quantity else _MATCH_MISS,
+        "级别": line.level if line.level else _MATCH_MISS,
+        "规格型号": line.spec if kind == "电子件" else "",
+        "尺寸": "不提取" if skip_size else (size if kind == "结构件" else ""),
+        "材料": line.material if kind == "结构件" else "",
+    }
+    if kind == "电子件" and not line.spec:
+        cells["规格型号"] = _MATCH_MISS
+    if kind == "结构件" and not skip_size and not size:
+        cells["尺寸"] = _MATCH_MISS
+    if kind == "结构件" and not line.material:
+        cells["材料"] = _MATCH_MISS
+    missed = [name for name, value in cells.items() if value == _MATCH_MISS]
+    notes: list[str] = []
+    if skip_size:
+        notes.append("三级件无独立图纸，尺寸不提取")
+    return {
+        **cells,
+        "结果": "已对上" if not missed else f"{_MATCH_MISS}：" + "、".join(missed),
+        "说明": "；".join(notes),
+    }
+
+
+def _match_summary(electronic: list[SupplierFill], structural: list[SupplierFill]) -> str:
+    pieces: list[str] = []
+    for kind, lines in (("电子件", electronic), ("结构件", structural)):
+        if not lines:
+            continue
+        ready = sum(1 for line in lines if _part_match(kind, line)["结果"] == "已对上")
+        pieces.append(f"{kind} {len(lines)} 个零件，{ready} 个已对上")
+    if electronic:
+        pieces.append("电子件级别按默认 4 写入")
+    return "。".join(pieces) + ("。" if pieces else "没有零件。")
 
 
 def _write_field_match(book, electronic: list[SupplierFill], structural: list[SupplierFill]) -> None:
     if "字段匹配" in book.sheetnames:
         del book["字段匹配"]
     sheet = book.create_sheet("字段匹配")
-    sheet.append(["类别", "零件", "字段", "写入值", "结果", "说明"])
-    body: list[tuple[str, str, str, str, str, str]] = []
-    for line in electronic:
-        body.extend(_field_rows("电子件", line))
-    for line in structural:
-        body.extend(_field_rows("结构件", line))
-    for row in body:
-        sheet.append(list(row))
+    headers = list(_MATCH_HEADERS)
+    sheet.append([_match_summary(electronic, structural)])
+    sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(headers))
+    sheet.append(headers)
+    records = [_part_match("电子件", line) for line in electronic]
+    records.extend(_part_match("结构件", line) for line in structural)
+    for record in records:
+        sheet.append([record[name] for name in headers])
     header_fill = PatternFill("solid", fgColor="1E3A5F")
     ok_fill = PatternFill("solid", fgColor="C6EFCE")
     miss_fill = PatternFill("solid", fgColor="FFE699")
-    for cell in sheet[1]:
+    sheet.cell(1, 1).font = Font(name="宋体", size=11)
+    sheet.cell(1, 1).alignment = Alignment(vertical="center", wrap_text=True)
+    sheet.row_dimensions[1].height = 22
+    for cell in sheet[2]:
         cell.fill = header_fill
-        cell.font = Font(name="宋体", bold=True, color="FFFFFF")
-    for row in range(2, sheet.max_row + 1):
-        result = str(sheet.cell(row, 5).value or "")
-        fill = ok_fill if result == "已对上" else miss_fill
-        for col in range(1, 7):
+        cell.font = Font(name="宋体", bold=True, color="FFFFFF", size=11)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+    sheet.row_dimensions[2].height = 22
+    for row in range(3, sheet.max_row + 1):
+        sheet.row_dimensions[row].height = 20
+        for col, name in enumerate(headers, start=1):
             cell = sheet.cell(row, col)
-            cell.fill = fill
-            cell.alignment = Alignment(vertical="center", wrap_text=True)
-    totals = [row for row in body if row[0] == "电子件"]
-    matched = sum(1 for row in totals if row[4] == "已对上")
-    sheet.cell(1, 8, "电子件字段")
-    sheet.cell(1, 9, f"{matched}/{len(totals)} 已对上" if totals else "无电子件")
-    for col, width in enumerate((12, 22, 12, 28, 12, 28), start=1):
+            cell.font = Font(name="宋体", size=11)
+            center = name in {"类别", "用量", "级别", "结果"}
+            cell.alignment = Alignment(
+                horizontal="center" if center else "left",
+                vertical="center",
+                wrap_text=name in {"结果", "说明"},
+            )
+            if cell.value == _MATCH_MISS or (name == "结果" and str(cell.value).startswith(_MATCH_MISS)):
+                cell.fill = miss_fill
+            elif name == "结果":
+                cell.fill = ok_fill
+    for col, width in enumerate((10, 24, 16, 8, 8, 16, 14, 16, 24, 28), start=1):
         sheet.column_dimensions[get_column_letter(col)].width = width
-    _widen_sheet(sheet)
-    sheet.freeze_panes = "A2"
-    sheet.auto_filter.ref = f"A1:F{max(sheet.max_row, 1)}"
+    last = max(sheet.max_row, 2)
+    sheet.freeze_panes = "A3"
+    sheet.auto_filter.ref = f"A2:{get_column_letter(len(headers))}{last}"
 
 
 def _place_issue_version(sheet: Worksheet, header_row: int) -> None:
@@ -897,6 +928,34 @@ def _place_issue_version(sheet: Worksheet, header_row: int) -> None:
     while not _cell_writable(sheet, header_row, col):
         col += 1
     sheet.cell(header_row, col, f"出表版本 {stamp}")
+
+
+def _place_picture(sheet: Worksheet, row: int, col: int, png: bytes) -> None:
+    """把本图视图放进图片格。显示宽度跟这一列走，行高跟着图变。"""
+    from io import BytesIO
+
+    from openpyxl.drawing.image import Image as XlImage
+    from PIL import Image as PilImage
+
+    with PilImage.open(BytesIO(png)) as raw:
+        width, height = max(1, raw.width), max(1, raw.height)
+    image = XlImage(BytesIO(png))
+    image.width = width
+    image.height = height
+    sheet.add_image(image, f"{get_column_letter(col)}{row}")
+    sheet.row_dimensions[row].height = height + 8
+    letter = get_column_letter(col)
+    current = sheet.column_dimensions[letter].width or 0
+    needed = width / 7 + 2
+    if current < needed:
+        sheet.column_dimensions[letter].width = needed
+
+
+def _write_level_mark(cell) -> None:
+    """级别圆点用同一套字号和对齐。模板里有的行居中换行，有的行靠左，圆点会上下左右错开。"""
+    cell.value = "●"
+    cell.font = Font(name="宋体", size=14)
+    cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=False, indent=0)
 
 
 def _write_supplier_lines(
@@ -955,7 +1014,10 @@ def _write_supplier_lines(
                 if col is not None and value:
                     sheet.cell(excel_row, col + 1, value)
         if line.level and 1 <= line.level <= len(levels):
-            sheet.cell(excel_row, levels[line.level - 1] + 1, "●")
+            _write_level_mark(sheet.cell(excel_row, levels[line.level - 1] + 1))
+        picture_cols = fields.get("图片") or []
+        if line.picture and picture_cols:
+            _place_picture(sheet, excel_row, picture_cols[0] + 1, line.picture)
         sheet.cell(excel_row, match_col, _supplier_match(line, structural))
         if check_col:
             verdict = bom_field_check(line.name, line.quantity, line.spec, line.level, previous)
@@ -1087,6 +1149,7 @@ def _build_standard_ce_bom(
             size_x=row.size_x if level == 2 else "",
             size_y=row.size_y if level == 2 else "",
             size_z=row.size_z if level == 2 else "",
+            picture=row.picture if level == 2 else b"",
         )
         for row, level in zip(structure_rows, _bom_levels(structure_rows), strict=True)
     ]

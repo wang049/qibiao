@@ -1,6 +1,6 @@
 """从结构二维图的标题栏和明细栏抽出 CE BOM 能对上的字段。
 
-产品尺寸不从散落的标注里挑。质量没有单位时不写入净重。级别不按图号编造。
+产品尺寸先认「外形尺寸」后的长×宽×高。没有这一栏时，认图面上括号括起的三个外形尺寸。平面图横向是 X，同一视图的竖向是 Y，另一视图的高度是 Z。全周槽、最大值这类局部尺寸不写入。质量没有单位时不写入净重。级别不按图号编造。
 """
 
 from __future__ import annotations
@@ -36,10 +36,58 @@ class StructureRow:
     size_x: str = ""
     size_y: str = ""
     size_z: str = ""
+    picture: bytes = b""
 
 
 def _text(value: str) -> str:
     return value.replace("\xa0", " ").strip()
+
+
+def _outline_sizes(words: list[tuple[float, float, float, float, str]]) -> tuple[str, str, str]:
+    """先认外形尺寸栏。没有时，用图面括号里恰好三个的外形参考尺寸。"""
+    outline = _below(
+        words,
+        "外形尺寸",
+        accept=lambda text: _OUTLINE.search(text.replace(" ", "")) is not None,
+    )
+    if outline:
+        found = _OUTLINE.search(outline.replace(" ", ""))
+        if found:
+            return found.group(1), found.group(2), found.group(3)
+    boxed = _parenthetical_numbers(words)
+    if len(boxed) != 3:
+        return "", "", ""
+    horizontal = [item for item in boxed if item[1] == "h"]
+    vertical = [item for item in boxed if item[1] == "v"]
+    if len(horizontal) != 1 or len(vertical) != 2:
+        return "", "", ""
+    length = horizontal[0]
+    nearer, farther = sorted(vertical, key=lambda item: abs(item[2] - length[2]))
+    return length[0], nearer[0], farther[0]
+
+
+def _parenthetical_numbers(
+    words: list[tuple[float, float, float, float, str]],
+) -> list[tuple[str, str, float]]:
+    """括号里单独一个数字。横向括号算平面图的长，竖向括号算宽或高。"""
+    opens = [word for word in words if word[4] == "("]
+    closes = [word for word in words if word[4] == ")"]
+    found: list[tuple[str, str, float]] = []
+    for word in words:
+        text = word[4]
+        if not re.fullmatch(r"\d+(?:\.\d+)?", text):
+            continue
+        x0, y0, x1, y1 = word[:4]
+        left = any(abs(item[1] - y0) < 6 and 0 <= x0 - item[2] <= 12 for item in opens)
+        right = any(abs(item[1] - y0) < 6 and 0 <= item[0] - x1 <= 12 for item in closes)
+        if left and right:
+            found.append((text, "h", (y0 + y1) / 2, (x0 + x1) / 2))
+            continue
+        above = any(abs(item[0] - x0) < 8 and 0 <= y0 - item[3] <= 12 for item in closes + opens)
+        below = any(abs(item[0] - x0) < 8 and 0 <= item[1] - y1 <= 12 for item in opens + closes)
+        if above and below:
+            found.append((text, "v", (y0 + y1) / 2, (x0 + x1) / 2))
+    return found
 
 
 def _chinese_title(text: str) -> str:
@@ -99,16 +147,7 @@ def _title_row(words: list[tuple[float, float, float, float, str]], source: str)
             matched = _THICKNESS.search(" ".join(word[4] for word in words))
         if matched:
             thickness = matched.group(1) + "mm"
-    size_x = size_y = size_z = ""
-    outline = _below(
-        words,
-        "外形尺寸",
-        accept=lambda text: _OUTLINE.search(text.replace(" ", "")) is not None,
-    )
-    if outline:
-        found = _OUTLINE.search(outline.replace(" ", ""))
-        if found:
-            size_x, size_y, size_z = found.group(1), found.group(2), found.group(3)
+    size_x, size_y, size_z = _outline_sizes(words)
     return StructureRow(
         title, part_no, "", thickness, weight, material, parent, source, note,
         size_x, size_y, size_z,
@@ -171,6 +210,104 @@ def _bom_rows(words: list[tuple[float, float, float, float, str]], source: str, 
     return rows
 
 
+def _ink_runs(page, clip, *, axis: str) -> list[tuple[float, float]]:
+    """深色像素连在一起的一段。用来把主视图和旁边的局部视图分开。"""
+    import pymupdf
+
+    scale = 0.05
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), colorspace=pymupdf.csGRAY, clip=clip, alpha=False)
+    width, height = pix.width, pix.height
+    samples = memoryview(pix.samples)
+    runs: list[tuple[float, float]] = []
+    start = -1
+    span = width if axis == "x" else height
+    for index in range(span):
+        if axis == "x":
+            dark = sum(1 for y in range(height) if samples[y * width + index] < 210)
+        else:
+            dark = sum(1 for x in range(width) if samples[index * width + x] < 210)
+        if dark > 6 and start < 0:
+            start = index
+        elif dark <= 6 and start >= 0:
+            origin = clip.x0 if axis == "x" else clip.y0
+            runs.append((origin + start / scale, origin + index / scale))
+            start = -1
+    if start >= 0:
+        origin = clip.x0 if axis == "x" else clip.y0
+        runs.append((origin + start / scale, origin + span / scale))
+    return [run for run in runs if run[1] - run[0] >= 80]
+
+
+def _main_view_clips(page, words: list[tuple[float, float, float, float, str]]):
+    """外形尺寸旁边的两张主视图。不把左边另一张视图和右边的局部放大一起截进来。"""
+    import pymupdf
+
+    boxed = _parenthetical_numbers(words)
+    horizontal = [item for item in boxed if item[1] == "h"]
+    vertical = [item for item in boxed if item[1] == "v"]
+    if len(horizontal) != 1 or len(vertical) != 2:
+        return []
+    length = horizontal[0]
+    width_dim, height_dim = sorted(vertical, key=lambda item: abs(item[2] - length[2]))
+    clips = []
+    for dim, below in ((height_dim, False), (length, True)):
+        cx, cy = dim[3], dim[2]
+        if below:
+            window = pymupdf.Rect(cx - 900, min(cy, width_dim[2]) - 80, width_dim[3] + 80, max(cy, width_dim[2]) + 280)
+        else:
+            window = pymupdf.Rect(cx - 900, cy - 180, cx + 80, cy + 180)
+        window = window & page.rect
+        runs = _ink_runs(page, window, axis="x")
+        if not runs:
+            continue
+        anchor = width_dim[3] if below else cx
+        left, right = min(runs, key=lambda run: abs(run[1] - anchor))
+        if below:
+            clips.append(pymupdf.Rect(left - 16, window.y0, min(right, width_dim[3]) + 36, window.y1))
+        else:
+            clips.append(pymupdf.Rect(left - 16, window.y0, cx + 36, window.y1))
+    return clips
+
+
+def _view_png(page) -> bytes:
+    """截外形尺寸旁边的主视图。整页左上角、技术要求和标题栏不放进图片。"""
+    import pymupdf
+    from io import BytesIO
+
+    from PIL import Image as PilImage
+
+    words = [(word[0], word[1], word[2], word[3], word[4]) for word in page.get_text("words")]
+    clips = _main_view_clips(page, words)
+    if not clips:
+        notes_x = page.rect.width
+        for word in words:
+            text = word[4]
+            if word[0] > page.rect.width * 0.5 and len(text) >= 8 and text.startswith(("1.", "1、")):
+                notes_x = min(notes_x, word[0])
+        title_top = page.rect.height
+        for word in words:
+            if word[4] in {"图样名称", "图样代号"} and word[1] > page.rect.height * 0.5:
+                title_top = min(title_top, word[1])
+        right = notes_x - 16 if notes_x < page.rect.width else page.rect.width * 0.7
+        bottom = title_top - 16 if title_top < page.rect.height else page.rect.height * 0.82
+        clips = [pymupdf.Rect(24, 24, max(right, 80), max(bottom, 80)) & page.rect]
+    images = []
+    for clip in clips:
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(0.55, 0.55), clip=clip, alpha=False)
+        images.append(PilImage.open(BytesIO(pix.tobytes("png"))).convert("RGB"))
+    width = max(image.width for image in images)
+    gap = 12
+    canvas = PilImage.new("RGB", (width, sum(image.height for image in images) + gap * (len(images) - 1)), "white")
+    top = 0
+    for image in images:
+        canvas.paste(image, ((width - image.width) // 2, top))
+        top += image.height + gap
+    canvas.thumbnail((420, 360))
+    out = BytesIO()
+    canvas.save(out, format="PNG")
+    return out.getvalue()
+
+
 def read_structure_drawing(path: Path) -> list[StructureRow]:
     """读一张结构二维图。不是这种图则返回空。"""
     if path.suffix.lower() != ".pdf" or not path.is_file():
@@ -188,6 +325,13 @@ def read_structure_drawing(path: Path) -> list[StructureRow]:
             title = _title_row(words, path.name)
             if title is None:
                 continue
+            picture = _view_png(page)
+            if picture:
+                title = StructureRow(
+                    title.name, title.part_no, title.quantity, title.thickness, title.weight,
+                    title.material, title.parent, title.source, title.note,
+                    title.size_x, title.size_y, title.size_z, picture,
+                )
             details = _bom_rows(words, path.name, title.part_no)
             key = title.part_no or title.name
             if key not in seen_titles:
@@ -210,6 +354,7 @@ def read_structure_drawing(path: Path) -> list[StructureRow]:
                                     title.size_x,
                                     title.size_y,
                                     title.size_z,
+                                    title.picture,
                                 )
                             )
                         else:

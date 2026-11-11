@@ -1014,7 +1014,7 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(empty.status_code, 400)
 
     def test_hsi_templates_listed_and_schematic_requires_one(self) -> None:
-        from electrical_krow.hsi_book import DEFAULT_HSI_TEMPLATE, HsiResult
+        from electrical_krow.hsi_book import SCHEMATIC_HSI_TEMPLATE, HsiResult
 
         listed = self.client.get("/api/hsi/templates")
         self.assertEqual(listed.status_code, 200, listed.text)
@@ -1052,7 +1052,7 @@ class GatewayTests(unittest.TestCase):
                 files={"schematic": ("board.edf", b"(edif demo)", "application/octet-stream")},
             )
         self.assertEqual(ok.status_code, 200, ok.text)
-        self.assertEqual(seen["base"], DEFAULT_HSI_TEMPLATE)
+        self.assertEqual(seen["base"], SCHEMATIC_HSI_TEMPLATE)
         self.assertEqual(ok.json()["schematic_updates"], 2)
 
     def test_inspect_requires_login_and_reports_type_pages_estimate(self) -> None:

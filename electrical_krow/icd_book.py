@@ -1,7 +1,7 @@
 """从当份接插件 ICD 工作簿抽出引脚和接插件信息。
 
 只抄当份表上已经写明的格子。空脚、没写信号、型号写着暂不，都标成待确认，不另补。
-有上一版时，按连接器表和引脚号对照，列出新增、删除和变更。
+有上一版时，按连接器表和引脚号对照，列出新增、删除和变更。原表右侧加匹配栏。差异总结写两版版本号和本次出表时间。
 """
 from __future__ import annotations
 
@@ -45,6 +45,7 @@ class IcdPin:
     status: str
     row: int = 0
     signal_col: int = 0
+    pin_col: int = 0
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,10 @@ class IcdPart:
     plating: str
     status: str
     row: int = 0
+    maker_col: int = 0
+    model_col: int = 0
+    part_col: int = 0
+    plate_col: int = 0
 
 
 @dataclass(frozen=True)
@@ -237,7 +242,10 @@ def _connector_groups(rows: list[list[str]], header_at: int) -> list[tuple[str, 
             model = values[model_at] if model_at < len(values) else ""
             part_no = values[part_at] if part_at < len(values) else ""
             plating = values[plate_at] if plate_at < len(values) else ""
-            groups.append((side, maker, model, part_no, plating, offset + 2))
+            groups.append((
+                side, maker, model, part_no, plating, offset + 2,
+                maker_at + 1, model_at + 1, part_at + 1, plate_at + 1,
+            ))
         if groups:
             break
     if header_at < 0 and not groups:
@@ -264,10 +272,14 @@ def _read_sheet(name: str, rows: list[list[str]]) -> tuple[list[IcdPin], list[Ic
     groups = _connector_groups(rows, pin_header)
     device = groups[0] if groups else ("", "", "", "", "")
     harness = groups[1] if len(groups) > 1 else ("", "", "", "", "")
-    for side, maker, model, part_no, plating, excel_row in groups:
-        parts.append(IcdPart(name, side, maker, model, part_no, plating, _part_status(model), excel_row))
+    for side, maker, model, part_no, plating, excel_row, maker_col, model_col, part_col, plate_col in groups:
+        parts.append(IcdPart(
+            name, side, maker, model, part_no, plating, _part_status(model), excel_row,
+            maker_col, model_col, part_col, plate_col,
+        ))
     if pin_header >= 0:
         signal_at = (pin_columns.get("signal") or [0])[0] + 1
+        pin_at = (pin_columns.get("pin") or [0])[0] + 1
         for offset, row in enumerate(rows[pin_header + 1:], start=pin_header + 2):
             pin = _pick(row, pin_columns, "pin")
             signal = _pick(row, pin_columns, "signal")
@@ -293,6 +305,7 @@ def _read_sheet(name: str, rows: list[list[str]]) -> tuple[list[IcdPin], list[Ic
                 _pin_status(signal),
                 offset,
                 signal_at,
+                pin_at,
             ))
     if hv_header >= 0:
         for index, row in enumerate(rows[hv_header + 1:], start=hv_header + 2):
@@ -604,8 +617,9 @@ def _write_banner(sheet: Worksheet, previous: IcdBook, current: IcdBook, columns
     """文件名单独占一整行，避免把后面表格的某一列撑得很宽。"""
     previous_version = previous.version or "未写版本号"
     current_version = current.version or "未写版本号"
+    issued = datetime.now().strftime("%Y%m%d-%H%M%S")
     sheet.cell(1, 1, f"上一版：{previous.source_name}　　版本 {previous_version}")
-    sheet.cell(2, 1, f"当版：{current.source_name}　　版本 {current_version}")
+    sheet.cell(2, 1, f"当版：{current.source_name}　　版本 {current_version}　　本次出表 {issued}")
     if columns > 1:
         sheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=columns)
         sheet.merge_cells(start_row=2, start_column=1, end_row=2, end_column=columns)
@@ -633,18 +647,27 @@ def _sheet_text(value: str) -> str:
     return text
 
 
-def _paint_row(sheet: Worksheet, row: int, kind: str) -> None:
+def _paint_span(sheet: Worksheet, row: int, kind: str, start: int, end: int) -> None:
+    """只涂这一段。接插件和引脚写在同一行时，不能把另一边一起涂上。"""
     fill = _DIFF_FILL.get(kind)
-    if fill is None or row <= 0:
+    if fill is None or row <= 0 or start <= 0:
         return
     from openpyxl.cell.cell import MergedCell
 
-    width = min(sheet.max_column or 1, 24)
-    for col in range(1, width + 1):
+    end = min(max(end, start), 24)
+    for col in range(start, end + 1):
         cell = sheet.cell(row, col)
         if isinstance(cell, MergedCell):
             continue
         cell.fill = fill
+
+
+_PART_COL = {
+    "厂家": "maker_col",
+    "型号": "model_col",
+    "供应商料号": "part_col",
+    "镀层": "plate_col",
+}
 
 
 def _mark_source_sheets(
@@ -659,9 +682,13 @@ def _mark_source_sheets(
         title = _sheet_for_change(book, change.where)
         if title:
             grouped.setdefault(title, []).append(change)
-    pin_row = {(pin.sheet, _pin_key(pin.pin)): pin.row for pin in current.pins if pin.row}
-    part_row = {(part.sheet, part.side): part.row for part in current.parts if part.row}
-    hv_row = {(item.sheet, item.connector): item.row for item in current.hv if item.row}
+    pin_at = {
+        (pin.sheet, _pin_key(pin.pin)): pin
+        for pin in current.pins
+        if pin.row and _pin_key(pin.pin)
+    }
+    part_at = {(part.sheet, part.side): part for part in current.parts if part.row}
+    hv_at = {(item.sheet, item.connector): item for item in current.hv if item.row}
     totals: dict[str, dict[str, int]] = {}
     for title, items in grouped.items():
         sheet = book[title]
@@ -672,17 +699,41 @@ def _mark_source_sheets(
             if label not in counts:
                 continue
             token = _pin_key(change.key) or change.key
+            if _is_pinless_signal_delete(change):
+                token = (change.previous or "").strip() or token
             mark = (label, token)
             if mark not in painted:
                 counts[label] += 1
                 painted.add(mark)
             if change.kind == "删除":
                 continue
-            row = pin_row.get((title, _pin_key(change.key))) or pin_row.get((change.where, _pin_key(change.key)))
-            if not row:
-                row = part_row.get((title, change.key)) or hv_row.get((title, change.key))
-            if row:
-                _paint_row(sheet, row, change.kind)
+            pin_key = _pin_key(change.key)
+            pin = pin_at.get((title, pin_key)) or pin_at.get((change.where, pin_key)) if pin_key else None
+            if pin is not None:
+                _paint_span(sheet, pin.row, change.kind, pin.pin_col or 1, sheet.max_column or 1)
+                continue
+            part = part_at.get((title, change.key)) or part_at.get((change.where, change.key))
+            if part is not None:
+                if change.field == "条目":
+                    columns = [part.maker_col, part.model_col, part.part_col, part.plate_col]
+                else:
+                    attr = _PART_COL.get(change.field)
+                    columns = [getattr(part, attr)] if attr else []
+                for col in columns:
+                    _paint_span(sheet, part.row, change.kind, col, col)
+                continue
+            item = hv_at.get((title, change.key)) or hv_at.get((change.where, change.key))
+            if item is not None:
+                _paint_span(sheet, item.row, change.kind, 1, sheet.max_column or 1)
+                continue
+            if change.field == "说明":
+                wanted = (change.current or change.previous or "").strip()
+                for pin in current.pins:
+                    if pin.sheet not in {title, change.where} or not pin.row or not _is_explanation(pin):
+                        continue
+                    if wanted and _loose(_explanation_text(pin)) != _loose(wanted):
+                        continue
+                    _paint_span(sheet, pin.row, change.kind, pin.pin_col or 1, sheet.max_column or 1)
         start = (sheet.max_row or 1) + 2
         stale = [str(merged) for merged in sheet.merged_cells.ranges if merged.max_row >= start]
         for ref in stale:
@@ -726,6 +777,28 @@ def _filled_pin_line(change: IcdChange) -> str:
     return f"{pin}  {current}"
 
 
+def _is_pinless_signal_delete(change: IcdChange) -> bool:
+    """没有引脚号、上一版有信号名的删除。多条是同一类，可以收成一段。"""
+    if change.kind != "删除" or change.field != "引脚" or _pin_key(change.key):
+        return False
+    return _is_pin_signal(change.previous)
+
+
+def _chunk_deleted_signals(where: str, lines: list[str]) -> list[IcdChange]:
+    chunks: list[IcdChange] = []
+    for start in range(0, len(lines), 16):
+        part = lines[start:start + 16]
+        chunks.append(IcdChange(
+            where,
+            f"{len(lines)}只" if start == 0 else "续",
+            "删除",
+            "引脚",
+            "\n".join(part),
+            "（空）",
+        ))
+    return chunks
+
+
 def _is_new_pin(change: IcdChange) -> bool:
     return change.kind == "新增" and change.field == "引脚" and bool(_pin_key(change.key))
 
@@ -757,13 +830,17 @@ def _fold_pin_lists(changes: list[IcdChange]) -> list[IcdChange]:
     """同一张表里成批新增的脚、成批补上的引脚号，各收成一段清单。"""
     new_pins: dict[str, list[IcdChange]] = {}
     filled: dict[str, list[IcdChange]] = {}
+    pinless: dict[str, list[IcdChange]] = {}
     for change in changes:
         if _is_new_pin(change):
             new_pins.setdefault(change.where, []).append(change)
         elif _is_filled_pin_number(change):
             filled.setdefault(change.where, []).append(change)
+        elif _is_pinless_signal_delete(change):
+            pinless.setdefault(change.where, []).append(change)
     emitted_new: set[str] = set()
     emitted_filled: set[str] = set()
+    emitted_pinless: set[str] = set()
     shown: list[IcdChange] = []
     for change in changes:
         if _is_new_pin(change):
@@ -802,8 +879,41 @@ def _fold_pin_lists(changes: list[IcdChange]) -> list[IcdChange]:
                 lines.append(line)
             shown.extend(_chunk_lines(change.where, "变更", "引脚号", f"{len(lines)}只", lines))
             continue
+        if _is_pinless_signal_delete(change):
+            group = pinless[change.where]
+            if len(group) < 2:
+                shown.append(change)
+                continue
+            if change.where in emitted_pinless:
+                continue
+            emitted_pinless.add(change.where)
+            lines = []
+            seen_lines: set[str] = set()
+            for item in group:
+                line = (item.previous or "").strip()
+                if not line or line in seen_lines:
+                    continue
+                seen_lines.add(line)
+                lines.append(line)
+            shown.extend(_chunk_deleted_signals(change.where, lines))
+            continue
         shown.append(change)
     return _fold_same_values(shown)
+
+
+def _cover_used_range(sheet: Worksheet) -> None:
+    """原表的打印区域停在数据末行时，表下小结会在分页预览里变成灰色。"""
+    from openpyxl.utils import range_boundaries
+
+    max_row = sheet.max_row or 1
+    max_col = sheet.max_column or 1
+    area = sheet.print_area
+    if area:
+        ref = str(area).split("!")[-1].replace("$", "")
+        _min_c, _min_r, area_col, area_row = range_boundaries(ref)
+        max_row = max(max_row, area_row)
+        max_col = max(max_col, area_col)
+    sheet.print_area = f"A1:{get_column_letter(max_col)}{max_row}"
 
 
 def _ensure_summary_widths(sheet: Worksheet) -> None:
@@ -844,7 +954,10 @@ def _write_sheet_table(
     """写在原表最下方、从 A 列起。文字靠左。成批的新引脚收成一段清单。"""
     _ensure_summary_widths(sheet)
     columns = (1, 2, 3, 4, 5)
-    title = f"本表小结　新增 {counts['新增']}　修改 {counts['修改']}　删除 {counts['删除']}"
+    title = (
+        f"本表小结　新增 {counts['新增']}　修改 {counts['修改']}　删除 {counts['删除']}"
+        "。绿色为新增，黄色为修改，红色为删除"
+    )
     _write_summary_cell(
         sheet,
         start,
@@ -879,6 +992,25 @@ def _write_sheet_table(
             _write_summary_cell(sheet, row, col, value, font=body_font, fill=fill)
             lines = max(lines, _wrapped_lines(value, _col_width(sheet, col)))
         sheet.row_dimensions[row].height = _row_height(lines)
+    _cover_used_range(sheet)
+
+
+def _write_color_legend(sheet: Worksheet, row: int, columns: int) -> None:
+    """绿色新增、黄色修改、红色删除。原表和差异总结用的是同三种颜色。"""
+    labels = (
+        (1, "绿色：新增", "C6EFCE"),
+        (3, "黄色：修改", "FFE699"),
+        (5, "红色：删除", "FFC7CE"),
+    )
+    for col, text, color in labels:
+        cell = sheet.cell(row, col, text)
+        cell.fill = PatternFill("solid", fgColor=color)
+        cell.font = Font(name="宋体", size=11)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        end = min(col + 1, columns)
+        if end > col:
+            sheet.merge_cells(start_row=row, start_column=col, end_row=row, end_column=end)
+    sheet.row_dimensions[row].height = 22
 
 
 def _write_overall_summary(
@@ -891,18 +1023,21 @@ def _write_overall_summary(
 ) -> None:
     if "差异总结" in book.sheetnames:
         del book["差异总结"]
-    sheet = book.create_sheet("差异总结", 0)
+    sheet = book.create_sheet("差异总结")
     columns = 6
     summary_widths = (22, 14, 14, 14, 36, 36)
     _set_widths(sheet, summary_widths)
     _write_banner(sheet, previous, current, columns)
+    _write_color_legend(sheet, 3, columns)
+    next_row = 4
     if lead:
-        sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=columns)
-        cell = sheet.cell(3, 1, lead)
+        sheet.merge_cells(start_row=next_row, start_column=1, end_row=next_row, end_column=columns)
+        cell = sheet.cell(next_row, 1, lead)
         cell.font = Font(name="宋体", size=11)
         cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
-        sheet.row_dimensions[3].height = _row_height(_wrapped_lines(lead, sum(summary_widths)))
-    count_header = 4
+        sheet.row_dimensions[next_row].height = _row_height(_wrapped_lines(lead, sum(summary_widths)))
+        next_row = 5
+    count_header = next_row
     for col, name in enumerate(("表", "新增", "修改", "删除"), start=1):
         cell = sheet.cell(count_header, col, name)
         cell.fill = PatternFill("solid", fgColor="1E3A5F")
@@ -952,6 +1087,127 @@ def _write_overall_summary(
                 cell.fill = fill
             lines = max(lines, _wrapped_lines(value, summary_widths[col - 1]))
         sheet.row_dimensions[row].height = _row_height(lines)
+    _widen_columns(sheet, skip_rows=frozenset({1, 2}))
+
+
+def _widen_columns(sheet: Worksheet, *, skip_rows: frozenset[int] = frozenset(), floor: int = 12, cap: int = 48) -> None:
+    """按格子里的字加宽。已经更宽的列不缩小，表头横幅不参与。"""
+    for col in range(1, (sheet.max_column or 1) + 1):
+        longest = 0
+        for row in range(1, (sheet.max_row or 1) + 1):
+            if row in skip_rows:
+                continue
+            longest = max(longest, _display_units(sheet.cell(row, col).value))
+        if longest <= 0:
+            continue
+        width = min(max(longest + 2, floor), cap)
+        letter = get_column_letter(col)
+        current = sheet.column_dimensions[letter].width or 0
+        if width > current:
+            sheet.column_dimensions[letter].width = width
+
+
+def _cell_writable(sheet: Worksheet, row: int, col: int) -> bool:
+    from openpyxl.cell.cell import MergedCell
+
+    return not isinstance(sheet.cell(row, col), MergedCell)
+
+
+def _match_column(sheet: Worksheet, data_rows: list[int]) -> int:
+    """匹配写在数据和本表小结的右侧。避开合并单元格。小结占用 A 到 E。"""
+    last = 5
+    for row in range(1, min(sheet.max_row or 1, 8) + 1):
+        for col in range(1, min(sheet.max_column or 1, 40) + 1):
+            if sheet.cell(row, col).value not in (None, ""):
+                last = max(last, col)
+    header = _match_header_row(sheet)
+    for column in range(last + 1, last + 16):
+        if not _cell_writable(sheet, header, column):
+            continue
+        if all(_cell_writable(sheet, row, column) for row in data_rows):
+            return column
+    return last + 1
+
+
+def _match_header_row(sheet: Worksheet) -> int:
+    for row in range(1, min(sheet.max_row or 1, 8) + 1):
+        for col in range(1, min(sheet.max_column or 1, 30) + 1):
+            if str(sheet.cell(row, col).value or "").strip() in {"引脚号", "连接器", "厂家"}:
+                return row
+    return 1
+
+
+def _match_text(items: list[IcdChange], *, compared: bool) -> str:
+    if not compared:
+        return "已从当版读出"
+    if any(item.kind == "新增" for item in items):
+        return "新增"
+    fields: list[str] = []
+    for item in items:
+        if item.kind == "变更" and item.field and item.field not in fields:
+            fields.append(item.field)
+    if fields:
+        return "修改：" + "、".join(fields)
+    if any(item.kind == "变更" for item in items):
+        return "修改"
+    return "未改"
+
+
+def _write_match_columns(
+    book: Workbook,
+    current: IcdBook,
+    previous: IcdBook | None,
+    changes: list[IcdChange],
+) -> None:
+    """原表右侧写这一行和上一版的关系。删除的行已经不在当版，写在本表小结里。"""
+    grouped: dict[tuple[str, str], list[IcdChange]] = {}
+    for change in changes:
+        if change.kind == "删除":
+            continue
+        title = _sheet_for_change(book, change.where)
+        if not title:
+            continue
+        grouped.setdefault((title, change.key), []).append(change)
+        pin_key = _pin_key(change.key)
+        if pin_key and pin_key != change.key:
+            grouped.setdefault((title, pin_key), []).append(change)
+    rows: dict[str, list[tuple[int, str]]] = {}
+    for pin in current.pins:
+        if pin.row and pin.sheet in book.sheetnames:
+            rows.setdefault(pin.sheet, []).append((pin.row, pin.pin))
+    for part in current.parts:
+        if part.row and part.sheet in book.sheetnames:
+            rows.setdefault(part.sheet, []).append((part.row, part.side))
+    for item in current.hv:
+        if item.row and item.sheet in book.sheetnames:
+            rows.setdefault(item.sheet, []).append((item.row, item.connector))
+    compared = previous is not None
+    for title, pairs in rows.items():
+        sheet = book[title]
+        chosen: dict[int, str] = {}
+        for row, key in pairs:
+            text = _match_text(grouped.get((title, key), []), compared=compared)
+            previous_text = chosen.get(row)
+            if previous_text is None or previous_text in {"未改", "已从当版读出"}:
+                chosen[row] = text
+            elif text not in {"未改", "已从当版读出", previous_text}:
+                chosen[row] = f"{previous_text}；{text}"
+        column = _match_column(sheet, list(chosen))
+        header_row = _match_header_row(sheet)
+        if _cell_writable(sheet, header_row, column):
+            header = sheet.cell(header_row, column, "匹配")
+            header.font = Font(name="宋体", bold=True, size=11)
+            header.alignment = Alignment(horizontal="left", vertical="center")
+        longest = _display_units("匹配")
+        for row, text in chosen.items():
+            if not _cell_writable(sheet, row, column):
+                continue
+            cell = sheet.cell(row, column, text)
+            cell.font = Font(name="宋体", size=11)
+            cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+            longest = max(longest, _display_units(text))
+        letter = get_column_letter(column)
+        sheet.column_dimensions[letter].width = min(max(longest + 2, 14), 36)
 
 
 def _count_lead(changes: list[IcdChange]) -> str:
@@ -1072,17 +1328,19 @@ def write_icd_review(
     previous: IcdBook | None = None,
     ask: Callable[[list[dict[str, str]]], str] | None = None,
 ) -> None:
-    """原表保持版式。有上一版时涂改过的行，表下写小结，并加差异总结。"""
+    """原表保持版式。有上一版时涂改过的行，表下写小结，并加差异总结。每张有数据的原表右侧写匹配。"""
+    changes: list[IcdChange] = []
     if previous is not None:
         changes = _all_changes(previous, current)
         folded, lead = _llm_polish(_fold_pin_lists(changes), changes, ask)
         totals = _mark_source_sheets(book, current, changes, display=folded)
         _write_overall_summary(book, previous, current, totals, folded, lead)
+    _write_match_columns(book, current, previous, changes)
     for name in list(book.sheetnames):
-        if "封面" in name or "变更记录" in name or name == "版本差异":
+        if "变更记录" in name or name == "版本差异":
             del book[name]
     if previous is not None and "差异总结" in book.sheetnames:
-        book.active = book["差异总结"]
+        book.active = book.worksheets[0]
 
 
 def _loose(text: str) -> str:

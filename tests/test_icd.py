@@ -90,13 +90,41 @@ class IcdBookTests(unittest.TestCase):
                 (summary.cell(row, 2).value, summary.cell(row, 3).value, summary.cell(row, 4).value)
                 for row in range(1, summary.max_row + 1)
             }
-            book.close()
             self.assertIn(("PIN1", "修改", "信号定义"), kinds)
             self.assertIn(("PIN4", "新增", "引脚"), kinds)
             self.assertIn(("PIN3", "删除", "引脚"), kinds)
+            self.assertIn("本次出表", str(summary.cell(2, 1).value))
+            low = book["4-整车低压连接器"]
+            self.assertEqual(low.cell(2, 16).value, "匹配")
+            self.assertEqual(low.cell(3, 16).value, "修改：信号定义")
+            self.assertEqual(low.cell(4, 16).value, "未改")
+            self.assertEqual(low.cell(5, 16).value, "新增")
+            self.assertGreaterEqual(low.column_dimensions["P"].width, 14)
+            self.assertLessEqual(summary.column_dimensions["B"].width, 20)
             self.assertTrue(colors["新增"].endswith("C6EFCE"))
             self.assertTrue(colors["删除"].endswith("FFC7CE"))
             self.assertTrue(colors["修改"].endswith("FFE699"))
+            book.close()
+
+    def test_match_column_avoids_merged_cells(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            current = folder / "new.xlsx"
+            _book(current)
+            draft = load_workbook(current)
+            draft.active.merge_cells("P3:R5")
+            draft.save(current)
+            draft.close()
+            dest = folder / "out.xlsx"
+            build_icd(current, dest)
+            book = load_workbook(dest)
+            try:
+                low = book["4-整车低压连接器"]
+                self.assertEqual(low.cell(2, 19).value, "匹配")
+                self.assertEqual(low.cell(3, 19).value, "已从当版读出")
+                self.assertIsNone(low.cell(3, 16).value)
+            finally:
+                book.close()
 
     def test_different_sheet_name_and_plain_pin_still_compare(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -119,19 +147,24 @@ class IcdBookTests(unittest.TestCase):
             write(previous, "整车低压连接器", "1", "SIG_OLD", "V3.11")
             write(current, "4-整车低压连接器", "PIN1", "SIG_A", "V3.12")
             draft = load_workbook(current)
-            draft.active.column_dimensions["A"].width = 14
-            draft.active.column_dimensions["D"].width = 9
+            cover = draft.create_sheet("0-封面", 0)
+            cover["A1"] = "封面"
+            sheet = draft["4-整车低压连接器"]
+            sheet.column_dimensions["A"].width = 14
+            sheet.column_dimensions["D"].width = 9
+            sheet.print_area = "A1:C2"
             draft.save(current)
             draft.close()
             dest = folder / "out.xlsx"
             build_icd(current, dest, previous)
             book = load_workbook(dest)
             try:
-                self.assertEqual(book.sheetnames, ["差异总结", "4-整车低压连接器"])
+                self.assertEqual(book.sheetnames, ["0-封面", "4-整车低压连接器", "差异总结"])
                 self.assertNotIn("变更记录", book.sheetnames)
                 self.assertNotIn("版本差异", book.sheetnames)
-                self.assertEqual(book.active.title, "差异总结")
+                self.assertEqual(book.active.title, "0-封面")
                 source = book["4-整车低压连接器"]
+                self.assertIn(str(source.max_row), str(source.print_area).replace("$", ""))
                 self.assertGreater(source.max_row, 2)
                 self.assertTrue(str(source.cell(2, 2).fill.fgColor.rgb or "").endswith("FFE699"))
                 flat = [
@@ -140,6 +173,7 @@ class IcdBookTests(unittest.TestCase):
                     for col in range(1, (source.max_column or 1) + 1)
                 ]
                 self.assertTrue(any(item.startswith("本表小结") for item in flat))
+                self.assertTrue(any("绿色为新增，黄色为修改，红色为删除" in item for item in flat))
                 summary_cell = next(
                     source.cell(row, col)
                     for row in range(1, source.max_row + 1)
@@ -152,6 +186,12 @@ class IcdBookTests(unittest.TestCase):
                 self.assertIn("上一版", flat)
                 self.assertIn("当版", flat)
                 overall = book["差异总结"]
+                self.assertIn("绿色：新增", str(overall.cell(3, 1).value))
+                self.assertTrue(str(overall.cell(3, 1).fill.fgColor.rgb or "").endswith("C6EFCE"))
+                self.assertIn("黄色：修改", str(overall.cell(3, 3).value))
+                self.assertTrue(str(overall.cell(3, 3).fill.fgColor.rgb or "").endswith("FFE699"))
+                self.assertIn("红色：删除", str(overall.cell(3, 5).value))
+                self.assertTrue(str(overall.cell(3, 5).fill.fgColor.rgb or "").endswith("FFC7CE"))
                 self.assertIn("old.xlsx", str(overall.cell(1, 1).value))
                 self.assertIn("V3.11", str(overall.cell(1, 1).value))
                 self.assertIn("new.xlsx", str(overall.cell(2, 1).value))
@@ -172,6 +212,45 @@ class IcdBookTests(unittest.TestCase):
                         break
                 self.assertTrue(painted.endswith("FFE699"))
                 self.assertGreaterEqual(overall.column_dimensions["A"].width, 18)
+            finally:
+                book.close()
+
+    def test_new_pin_does_not_paint_connector_info(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            previous = folder / "old.xlsx"
+            current = folder / "new.xlsx"
+
+            def write(path: Path, part_no: str, extra: str) -> None:
+                book = Workbook()
+                sheet = book.active
+                sheet.title = "4-整车低压连接器"
+                sheet.append(["接插件信息"])
+                sheet.append(["电器端", "", "", "", "线束端", "", "", "", "", "引脚号", "信号定义", "信号名称"])
+                sheet.append(["厂家", "型号", "供应商料号", "镀层", "厂家", "型号", "供应商料号", "镀层", "", "PIN1", "SIG_A", "名称A"])
+                sheet.append(["Molex", "MX1", part_no, "银", "molex", "H1", "P2", "锡", "", extra, "NEW_SIG" if extra else "", "新信号" if extra else ""])
+                book.save(path)
+                book.close()
+
+            write(previous, "P1", "")
+            write(current, "P9", "PIN30")
+            dest = folder / "out.xlsx"
+            build_icd(current, dest, previous)
+            book = load_workbook(dest)
+            try:
+                source = book["4-整车低压连接器"]
+
+                def paint(row: int, col: int) -> str:
+                    return str(source.cell(row, col).fill.fgColor.rgb or "")
+
+                self.assertFalse(paint(4, 1).endswith("C6EFCE"))
+                self.assertFalse(paint(4, 1).endswith("FFE699"))
+                self.assertFalse(paint(4, 5).endswith("C6EFCE"))
+                self.assertFalse(paint(3, 1).endswith("C6EFCE"))
+                self.assertTrue(paint(4, 3).endswith("FFE699"))
+                self.assertTrue(paint(4, 10).endswith("C6EFCE"))
+                self.assertTrue(paint(4, 11).endswith("C6EFCE"))
+                self.assertFalse(paint(3, 10).endswith("C6EFCE"))
             finally:
                 book.close()
 
@@ -367,7 +446,11 @@ class IcdBookTests(unittest.TestCase):
             book = load_workbook(dest)
             try:
                 overall = book["差异总结"]
-                lead = str(overall.cell(3, 1).value or "")
+                lead = next(
+                    str(overall.cell(row, 1).value or "")
+                    for row in range(1, overall.max_row + 1)
+                    if str(overall.cell(row, 1).value or "").startswith("4-整车低压连接器：")
+                )
                 self.assertNotIn("PIN99", lead)
                 self.assertNotIn("9A", lead)
                 self.assertIn("4-整车低压连接器", lead)
@@ -468,6 +551,45 @@ class IcdBookTests(unittest.TestCase):
                 self.assertFalse(any(row[1] == "删除" and row[3] == old_note for row in rows))
                 self.assertTrue(any(row[0] == "高压压缩机" and row[1] == "新增" for row in rows))
                 self.assertFalse(any(row[0] == "PIN4" and row[2] == "备注" for row in rows))
+            finally:
+                book.close()
+
+    def test_pinless_signal_deletes_share_one_list(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            previous = folder / "old.xlsx"
+            current = folder / "new.xlsx"
+
+            def write(path: Path, extra: list[tuple[str, str]]) -> None:
+                book = Workbook()
+                sheet = book.active
+                sheet.title = "4-整车低压连接器"
+                sheet.append(["引脚号", "信号定义", "信号名称"])
+                sheet.append(["PIN1", "SIG_A", "名称"])
+                for pin, signal in extra:
+                    sheet.append([pin, signal, ""])
+                book.save(path)
+                book.close()
+
+            write(previous, [("", "Chassis1_CAN_H"), ("", "Chassis1_CAN_L"), ("", "THM1_LIN"), ("PIN9", "KEEP_ME")])
+            write(current, [])
+            dest = folder / "out.xlsx"
+            build_icd(current, dest, previous)
+            book = load_workbook(dest)
+            try:
+                source = book["4-整车低压连接器"]
+                flat = [
+                    str(source.cell(row, col).value or "")
+                    for row in range(1, source.max_row + 1)
+                    for col in range(1, 6)
+                ]
+                self.assertIn("删除 4", " ".join(flat))
+                lists = [item for item in flat if "Chassis1_CAN_H" in item and "Chassis1_CAN_L" in item]
+                self.assertEqual(len(lists), 1)
+                self.assertIn("THM1_LIN", lists[0])
+                self.assertIn("3只", flat)
+                self.assertIn("PIN9", flat)
+                self.assertEqual(flat.count("无引脚号"), 0)
             finally:
                 book.close()
 

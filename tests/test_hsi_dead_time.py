@@ -96,6 +96,50 @@ class DeadTimeSheetTests(unittest.TestCase):
             self.assertFalse(apply_dead_time_sheet(dest))
             self.assertEqual(dest.read_bytes(), before)
 
+    def test_schematic_archive_makes_dead_time_editable(self) -> None:
+        from electrical_krow.hsi_book import revise_hsi_from_schematic
+
+        edif = """(edif demo
+          (library COMPONENT_LIB
+            (cell DEMO (view NetlistView (contents
+              (Instance J1 (viewRef NetlistView (cellRef CON2)) (Property Type (String "CON" )))
+              (Net SIG (Joined (PortRef &1 (InstanceRef J1))))
+            )))
+          )
+        )
+        """
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            base = root / "base.xlsx"
+            dest = root / "out.xlsx"
+            book = Workbook()
+            book.active.title = "Cover"
+            port = book.create_sheet("2_Port Assignment ")
+            port.cell(3, 2, "Pin_Symbol")
+            port.cell(3, 3, "Ball")
+            port.cell(3, 9, "Direction")
+            port.cell(3, 10, "Function")
+            port.cell(3, 12, "Pin Definition")
+            port.cell(4, 2, "P00.8")
+            port.cell(4, 12, "CSN3")
+            dead = book.create_sheet("7_Dead Time")
+            dead["C4"] = "Dead time of PWM-H and PWM-L shall be set 1.6μs；"
+            dead["C5"] = "Add Short Pulse Inhibition Time: 1.6μs；"
+            book.save(base)
+            book.close()
+            (root / "board.edf").write_text(edif, encoding="utf-8")
+            revise_hsi_from_schematic(base, dest, root / "board.edf")
+            saved = load_workbook(dest)
+            try:
+                page = saved["7_Dead Time"]
+                self.assertEqual(page["J7"].value, 1.6)
+                self.assertEqual(page["K7"].value, "μs")
+                self.assertIn("TEXT(J7", str(page["C4"].value))
+                self.assertIn("TEXT(J8", str(page["C5"].value))
+            finally:
+                saved.close()
+            self.assertIn("1.6μs", _drawing_xml(dest))
+
 
 def _drawing_xml(path: Path) -> str:
     with zipfile.ZipFile(path) as book:

@@ -129,7 +129,7 @@ class CeBomTests(unittest.TestCase):
             self.assertIsNone(body.auto_filter.ref)
             self.assertNotIn("999", " ".join("" if cell.value is None else str(cell.value) for row in body.iter_rows(min_row=16, max_row=17) for cell in row))
             self.assertNotIn("密封圈", " ".join("" if cell.value is None else str(cell.value) for row in body.iter_rows(min_row=16, max_row=20) for cell in row))
-            self.assertEqual(saved.sheetnames, ["供应商"])
+            self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
             saved.close()
             self.assertEqual(result.blank, 0)
 
@@ -167,7 +167,7 @@ class CeBomTests(unittest.TestCase):
             body_text = " ".join("" if cell.value is None else str(cell.value) for row in body.iter_rows(min_row=16, max_row=20) for cell in row)
             self.assertNotIn("1.5", body_text)
             self.assertNotIn("上盖板", body_text)
-            self.assertEqual(saved.sheetnames, ["供应商"])
+            self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
             saved.close()
             self.assertEqual(result.filled, 0)
 
@@ -219,7 +219,7 @@ class CeBomTests(unittest.TestCase):
             result = build_ce_bom([edf], template, dest)
             saved = load_workbook(dest)
             body = saved["供应商"]
-            self.assertEqual(saved.sheetnames, ["供应商"])
+            self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
             self.assertEqual(body["A16"].value, 1)
             self.assertEqual(body["E16"].value, "●")
             self.assertIsNone(body["B16"].value)
@@ -337,6 +337,7 @@ class CeBomTests(unittest.TestCase):
             self.assertIsNone(body["J16"].value)
             self.assertNotIn("上盖板", " ".join("" if cell.value is None else str(cell.value) for row in body.iter_rows(min_row=16, max_row=20) for cell in row))
             self.assertEqual(saved.sheetnames, ["供应商", "字段匹配"])
+            self.assertGreaterEqual(saved["字段匹配"].column_dimensions["D"].width, 17)
             match = saved["字段匹配"]
             results = {
                 (match.cell(row, 2).value, match.cell(row, 3).value): match.cell(row, 5).value

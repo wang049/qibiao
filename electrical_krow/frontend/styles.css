@@ -2781,8 +2781,6 @@ button.settings-tab:focus-visible { outline: 2px solid var(--accent-rule); outli
 .flow-dialog {
   width: min(920px, calc(100% - 32px));
   max-height: min(84vh, 860px);
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--rule);
   border-radius: 16px;
@@ -2790,6 +2788,8 @@ button.settings-tab:focus-visible { outline: 2px solid var(--accent-rule); outli
   background: var(--surface);
   color: var(--ink);
 }
+.flow-dialog:not([open]) { display: none; }
+.flow-dialog[open] { display: flex; flex-direction: column; }
 .flow-head {
   flex: none;
   display: flex;

@@ -32,6 +32,7 @@ from electrical_krow.hsi_book import (
     build_hsi,
     hsi_template_by_id,
     hsi_template_for_mcu,
+    hsi_template_for_schematic,
     list_hsi_templates,
     revise_hsi_from_schematic,
 )
@@ -953,6 +954,8 @@ def create_app(
             if template_bytes:
                 template_path = folder / template_name
                 template_path.write_bytes(template_bytes)
+            elif chosen == "schematic":
+                template_path = hsi_template_for_schematic(picked_template_id or typed_mcu)
             elif builtin_template is not None:
                 template_path = builtin_template
             else:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import shutil
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from pathlib import Path
@@ -273,6 +274,23 @@ def _style_header(ws: Worksheet, width: int) -> None:
     ws.freeze_panes = "A2"
     ws.auto_filter.ref = f"A1:{get_column_letter(max(width, 1))}1"
     ws.row_dimensions[1].height = 22
+
+
+def _widen_sheet(ws: Worksheet, *, floor: int = 12, cap: int = 48) -> None:
+    """按格子里的字加宽。已经更宽的列不缩小。"""
+    for col in range(1, (ws.max_column or 1) + 1):
+        longest = 0
+        for row in range(1, (ws.max_row or 1) + 1):
+            text = _text(ws.cell(row, col).value)
+            units = sum(2 if unicodedata.east_asian_width(char) in {"W", "F"} else 1 for char in text)
+            longest = max(longest, units)
+        if longest <= 0:
+            continue
+        width = min(max(longest + 2, floor), cap)
+        letter = get_column_letter(col)
+        current = ws.column_dimensions[letter].width or 0
+        if width > current:
+            ws.column_dimensions[letter].width = width
 
 
 def _write_sheet(ws: Worksheet, header: tuple[str, ...], rows: list[tuple[str, ...]], widths: tuple[int, ...]) -> None:
@@ -860,6 +878,7 @@ def _write_field_match(book, electronic: list[SupplierFill], structural: list[Su
     sheet.cell(1, 9, f"{matched}/{len(totals)} 已对上" if totals else "无电子件")
     for col, width in enumerate((12, 22, 12, 28, 12, 28), start=1):
         sheet.column_dimensions[get_column_letter(col)].width = width
+    _widen_sheet(sheet)
     sheet.freeze_panes = "A2"
     sheet.auto_filter.ref = f"A1:F{max(sheet.max_row, 1)}"
 

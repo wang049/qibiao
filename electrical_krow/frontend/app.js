@@ -1434,36 +1434,66 @@ const FLOWS = {
   io: {
     zh: {
       title: "HSI 生成",
-      input: ["选定的 HSI 模板", "有原理图就用原理图，没有就用芯片手册"],
-      output: ["按模板生成的 HSI", "没改到的部分保持模板原样"],
-      bound: ["只填写对得上的内容", "一种脚有多种接法时全部列出，不替人选定"],
+      input: ["选定的 HSI 模板", "有原理图就用 PDF 或 EDIF，没有就用芯片手册和封装"],
+      output: ["同一套模板表", "改过的格子标绿，并写待人工复核", "变更记录追加本次时间"],
+      bound: ["只改这次读到、并且和模板不同的格子", "脚号别名不是网络名，不写成交叉", "模板里没有的脚不新增，原理图没有的脚不删除"],
       steps: [
         { k: "q", q: "有原理图？", yes: [
-          { k: "p", t: "按原理图填写", d: "只更新对上的引脚和信号名" },
-          { k: "q", q: "对得上模板？", yes: [{ k: "p", t: "更新这一行", d: "其余格子不动" }], no: [{ k: "p", t: "标出多出的脚", d: "不改模板里其他行" }] },
+          { k: "p", t: "读原理图", d: "PDF 按符号脚，EDIF 按网络名和外部电阻" },
+          { k: "q", q: "符号对得上模板？", yes: [
+            { k: "p", t: "更新这一行", d: "球号变了才改。导线网络名和模板不同才写入。空的复用可以填上，只标这一格" },
+            { k: "q", q: "端口名和网络名相同？", yes: [
+              { k: "p", t: "不写交叉", d: "核对状态不因另一个脚号改动" },
+            ], no: [
+              { k: "p", t: "写交叉说明", d: "端口名留下。网络名标绿，状态写待人工复核" },
+            ]},
+          ], no: [
+            { k: "p", t: "不新增这一行", d: "对不上的脚和网络都不补" },
+          ]},
+          { k: "p", t: "后面各页只改读到的网络名", d: "ADC、SPI、CAN 没读到导线名就保持模板原文" },
+          { k: "p", t: "补回跳转", d: "一对一直接跳，一对多先打开跳转索引" },
+          { k: "p", t: "死区时间可以改", d: "7_Dead Time 的 μs 改一格，要求文字和时序图跟着变" },
+          { k: "p", t: "3041 用下拉选位", d: "一位两位下拉选 0、1、2。位数多的直接填数。寄存器值和纳秒结果跟着变" },
+          { k: "p", t: "变更记录加上本次时间", d: "封面和没改的页保持模板" },
         ], no: [
-          { k: "p", t: "按手册整理引脚", d: "读不出该封装的脚表就停止" },
-          { k: "p", t: "列出类别和接法", d: "多种接法都写上，不自动选定" },
-          { k: "p", t: "信号名先留空", d: "等有原理图再填" },
+          { k: "p", t: "读芯片手册", d: "认不出型号，或没有该封装的脚表，就停止" },
+          { k: "p", t: "按封装列出全部引脚", d: "数总脚数" },
+          { k: "p", t: "按符号和复用分类", d: "电源、地、ADC、SPI、CAN、GPIO、IO。多种接法都写上" },
+          { k: "p", t: "删掉信号名列", d: "没有原理图不留信号名。时间常数的单位列留下" },
         ] },
-        { k: "p", t: "写出 HSI", d: "封面和未改的页保持模板原样" },
+        { k: "p", t: "写出 HSI", d: "本次新写的格子标绿。新增页的列宽按字数收" },
       ],
     },
     en: {
       title: "HSI",
-      input: ["The selected HSI template", "A schematic, or a chip datasheet if there is none"],
-      output: ["An HSI workbook on that template", "Untouched parts stay as in the template"],
-      bound: ["Fill only what matches", "List every connection option. Do not pick one"],
+      input: ["The selected HSI template", "A schematic PDF or EDIF, or a datasheet and package if there is none"],
+      output: ["The same template workbook", "Changed cells are green and marked for review", "This run's time is appended to the history"],
+      bound: ["Change a cell only when this reading differs from the template", "A pin alias is not a net name", "Do not add pins absent from the template, or delete pins absent from the schematic"],
       steps: [
         { k: "q", q: "Schematic?", yes: [
-          { k: "p", t: "Fill from the schematic", d: "Update matched pins and signal names only" },
-          { k: "q", q: "Matches the template?", yes: [{ k: "p", t: "Update this row", d: "Leave the other cells" }], no: [{ k: "p", t: "Note the extra pin", d: "Do not change the other rows" }] },
+          { k: "p", t: "Read the schematic", d: "PDF by symbol pin. EDIF by net name and external resistor" },
+          { k: "q", q: "Symbol matches the template?", yes: [
+            { k: "p", t: "Update this row", d: "Change the ball only when it differs. Write a wire net only when it differs. An empty option cell can be filled, and only that cell is marked" },
+            { k: "q", q: "Port name matches the net?", yes: [
+              { k: "p", t: "No cross note", d: "Another pin number does not change the review status" },
+            ], no: [
+              { k: "p", t: "Write a cross note", d: "Keep the port name. Green the net and mark it for review" },
+            ]},
+          ], no: [
+            { k: "p", t: "Do not add this row", d: "Leave unmatched pins and nets out" },
+          ]},
+          { k: "p", t: "Later sheets use the wire net only", d: "ADC, SPI, and CAN keep the template text when no wire name was read" },
+          { k: "p", t: "Restore jumps", d: "One hit jumps directly. Several hits open the index" },
+          { k: "p", t: "Dead time stays editable", d: "Change the μs cell on 7_Dead Time. The requirement text and the timing figure follow it" },
+          { k: "p", t: "3041 uses a bit dropdown", d: "One or two bits choose 0, 1, or 2. Wider fields are typed. The register word and the nanosecond result follow" },
+          { k: "p", t: "Stamp this run", d: "Cover and untouched sheets stay as in the template" },
         ], no: [
-          { k: "p", t: "Read the package pins", d: "Stop if that package has no pin table" },
-          { k: "p", t: "List class and options", d: "Write every option. Do not pick one" },
-          { k: "p", t: "Leave signal names blank", d: "Fill them when a schematic exists" },
+          { k: "p", t: "Read the datasheet", d: "Stop if the part or the package pin table cannot be read" },
+          { k: "p", t: "List every pin", d: "Count the package pins" },
+          { k: "p", t: "Classify by symbol and options", d: "Power, ground, ADC, SPI, CAN, GPIO, IO. Write every option" },
+          { k: "p", t: "Remove signal-name columns", d: "Without a schematic there is no signal name. Keep the time-constant unit" },
         ] },
-        { k: "p", t: "Write the HSI", d: "Cover and untouched sheets stay as in the template" },
+        { k: "p", t: "Write the HSI", d: "Green the cells written this run. Size new sheets by their text" },
       ],
     },
   },
@@ -1471,57 +1501,95 @@ const FLOWS = {
     zh: {
       title: "ICD 规划",
       input: ["当版 ICD", "上一版可以不选"],
-      output: ["当版原表，改过的行标出色", "有上一版时，最前面加一张差异总结"],
-      bound: ["只反映当版实际有的内容", "不另出一份引脚清单"],
+      output: ["当版原表，右侧加匹配栏", "有上一版时，原表后面加差异总结，并写本次出表时间"],
+      bound: ["只反映当版实际有的内容", "原表已有列宽不缩小", "删除的行不在当版，写在本表小结里"],
       steps: [
         { k: "q", q: "是引脚表？", join: false, no: [{ k: "e", t: "不出表", stop: true }] },
-        { k: "q", q: "有上一版？", join: false, no: [{ k: "e", t: "给出当版原表" }] },
-        { k: "p", t: "对照上一版", d: "看出新增、修改和删除" },
-        { k: "p", t: "标出改动", d: "原表里改过的行涂色，表下写本表情况" },
-        { k: "p", t: "写出差异总结", d: "放在最前面，汇总两版差别" },
+        { k: "p", t: "按原表抽出引脚", d: "表和列保持当版原来的样子" },
+        { k: "q", q: "有上一版？", yes: [
+          { k: "p", t: "逐行对照", d: "看出新增、修改和删除" },
+          { k: "p", t: "原表涂色", d: "新增绿，修改黄，删除红。只涂改过的那一段" },
+          { k: "p", t: "匹配栏写关系", d: "新增、修改了哪个字段，或未改" },
+          { k: "p", t: "表下写本表小结", d: "从 A 列起，文字靠左" },
+          { k: "p", t: "原表后面写差异总结", d: "写两版版本号和本次出表时间" },
+        ], no: [
+          { k: "p", t: "匹配栏写已从当版读出", d: "不编上一版没有的差异" },
+        ]},
+        { k: "p", t: "按字数收列宽", d: "变更记录不进入输出" },
       ],
     },
     en: {
       title: "ICD",
       input: ["The current ICD", "A previous ICD is optional"],
-      output: ["The current sheets, with changed rows colored", "A difference summary in front when a previous file exists"],
-      bound: ["Show only what the current file actually has", "Do not add a separate pin list"],
+      output: ["The current sheets, plus a match column", "A difference summary after the original sheets, with this run's time, when a previous file exists"],
+      bound: ["Show only what the current file actually has", "Do not shrink the original column widths", "Removed rows are listed under the sheet, not put back into it"],
       steps: [
         { k: "q", q: "Pin workbook?", join: false, no: [{ k: "e", t: "No workbook", stop: true }] },
-        { k: "q", q: "Previous file?", join: false, no: [{ k: "e", t: "Keep the current sheets" }] },
-        { k: "p", t: "Compare with the previous file", d: "See what was added, changed, or removed" },
-        { k: "p", t: "Mark the changes", d: "Color changed rows and note them under the sheet" },
-        { k: "p", t: "Write the summary", d: "Put the overall difference in front" },
+        { k: "p", t: "Read the current sheets", d: "Keep their tables and columns" },
+        { k: "q", q: "Previous file?", yes: [
+          { k: "p", t: "Compare row by row", d: "See what was added, changed, or removed" },
+          { k: "p", t: "Color the current sheets", d: "Green for added, yellow for changed, red for removed. Color only that span" },
+          { k: "p", t: "Fill the match column", d: "Added, which field changed, or unchanged" },
+          { k: "p", t: "Note the sheet", d: "Start at column A, left aligned" },
+          { k: "p", t: "Write the summary after the sheets", d: "Include both versions and this run's time" },
+        ], no: [
+          { k: "p", t: "Mark each row as read from this file", d: "Do not invent a difference" },
+        ]},
+        { k: "p", t: "Size columns by their text", d: "Drop the change-log sheet from the output" },
       ],
     },
   },
   bom: {
     zh: {
       title: "CE BOM",
-      input: ["电子件用 BOM，结构件用总成图纸", "上一版可以不选"],
-      output: ["供应商表", "标明哪些字段对上了"],
-      bound: ["对不上的名称和尺寸留空", "上一版多出来的零件不补"],
+      input: ["电子件用 AD 导出的 Excel", "结构件用二维图", "上一版可以不选"],
+      output: ["供应商表，电子件级别为 4", "字段匹配页逐字段写已对上或未对上", "结构件另起一张同样的列"],
+      bound: ["规则表没有的 TYPE，中文名称留空", "3 级件不提取尺寸", "上一版多出来的零件不补"],
       steps: [
-        { k: "q", q: "是电子件？", yes: [{ k: "p", t: "读 BOM", d: "写出名称、数量和规格" }], no: [
-          { k: "q", q: "有单独图纸？", yes: [{ k: "p", t: "读取外形和材料", d: "只取图纸上标出的尺寸" }], no: [{ k: "p", t: "不提取尺寸", d: "没有单独图纸就不写长宽高" }] },
-        ] },
-        { k: "p", t: "核对字段", d: "标出对上了还是没对上" },
-        { k: "q", q: "有上一版？", yes: [{ k: "p", t: "核对用量和规格", d: "不用上一版填这次没有的格子" }], no: [{ k: "p", t: "只写这次读到的", d: "不补上一版多出的零件" }] },
-        { k: "p", t: "写出供应商表", d: "附上字段核对结果" },
+        { k: "q", q: "是电子件？", yes: [
+          { k: "p", t: "读 AD 导出的 Excel", d: "取 TYPE、数量、规格型号" },
+          { k: "p", t: "TYPE 对中文名称", d: "规则表没有的名称留空" },
+          { k: "p", t: "级别写成 4", d: "特殊层级留给人工改" },
+          { k: "p", t: "另起字段匹配页", d: "每个字段写已对上或未对上，并给出合计" },
+        ], no: [
+          { k: "q", q: "是这张二维图上的零件？", yes: [
+            { k: "p", t: "定为 2 级", d: "只读图上标明的外形尺寸、材料、图样代号、质量" },
+          ], no: [
+            { k: "p", t: "定为 3 级", d: "明细里的子件不提取尺寸，尺寸手填" },
+          ]},
+        ]},
+        { k: "q", q: "有上一版？", yes: [
+          { k: "p", t: "按名称校核用量和规格", d: "不一致写出来。上一版多出的零件不补行" },
+        ], no: [
+          { k: "p", t: "只写这次读到的行", d: "不用别的表填空" },
+        ]},
+        { k: "p", t: "写出供应商表", d: "字段匹配的列宽按字数收" },
       ],
     },
     en: {
       title: "CE BOM",
-      input: ["A BOM for electronic parts, or an assembly drawing for structure", "A previous BOM is optional"],
-      output: ["A supplier sheet", "A note of which fields matched"],
-      bound: ["Leave unknown names and sizes blank", "Do not add parts that exist only in the previous file"],
+      input: ["An AD Excel BOM for electronic parts", "A 2D drawing for structure", "A previous BOM is optional"],
+      output: ["A supplier sheet, with electronic parts at level 4", "A field-match sheet marking each field matched or not", "Structure on a second sheet with the same columns"],
+      bound: ["Leave the Chinese name blank when TYPE is not in the rules", "Do not extract sizes for level-3 parts", "Do not add parts that exist only in the previous file"],
       steps: [
-        { k: "q", q: "Electronic parts?", yes: [{ k: "p", t: "Read the BOM", d: "Write the name, quantity, and spec" }], no: [
-          { k: "q", q: "Own drawing?", yes: [{ k: "p", t: "Read outline and material", d: "Use only the labeled size" }], no: [{ k: "p", t: "No size", d: "Skip length, width, and height" }] },
-        ] },
-        { k: "p", t: "Check the fields", d: "Mark each field matched or not" },
-        { k: "q", q: "Previous BOM?", yes: [{ k: "p", t: "Check quantity and spec", d: "Do not fill empty cells from the previous file" }], no: [{ k: "p", t: "Write this input only", d: "Do not add extra previous parts" }] },
-        { k: "p", t: "Write the supplier sheet", d: "Include the field check" },
+        { k: "q", q: "Electronic parts?", yes: [
+          { k: "p", t: "Read the AD Excel", d: "Take TYPE, quantity, and spec" },
+          { k: "p", t: "Map TYPE to the Chinese name", d: "Leave the name blank when the rules have no TYPE" },
+          { k: "p", t: "Write level 4", d: "Leave unusual levels for a person to edit" },
+          { k: "p", t: "Add a field-match sheet", d: "Mark each field matched or not, and show the total" },
+        ], no: [
+          { k: "q", q: "Part on this drawing?", yes: [
+            { k: "p", t: "Level 2", d: "Read only the labeled outline, material, drawing number, and mass" },
+          ], no: [
+            { k: "p", t: "Level 3", d: "Do not extract sizes for detail-list children" },
+          ]},
+        ]},
+        { k: "q", q: "Previous BOM?", yes: [
+          { k: "p", t: "Check quantity and spec by name", d: "Record a mismatch. Do not add parts only in the previous file" },
+        ], no: [
+          { k: "p", t: "Write this input only", d: "Do not fill blanks from another sheet" },
+        ]},
+        { k: "p", t: "Write the supplier sheet", d: "Size the field-match columns by their text" },
       ],
     },
   },

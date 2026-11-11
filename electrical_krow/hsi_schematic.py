@@ -315,8 +315,10 @@ _SCH_BALL = re.compile(r"^[A-Z]{1,2}\d{1,2}$")
 _SCH_SHEET = re.compile(r"([\w .+-]+?)\.SchDoc")
 _SCH_MCU = re.compile(r"TC\d{3}")
 # 球号文字比引脚文字高约 2.6 pt。上下两行距约 5.3 pt，取绝对最近会配到下一行。
+# 网络名常写在导线上方，字心离导线大约 3 pt，仍小于行距的一半。
 _BALL_DX = 50.0
 _BALL_ABOVE = 2.64
+_WIRE_BAND = 3.2
 _NET_NAME = re.compile(r"[A-Za-z].*[_/].*")
 
 
@@ -345,20 +347,20 @@ def _net_word(text: str) -> bool:
 def _touching_wire(
     pin: tuple[float, float, float, float, str],
     lines: list[tuple[float, float, float]],
-) -> tuple[str, float, float] | None:
-    """返回脚朝向，以及这一侧连出去的导线范围。不跨过中间的空隙。"""
+) -> tuple[str, float, float, float] | None:
+    """返回脚朝向、这一侧的导线范围，以及这根导线的纵坐标。不跨过中间的空隙。"""
     py = _word_y(pin)
-    segs = [(x0, x1) for line_y, x0, x1 in lines if abs(line_y - py) <= 1.6]
+    segs = [(line_y, x0, x1) for line_y, x0, x1 in lines if abs(line_y - py) <= _WIRE_BAND]
     left = right = None
-    for x0, x1 in segs:
+    for line_y, x0, x1 in segs:
         if abs(x1 - pin[0]) <= 8 and x0 < pin[0] - 8:
             gap = pin[0] - x1
             if left is None or gap < left[0]:
-                left = (gap, x0, x1)
+                left = (gap, x0, x1, line_y)
         if abs(x0 - pin[2]) <= 8 and x1 > pin[2] + 8:
             gap = x0 - pin[2]
             if right is None or gap < right[0]:
-                right = (gap, x0, x1)
+                right = (gap, x0, x1, line_y)
     if left is None and right is None:
         return None
     if right is None or (left is not None and left[0] <= right[0]):
@@ -366,20 +368,20 @@ def _touching_wire(
         changed = True
         while changed:
             changed = False
-            for x0, x1 in segs:
+            for _line_y, x0, x1 in segs:
                 if abs(x1 - far) <= 2 and x0 < far:
                     far = x0
                     changed = True
-        return "L", far, pin[0]
+        return "L", far, pin[0], left[3]
     far = right[2]
     changed = True
     while changed:
         changed = False
-        for x0, x1 in segs:
+        for _line_y, x0, x1 in segs:
             if abs(x0 - far) <= 2 and x1 > far:
                 far = x1
                 changed = True
-    return "R", pin[2], far
+    return "R", pin[2], far, right[3]
 
 
 def _net_on_wire(
@@ -390,11 +392,10 @@ def _net_on_wire(
     wire = _touching_wire(pin, lines)
     if wire is None:
         return ""
-    side, near, far = wire
-    py = _word_y(pin)
+    side, near, far, line_y = wire
     best: tuple[float, str] | None = None
     for label in labels:
-        if abs(_word_y(label) - py) > 1.6:
+        if abs(_word_y(label) - line_y) > _WIRE_BAND:
             continue
         if side == "L":
             if label[0] > pin[0]:

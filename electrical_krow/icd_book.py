@@ -5,9 +5,11 @@
 """
 from __future__ import annotations
 
+import json
 import re
 import shutil
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -403,15 +405,20 @@ def _latest_version(changelog: tuple[tuple[str, ...], ...]) -> str:
 
 def _pair_pins(previous: tuple[IcdPin, ...], current: tuple[IcdPin, ...]) -> list[tuple[IcdPin | None, IcdPin | None]]:
     """先按同名表配对，表名不同再按连接器名和引脚号配对。"""
-    old_exact = {(pin.sheet, _pin_key(pin.pin)): pin for pin in previous}
+    old_exact: dict[tuple[str, str], IcdPin] = {}
     old_loose: dict[tuple[str, str], IcdPin] = {}
     for pin in previous:
+        token = _pin_key(pin.pin)
+        if not token:
+            continue
+        old_exact[(pin.sheet, token)] = pin
         old_loose.setdefault(_pin_match_key(pin), pin)
     used: set[int] = set()
     pairs: list[tuple[IcdPin | None, IcdPin | None]] = []
     for pin in current:
-        before = old_exact.get((pin.sheet, _pin_key(pin.pin)))
-        if before is None or id(before) in used:
+        token = _pin_key(pin.pin)
+        before = old_exact.get((pin.sheet, token)) if token else None
+        if token and (before is None or id(before) in used):
             before = old_loose.get(_pin_match_key(pin))
         if before is not None and id(before) in used:
             before = None
@@ -453,10 +460,14 @@ def _diff_pins(previous: IcdBook, current: IcdBook) -> list[IcdChange]:
     )
     changes: list[IcdChange] = []
     for before, after in _pair_pins(previous.pins, current.pins):
-        shown = after or before
-        assert shown is not None
         where = after.sheet if after is not None else before.sheet  # type: ignore[union-attr]
-        label = shown.pin
+        if before is None and after is not None and _is_explanation(after):
+            changes.append(IcdChange(where, "说明", "新增", "说明", "", _explanation_text(after)))
+            continue
+        if after is None and before is not None and _is_explanation(before):
+            changes.append(IcdChange(where, "说明", "删除", "说明", _explanation_text(before), ""))
+            continue
+        label = (after or before).pin  # type: ignore[union-attr]
         if before is None and after is not None:
             changes.append(IcdChange(where, label, "新增", "引脚", "", after.signal))
             continue
@@ -464,6 +475,12 @@ def _diff_pins(previous: IcdBook, current: IcdBook) -> list[IcdChange]:
             changes.append(IcdChange(where, label, "删除", "引脚", before.signal, ""))
             continue
         assert before is not None and after is not None
+        if _is_explanation(before) or _is_explanation(after):
+            left = _explanation_text(before)
+            right = _explanation_text(after)
+            if _loose(left) != _loose(right):
+                changes.append(IcdChange(where, "说明", "变更", "说明", left, right))
+            continue
         if _pin_key(before.pin) != _pin_key(after.pin):
             changes.append(IcdChange(
                 where,
@@ -630,7 +647,12 @@ def _paint_row(sheet: Worksheet, row: int, kind: str) -> None:
         cell.fill = fill
 
 
-def _mark_source_sheets(book: Workbook, current: IcdBook, changes: list[IcdChange]) -> dict[str, dict[str, int]]:
+def _mark_source_sheets(
+    book: Workbook,
+    current: IcdBook,
+    changes: list[IcdChange],
+    display: list[IcdChange] | None = None,
+) -> dict[str, dict[str, int]]:
     """在当版原表上涂改过的行，并在表下写小结。不改原表已有列宽。"""
     grouped: dict[str, list[IcdChange]] = {}
     for change in changes:
@@ -665,7 +687,10 @@ def _mark_source_sheets(book: Workbook, current: IcdBook, changes: list[IcdChang
         stale = [str(merged) for merged in sheet.merged_cells.ranges if merged.max_row >= start]
         for ref in stale:
             sheet.unmerge_cells(ref)
-        _write_sheet_table(sheet, start, counts, items)
+        sheet_items = items if display is None else [
+            item for item in display if _sheet_for_change(book, item.where) == title
+        ]
+        _write_sheet_table(sheet, start, counts, sheet_items, folded=display is not None)
         totals[title] = counts
     return totals
 
@@ -681,6 +706,114 @@ _GRID = Border(
     top=Side(style="thin", color="8A8A8A"),
     bottom=Side(style="thin", color="8A8A8A"),
 )
+
+
+def _new_pin_line(change: IcdChange) -> str:
+    pin = change.key or "无引脚号"
+    signal = (change.current or "").strip()
+    if not signal:
+        return pin
+    return f"{pin}  {signal}"
+
+
+def _filled_pin_line(change: IcdChange) -> str:
+    current = (change.current or "").strip()
+    pin = (change.key or "").strip()
+    if not current:
+        return pin or "无引脚号"
+    if not pin or current.startswith(pin):
+        return current
+    return f"{pin}  {current}"
+
+
+def _is_new_pin(change: IcdChange) -> bool:
+    return change.kind == "新增" and change.field == "引脚" and bool(_pin_key(change.key))
+
+
+def _is_filled_pin_number(change: IcdChange) -> bool:
+    if change.kind != "变更" or change.field != "引脚号":
+        return False
+    previous = (change.previous or "").strip()
+    return previous in {"", "无引脚号", "（空）"}
+
+
+def _chunk_lines(where: str, kind: str, field: str, label: str, lines: list[str]) -> list[IcdChange]:
+    """一段里最多 16 只脚，避免一行高过 Excel 上限后被裁掉。"""
+    chunks: list[IcdChange] = []
+    for start in range(0, len(lines), 16):
+        part = lines[start:start + 16]
+        chunks.append(IcdChange(
+            where,
+            label if start == 0 else "续",
+            kind,
+            field,
+            "（空）" if kind == "新增" else "无引脚号",
+            "\n".join(part),
+        ))
+    return chunks
+
+
+def _fold_pin_lists(changes: list[IcdChange]) -> list[IcdChange]:
+    """同一张表里成批新增的脚、成批补上的引脚号，各收成一段清单。"""
+    new_pins: dict[str, list[IcdChange]] = {}
+    filled: dict[str, list[IcdChange]] = {}
+    for change in changes:
+        if _is_new_pin(change):
+            new_pins.setdefault(change.where, []).append(change)
+        elif _is_filled_pin_number(change):
+            filled.setdefault(change.where, []).append(change)
+    emitted_new: set[str] = set()
+    emitted_filled: set[str] = set()
+    shown: list[IcdChange] = []
+    for change in changes:
+        if _is_new_pin(change):
+            group = new_pins[change.where]
+            if len(group) < 2:
+                shown.append(change)
+                continue
+            if change.where in emitted_new:
+                continue
+            emitted_new.add(change.where)
+            lines = []
+            seen: set[str] = set()
+            for item in group:
+                line = _new_pin_line(item)
+                if line in seen:
+                    continue
+                seen.add(line)
+                lines.append(line)
+            shown.extend(_chunk_lines(change.where, "新增", "引脚", f"{len(lines)}只", lines))
+            continue
+        if _is_filled_pin_number(change):
+            group = filled[change.where]
+            if len(group) < 2:
+                shown.append(change)
+                continue
+            if change.where in emitted_filled:
+                continue
+            emitted_filled.add(change.where)
+            lines = []
+            seen_lines: set[str] = set()
+            for item in group:
+                line = _filled_pin_line(item)
+                if line in seen_lines:
+                    continue
+                seen_lines.add(line)
+                lines.append(line)
+            shown.extend(_chunk_lines(change.where, "变更", "引脚号", f"{len(lines)}只", lines))
+            continue
+        shown.append(change)
+    return _fold_same_values(shown)
+
+
+def _ensure_summary_widths(sheet: Worksheet) -> None:
+    """上一版、当版至少能放下一条信号名，避免一只脚折成好几行。"""
+    floors = (12, 14, 12, 16, 32)
+    for col, floor in enumerate(floors, start=1):
+        letter = get_column_letter(col)
+        current = sheet.column_dimensions[letter].width or 8
+        if current < floor:
+            sheet.column_dimensions[letter].width = floor
 
 
 def _write_summary_cell(
@@ -700,8 +833,16 @@ def _write_summary_cell(
         cell.fill = fill
 
 
-def _write_sheet_table(sheet: Worksheet, start: int, counts: dict[str, int], items: list[IcdChange]) -> None:
-    """写在原表最下方、从 A 列起。不改原表列宽，文字靠左。"""
+def _write_sheet_table(
+    sheet: Worksheet,
+    start: int,
+    counts: dict[str, int],
+    items: list[IcdChange],
+    *,
+    folded: bool = False,
+) -> None:
+    """写在原表最下方、从 A 列起。文字靠左。成批的新引脚收成一段清单。"""
+    _ensure_summary_widths(sheet)
     columns = (1, 2, 3, 4, 5)
     title = f"本表小结　新增 {counts['新增']}　修改 {counts['修改']}　删除 {counts['删除']}"
     _write_summary_cell(
@@ -722,7 +863,7 @@ def _write_sheet_table(sheet: Worksheet, start: int, counts: dict[str, int], ite
         _write_summary_cell(sheet, header_row, col, name, font=header_font, fill=header_fill)
     sheet.row_dimensions[header_row].height = 22
     body_font = Font(name="宋体", size=11)
-    for index, change in enumerate(items, start=1):
+    for index, change in enumerate(items if folded else _fold_pin_lists(items), start=1):
         row = header_row + index
         shown = "修改" if change.kind == "变更" else change.kind
         values = (
@@ -746,6 +887,7 @@ def _write_overall_summary(
     current: IcdBook,
     totals: dict[str, dict[str, int]],
     changes: list[IcdChange],
+    lead: str = "",
 ) -> None:
     if "差异总结" in book.sheetnames:
         del book["差异总结"]
@@ -754,6 +896,12 @@ def _write_overall_summary(
     summary_widths = (22, 14, 14, 14, 36, 36)
     _set_widths(sheet, summary_widths)
     _write_banner(sheet, previous, current, columns)
+    if lead:
+        sheet.merge_cells(start_row=3, start_column=1, end_row=3, end_column=columns)
+        cell = sheet.cell(3, 1, lead)
+        cell.font = Font(name="宋体", size=11)
+        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        sheet.row_dimensions[3].height = _row_height(_wrapped_lines(lead, sum(summary_widths)))
     count_header = 4
     for col, name in enumerate(("表", "新增", "修改", "删除"), start=1):
         cell = sheet.cell(count_header, col, name)
@@ -799,19 +947,137 @@ def _write_overall_summary(
         for col, value in enumerate(values, start=1):
             cell = sheet.cell(row, col, value)
             cell.font = Font(name="宋体", size=10)
-            cell.alignment = Alignment(vertical="center", wrap_text=True, horizontal="center")
+            cell.alignment = Alignment(vertical="top", wrap_text=True, horizontal="left")
             if fill is not None:
                 cell.fill = fill
             lines = max(lines, _wrapped_lines(value, summary_widths[col - 1]))
         sheet.row_dimensions[row].height = _row_height(lines)
 
 
-def write_icd_review(book: Workbook, current: IcdBook, previous: IcdBook | None = None) -> None:
+def _count_lead(changes: list[IcdChange]) -> str:
+    buckets: dict[str, dict[str, int]] = {}
+    seen: dict[str, set[tuple[str, str]]] = {}
+    for change in changes:
+        label = "修改" if change.kind == "变更" else change.kind
+        if label not in {"新增", "修改", "删除"}:
+            continue
+        token = _pin_key(change.key) or change.key
+        marks = seen.setdefault(change.where, set())
+        if (label, token) in marks:
+            continue
+        marks.add((label, token))
+        buckets.setdefault(change.where, {"新增": 0, "修改": 0, "删除": 0})[label] += 1
+    parts: list[str] = []
+    for title, counts in buckets.items():
+        bits = [f"{name}{counts[name]}" for name in ("新增", "修改", "删除") if counts[name]]
+        if bits:
+            parts.append(f"{title}：" + "，".join(bits))
+    return "。".join(parts) + "。" if parts else ""
+
+
+def _summary_stays_inside(text: str, changes: list[IcdChange]) -> bool:
+    if not text or len(text) > 100:
+        return False
+    corpus = "\n".join(
+        f"{item.where} {item.key} {item.field} {item.previous} {item.current}" for item in changes
+    ).upper()
+    for pin in re.findall(r"PIN\d+", text, flags=re.I):
+        if pin.upper() not in corpus:
+            return False
+    for amp in re.findall(r"\d+(?:\.\d+)?A", text, flags=re.I):
+        if amp.upper() not in corpus:
+            return False
+    return True
+
+
+def _llm_object(text: str) -> dict[str, object]:
+    start = text.find("{")
+    end = text.rfind("}")
+    if start < 0 or end <= start:
+        return {}
+    try:
+        data = json.loads(text[start:end + 1])
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+_ICD_LLM_PROMPT = (
+    "你只根据给定的 ICD 差异做判断，不得发明脚号、电流、型号或表上没有的取值。\n"
+    "summary：用不超过 80 个字说明这些差异主要改了什么，只能复述 JSON 里已有的表名、字段和取值。\n"
+    "wording：上一版和当版意思相同、只是措辞不同的备注或说明，填它们的 id。\n"
+    "notes：对象不是引脚号、内容是说明句的 id。\n"
+    "只输出 JSON：{\"summary\":\"\",\"wording\":[],\"notes\":[]}。"
+)
+
+
+def _llm_polish(
+    folded: list[IcdChange],
+    raw: list[IcdChange],
+    ask: Callable[[list[dict[str, str]]], str] | None,
+) -> tuple[list[IcdChange], str]:
+    """模型只标措辞和说明，并写一句综述。脚号和取值仍是表上的原文。"""
+    lead = _count_lead(raw)
+    if ask is None or not folded:
+        return folded, lead
+    payload = []
+    for index, change in enumerate(folded[:80]):
+        payload.append({
+            "id": index,
+            "sheet": change.where,
+            "key": change.key,
+            "kind": "修改" if change.kind == "变更" else change.kind,
+            "field": change.field,
+            "previous": (change.previous or "")[:80],
+            "current": (change.current or "")[:80],
+        })
+    try:
+        reply = ask([
+            {"role": "system", "content": _ICD_LLM_PROMPT},
+            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
+        ])
+        data = _llm_object(reply or "")
+    except Exception:
+        return folded, lead
+    summary = re.sub(r"\s+", " ", str(data.get("summary") or "")).strip()
+    if _summary_stays_inside(summary, folded):
+        lead = summary
+    wording = {int(item) for item in data.get("wording") or [] if str(item).isdigit()}
+    notes = {int(item) for item in data.get("notes") or [] if str(item).isdigit()}
+    polished: list[IcdChange] = []
+    for index, change in enumerate(folded):
+        field = change.field
+        key = change.key
+        if index in wording and field in {"备注", "说明"} and (change.previous or "").strip() and (change.current or "").strip():
+            if "措辞，请看" not in field:
+                field = f"{field}·措辞，请看"
+        if (
+            index in notes
+            and not _pin_key(key)
+            and key not in {"说明", "本表备注", "本表说明", "续"}
+            and not str(key).endswith(("只", "处"))
+        ):
+            key = "说明"
+            field = "说明"
+        if field != change.field or key != change.key:
+            polished.append(IcdChange(change.where, key, change.kind, field, change.previous, change.current))
+        else:
+            polished.append(change)
+    return polished, lead
+
+
+def write_icd_review(
+    book: Workbook,
+    current: IcdBook,
+    previous: IcdBook | None = None,
+    ask: Callable[[list[dict[str, str]]], str] | None = None,
+) -> None:
     """原表保持版式。有上一版时涂改过的行，表下写小结，并加差异总结。"""
     if previous is not None:
         changes = _all_changes(previous, current)
-        totals = _mark_source_sheets(book, current, changes)
-        _write_overall_summary(book, previous, current, totals, changes)
+        folded, lead = _llm_polish(_fold_pin_lists(changes), changes, ask)
+        totals = _mark_source_sheets(book, current, changes, display=folded)
+        _write_overall_summary(book, previous, current, totals, folded, lead)
     for name in list(book.sheetnames):
         if "封面" in name or "变更记录" in name or name == "版本差异":
             del book[name]
@@ -826,6 +1092,73 @@ def _loose(text: str) -> str:
 def _prose(text: str) -> bool:
     """带句读的说明。脚名、料号、引脚定义不算。"""
     return bool(re.search(r"[，。；;、]", text or ""))
+
+
+def _is_explanation(pin: IcdPin) -> bool:
+    return _prose(pin.pin) or _prose(pin.signal)
+
+
+def _explanation_text(pin: IcdPin) -> str:
+    if _prose(pin.signal):
+        return pin.signal.strip()
+    if _prose(pin.pin):
+        return pin.pin.strip()
+    return (pin.signal or pin.pin or "").strip()
+
+
+def _same_value_group(change: IcdChange) -> bool:
+    if change.kind != "变更":
+        return False
+    if change.field in {"引脚", "引脚号", "引脚定义", "说明"}:
+        return False
+    key = (change.key or "").strip()
+    if not key or _prose(key) or _prose(change.previous) or _prose(change.current):
+        return False
+    return True
+
+
+def _fold_same_values(changes: list[IcdChange]) -> list[IcdChange]:
+    """同一张表、同一字段、同一取值的改动收成一行，脚号列在当版。"""
+    groups: dict[tuple[str, str, str, str, str], list[IcdChange]] = {}
+    tokens: list[tuple[str, str, str, str, str] | None] = []
+    for change in changes:
+        if not _same_value_group(change):
+            tokens.append(None)
+            continue
+        token = (change.where, change.kind, change.field, _loose(change.previous), _loose(change.current))
+        tokens.append(token)
+        groups.setdefault(token, []).append(change)
+    emitted: set[tuple[str, str, str, str, str]] = set()
+    shown: list[IcdChange] = []
+    for change, token in zip(changes, tokens, strict=True):
+        if token is None or len(groups[token]) < 2:
+            shown.append(change)
+            continue
+        if token in emitted:
+            continue
+        emitted.add(token)
+        group = groups[token]
+        names: list[str] = []
+        seen: set[str] = set()
+        for item in group:
+            name = item.key or "无引脚号"
+            if name in seen:
+                continue
+            seen.add(name)
+            names.append(name)
+        previous = (group[0].previous or "").strip() or "（空）"
+        current = (group[0].current or "").strip() or "（空）"
+        for start in range(0, len(names), 12):
+            part = names[start:start + 12]
+            shown.append(IcdChange(
+                group[0].where,
+                f"{len(names)}处" if start == 0 else "续",
+                group[0].kind,
+                group[0].field,
+                previous,
+                current + "\n" + "、".join(part),
+            ))
+    return shown
 
 
 def _is_pin_signal(text: str) -> bool:
@@ -897,14 +1230,19 @@ def _all_changes(previous: IcdBook, current: IcdBook) -> list[IcdChange]:
     return _present_changes(changes)
 
 
-def build_icd(current: Path, dest: Path, previous: Path | None = None) -> IcdResult:
+def build_icd(
+    current: Path,
+    dest: Path,
+    previous: Path | None = None,
+    ask: Callable[[list[dict[str, str]]], str] | None = None,
+) -> IcdResult:
     current_book = read_icd(current)
     previous_book = read_icd(previous) if previous is not None else None
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(current, dest)
     book = load_workbook(dest)
     try:
-        write_icd_review(book, current_book, previous_book)
+        write_icd_review(book, current_book, previous_book, ask=ask)
         book.save(dest)
     finally:
         book.close()

@@ -30,7 +30,7 @@ from electrical_krow.gateway import (
     listen_from_args,
     parse_gateway_argv,
 )
-from electrical_krow.paths import OUTPUT_DIR, data_root
+from electrical_krow.paths import FRONTEND_DIR, OUTPUT_DIR, data_root
 
 EDGE_HINT = (
     "找不到 Microsoft Edge，无法打开工位窗口。\n"
@@ -876,6 +876,20 @@ def bind_show_when_ready(window, *, fallback_sec: float = 6.0) -> None:
         ).start()
 
 
+def client_page(origin: str) -> str:
+    """窗口地址带上界面文件的修改时间。
+
+    系统网页组件会记住 http://127.0.0.1:18765/ 这一页。地址不变时，
+    流程图脚本改了，窗口仍可能打开旧的一页。
+    """
+    newest = 0
+    for name in ("index.html", "app.js", "styles.css", "i18n.js"):
+        path = FRONTEND_DIR / name
+        if path.is_file():
+            newest = max(newest, int(path.stat().st_mtime))
+    return f"{origin.rstrip('/')}/?ui={newest}"
+
+
 def open_window(url: str) -> None:
     if sys.platform == "win32":
         open_edge_app_window(url)
@@ -958,7 +972,7 @@ def main(argv: list[str] | None = None) -> int:
         except RuntimeError as exc:
             _alert(str(exc))
             return 1
-    page = f"{origin}/"
+    page = client_page(origin)
 
     def _open() -> int:
         try:

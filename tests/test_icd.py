@@ -158,7 +158,7 @@ class IcdBookTests(unittest.TestCase):
                 self.assertIn("V3.12", str(overall.cell(2, 1).value))
                 self.assertLessEqual(overall.column_dimensions["B"].width, 20)
                 self.assertEqual(source.column_dimensions["A"].width, 14)
-                self.assertEqual(source.column_dimensions["D"].width, 9)
+                self.assertGreaterEqual(source.column_dimensions["D"].width, 16)
                 kinds = {
                     (overall.cell(row, 2).value, overall.cell(row, 3).value)
                     for row in range(1, overall.max_row + 1)
@@ -220,6 +220,163 @@ class IcdBookTests(unittest.TestCase):
                     if overall.cell(row, 4).value == "引脚号"
                 )
                 self.assertIn("Chassis", current_text)
+            finally:
+                book.close()
+
+    def test_many_new_pins_share_one_list(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            previous = folder / "old.xlsx"
+            current = folder / "new.xlsx"
+
+            def write(path: Path, rows: tuple[tuple[str, str], ...]) -> None:
+                book = Workbook()
+                sheet = book.active
+                sheet.title = "4-整车低压连接器"
+                sheet.append(["引脚号", "信号定义", "信号名称"])
+                for pin, signal in rows:
+                    sheet.append([pin, signal, "名称"])
+                book.save(path)
+                book.close()
+
+            write(previous, (("PIN1", "SIG_A"),))
+            write(current, (
+                ("PIN1", "SIG_A"),
+                ("PIN30", "Chassis_CAN1_H"),
+                ("PIN40", "Chassis_CAN1_L"),
+                ("PIN29", "Chassis_CANFD2_H"),
+                ("高压压缩机", "不用主动唤醒"),
+            ))
+            dest = folder / "out.xlsx"
+            build_icd(current, dest, previous)
+            book = load_workbook(dest)
+            try:
+                overall = book["差异总结"]
+                lists = [
+                    str(overall.cell(row, 6).value or "")
+                    for row in range(1, overall.max_row + 1)
+                    if overall.cell(row, 2).value == "3只" and overall.cell(row, 3).value == "新增"
+                ]
+                self.assertEqual(len(lists), 1)
+                self.assertIn("PIN30  Chassis_CAN1_H", lists[0])
+                self.assertIn("PIN40  Chassis_CAN1_L", lists[0])
+                self.assertIn("PIN29  Chassis_CANFD2_H", lists[0])
+                self.assertNotIn("高压压缩机", lists[0])
+                self.assertTrue(any(overall.cell(row, 2).value == "高压压缩机" for row in range(1, overall.max_row + 1)))
+            finally:
+                book.close()
+
+            write(previous, (("", "XCP_CAN_H"), ("", "XCP_CAN_L")))
+            write(current, (("PIN49", "XCP_CAN_H"), ("PIN50", "XCP_CAN_L")))
+            dest2 = folder / "out2.xlsx"
+            build_icd(current, dest2, previous)
+            book = load_workbook(dest2)
+            try:
+                overall = book["差异总结"]
+                filled = [
+                    str(overall.cell(row, 6).value or "")
+                    for row in range(1, overall.max_row + 1)
+                    if overall.cell(row, 2).value == "2只" and overall.cell(row, 4).value == "引脚号"
+                ]
+                self.assertEqual(filled, ["PIN49（XCP_CAN_H）\nPIN50（XCP_CAN_L）"])
+            finally:
+                book.close()
+
+    def test_same_current_and_prose_pin_stay_readable(self) -> None:
+        sentence = "4路LIN总线，具体每一个LIN挂在哪个总线暂不考虑"
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            previous = folder / "old.xlsx"
+            current = folder / "new.xlsx"
+
+            def write(path: Path, rows: tuple[tuple[str, str, str], ...]) -> None:
+                book = Workbook()
+                sheet = book.active
+                sheet.title = "4-整车低压连接器"
+                sheet.append(["引脚号", "信号定义", "信号名称", "电流"])
+                for pin, signal, amp in rows:
+                    sheet.append([pin, signal, "名称", amp])
+                book.save(path)
+                book.close()
+
+            write(previous, (
+                ("PIN4", "SIG_A", ""),
+                ("PIN53", "SIG_B", ""),
+                ("PIN54", "SIG_C", ""),
+                ("PIN1", "Chassis_CAN_H", "0.1A"),
+            ))
+            write(current, (
+                ("PIN4", "SIG_A", "0.1A"),
+                ("PIN53", "SIG_B", "0.1A"),
+                ("PIN54", "SIG_C", "0.1A"),
+                ("PIN1", "Chassis_CAN_H", "0.1A"),
+                ("", sentence, ""),
+            ))
+            dest = folder / "out.xlsx"
+            build_icd(current, dest, previous)
+            book = load_workbook(dest)
+            try:
+                overall = book["差异总结"]
+                currents = [
+                    (str(overall.cell(row, 2).value or ""), str(overall.cell(row, 6).value or ""))
+                    for row in range(1, overall.max_row + 1)
+                    if overall.cell(row, 4).value == "电流" and overall.cell(row, 3).value == "修改"
+                ]
+                self.assertEqual(len(currents), 1)
+                self.assertEqual(currents[0][0], "3处")
+                self.assertIn("0.1A", currents[0][1])
+                self.assertIn("PIN4", currents[0][1])
+                self.assertIn("PIN53", currents[0][1])
+                self.assertIn("PIN54", currents[0][1])
+                notes = [
+                    str(overall.cell(row, 6).value or "")
+                    for row in range(1, overall.max_row + 1)
+                    if overall.cell(row, 2).value == "说明"
+                ]
+                self.assertEqual(notes, [sentence])
+                self.assertFalse(any(overall.cell(row, 4).value == "信号名称" for row in range(1, overall.max_row + 1)))
+            finally:
+                book.close()
+
+    def test_llm_marks_wording_and_drops_invented_summary(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+            previous = folder / "old.xlsx"
+            current = folder / "new.xlsx"
+
+            def write(path: Path, note: str) -> None:
+                book = Workbook()
+                sheet = book.active
+                sheet.title = "4-整车低压连接器"
+                sheet.append(["引脚号", "信号定义", "信号名称", "备注"])
+                sheet.append(["PIN1", "SIG_A", "名称", note])
+                book.save(path)
+                book.close()
+
+            write(previous, "量产后取消")
+            write(current, "量产取消，仅开发使用")
+
+            def ask(messages: list[dict[str, str]]) -> str:
+                return (
+                    '{"summary":"低压连接器备注有措辞差异，另有 PIN99 电流 9A",'
+                    '"wording":[0],"notes":[]}'
+                )
+
+            dest = folder / "out.xlsx"
+            build_icd(current, dest, previous, ask)
+            book = load_workbook(dest)
+            try:
+                overall = book["差异总结"]
+                lead = str(overall.cell(3, 1).value or "")
+                self.assertNotIn("PIN99", lead)
+                self.assertNotIn("9A", lead)
+                self.assertIn("4-整车低压连接器", lead)
+                fields = [
+                    str(overall.cell(row, 4).value or "")
+                    for row in range(1, overall.max_row + 1)
+                ]
+                self.assertTrue(any("措辞，请看" in item for item in fields))
+                self.assertTrue(any("量产取消，仅开发使用" in str(overall.cell(row, 6).value or "") for row in range(1, overall.max_row + 1)))
             finally:
                 book.close()
 

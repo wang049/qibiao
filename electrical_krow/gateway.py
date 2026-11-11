@@ -1209,6 +1209,20 @@ def create_app(
             if Path(previous_name).suffix.lower() not in {".xlsx", ".xlsm"}:
                 raise HTTPException(400, "上一版 ICD 请用 Excel。")
             previous_bytes = await read_capped_upload(previous)
+        model = (_active_model(item)).strip() or cfg.chat_model
+
+        def ask(messages: list[dict[str, str]]) -> str:
+            """只给已对照出来的差异做措辞和说明判断，不生成脚号或取值。"""
+            extra = {"thinking": {"type": "disabled"}}
+            try:
+                return complete(cfg.server_url, item.auth, messages, model=model, temperature=0.0, timeout=cfg.timeout_sec, extra=extra).content
+            except LLMError as exc:
+                if not _looks_like_auth_error(exc):
+                    raise
+                with _AUTH_REFRESH:
+                    item.auth = refresh_sdk_key(cfg.server_url, item.auth)
+                return complete(cfg.server_url, item.auth, messages, model=model, temperature=0.0, timeout=cfg.timeout_sec, extra=extra).content
+
         with tempfile.TemporaryDirectory() as raw:
             folder = Path(raw)
             current_path = folder / (name or "icd.xlsx")
@@ -1219,7 +1233,7 @@ def create_app(
                 previous_path.write_bytes(previous_bytes)
             dest_tmp = folder / "icd.xlsx"
             try:
-                result = await asyncio.to_thread(build_icd, current_path, dest_tmp, previous_path)
+                result = await asyncio.to_thread(build_icd, current_path, dest_tmp, previous_path, ask if previous_path else None)
             except ValueError as exc:
                 raise HTTPException(400, str(exc)) from exc
             dest = request.app.state.jobs.output_dir / icd_file_name()

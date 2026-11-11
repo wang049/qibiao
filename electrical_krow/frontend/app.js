@@ -1402,6 +1402,228 @@ $("login").onclick = async () => {
   }
 };
 
+const FLOWS = {
+  extract: {
+    zh: {
+      title: "出表核对",
+      input: ["一份规格书：PDF、Word 或 Excel，不超过 80MB"],
+      output: ["核对表", "对得上的写入，对不上的留空或标待确认"],
+      bound: ["只根据这份规格书写", "读不出文字就不出表"],
+      steps: [
+        { k: "p", t: "选择规格书", d: "PDF、Word 或 Excel" },
+        { k: "q", q: "能读出文字？", join: false, no: [{ k: "e", t: "停止，不出表", stop: true }] },
+        { k: "p", t: "核对这份材料", d: "看中文、英文和前后是否一致" },
+        { k: "q", q: "对得上原文？", yes: [{ k: "p", t: "写入该格", d: "内容来自这份规格书" }], no: [{ k: "p", t: "留空或待确认", d: "对不上就不填" }] },
+        { k: "p", t: "写出核对表", d: "保存到本机" },
+      ],
+    },
+    en: {
+      title: "Extract and review",
+      input: ["One spec: PDF, Word, or Excel, up to 80MB"],
+      output: ["A review workbook", "Matched cells are filled. The rest stay blank or pending"],
+      bound: ["Use only this spec", "Stop if the text cannot be read"],
+      steps: [
+        { k: "p", t: "Choose the spec", d: "PDF, Word, or Excel" },
+        { k: "q", q: "Text readable?", join: false, no: [{ k: "e", t: "Stop. No workbook", stop: true }] },
+        { k: "p", t: "Check this document", d: "Compare the Chinese, English, and internal consistency" },
+        { k: "q", q: "Matches the source?", yes: [{ k: "p", t: "Write the cell", d: "The value comes from this spec" }], no: [{ k: "p", t: "Leave blank or pending", d: "Do not fill a cell that does not match" }] },
+        { k: "p", t: "Write the workbook", d: "Save it on this machine" },
+      ],
+    },
+  },
+  io: {
+    zh: {
+      title: "HSI 生成",
+      input: ["选定的 HSI 模板", "有原理图就用原理图，没有就用芯片手册"],
+      output: ["按模板生成的 HSI", "没改到的部分保持模板原样"],
+      bound: ["只填写对得上的内容", "一种脚有多种接法时全部列出，不替人选定"],
+      steps: [
+        { k: "q", q: "有原理图？", yes: [
+          { k: "p", t: "按原理图填写", d: "只更新对上的引脚和信号名" },
+          { k: "q", q: "对得上模板？", yes: [{ k: "p", t: "更新这一行", d: "其余格子不动" }], no: [{ k: "p", t: "标出多出的脚", d: "不改模板里其他行" }] },
+        ], no: [
+          { k: "p", t: "按手册整理引脚", d: "读不出该封装的脚表就停止" },
+          { k: "p", t: "列出类别和接法", d: "多种接法都写上，不自动选定" },
+          { k: "p", t: "信号名先留空", d: "等有原理图再填" },
+        ] },
+        { k: "p", t: "写出 HSI", d: "封面和未改的页保持模板原样" },
+      ],
+    },
+    en: {
+      title: "HSI",
+      input: ["The selected HSI template", "A schematic, or a chip datasheet if there is none"],
+      output: ["An HSI workbook on that template", "Untouched parts stay as in the template"],
+      bound: ["Fill only what matches", "List every connection option. Do not pick one"],
+      steps: [
+        { k: "q", q: "Schematic?", yes: [
+          { k: "p", t: "Fill from the schematic", d: "Update matched pins and signal names only" },
+          { k: "q", q: "Matches the template?", yes: [{ k: "p", t: "Update this row", d: "Leave the other cells" }], no: [{ k: "p", t: "Note the extra pin", d: "Do not change the other rows" }] },
+        ], no: [
+          { k: "p", t: "Read the package pins", d: "Stop if that package has no pin table" },
+          { k: "p", t: "List class and options", d: "Write every option. Do not pick one" },
+          { k: "p", t: "Leave signal names blank", d: "Fill them when a schematic exists" },
+        ] },
+        { k: "p", t: "Write the HSI", d: "Cover and untouched sheets stay as in the template" },
+      ],
+    },
+  },
+  icd: {
+    zh: {
+      title: "ICD 规划",
+      input: ["当版 ICD", "上一版可以不选"],
+      output: ["当版原表，改过的行标出色", "有上一版时，最前面加一张差异总结"],
+      bound: ["只反映当版实际有的内容", "不另出一份引脚清单"],
+      steps: [
+        { k: "q", q: "是引脚表？", join: false, no: [{ k: "e", t: "不出表", stop: true }] },
+        { k: "q", q: "有上一版？", join: false, no: [{ k: "e", t: "给出当版原表" }] },
+        { k: "p", t: "对照上一版", d: "看出新增、修改和删除" },
+        { k: "p", t: "标出改动", d: "原表里改过的行涂色，表下写本表情况" },
+        { k: "p", t: "写出差异总结", d: "放在最前面，汇总两版差别" },
+      ],
+    },
+    en: {
+      title: "ICD",
+      input: ["The current ICD", "A previous ICD is optional"],
+      output: ["The current sheets, with changed rows colored", "A difference summary in front when a previous file exists"],
+      bound: ["Show only what the current file actually has", "Do not add a separate pin list"],
+      steps: [
+        { k: "q", q: "Pin workbook?", join: false, no: [{ k: "e", t: "No workbook", stop: true }] },
+        { k: "q", q: "Previous file?", join: false, no: [{ k: "e", t: "Keep the current sheets" }] },
+        { k: "p", t: "Compare with the previous file", d: "See what was added, changed, or removed" },
+        { k: "p", t: "Mark the changes", d: "Color changed rows and note them under the sheet" },
+        { k: "p", t: "Write the summary", d: "Put the overall difference in front" },
+      ],
+    },
+  },
+  bom: {
+    zh: {
+      title: "CE BOM",
+      input: ["电子件用 BOM，结构件用总成图纸", "上一版可以不选"],
+      output: ["供应商表", "标明哪些字段对上了"],
+      bound: ["对不上的名称和尺寸留空", "上一版多出来的零件不补"],
+      steps: [
+        { k: "q", q: "是电子件？", yes: [{ k: "p", t: "读 BOM", d: "写出名称、数量和规格" }], no: [
+          { k: "q", q: "有单独图纸？", yes: [{ k: "p", t: "读取外形和材料", d: "只取图纸上标出的尺寸" }], no: [{ k: "p", t: "不提取尺寸", d: "没有单独图纸就不写长宽高" }] },
+        ] },
+        { k: "p", t: "核对字段", d: "标出对上了还是没对上" },
+        { k: "q", q: "有上一版？", yes: [{ k: "p", t: "核对用量和规格", d: "不用上一版填这次没有的格子" }], no: [{ k: "p", t: "只写这次读到的", d: "不补上一版多出的零件" }] },
+        { k: "p", t: "写出供应商表", d: "附上字段核对结果" },
+      ],
+    },
+    en: {
+      title: "CE BOM",
+      input: ["A BOM for electronic parts, or an assembly drawing for structure", "A previous BOM is optional"],
+      output: ["A supplier sheet", "A note of which fields matched"],
+      bound: ["Leave unknown names and sizes blank", "Do not add parts that exist only in the previous file"],
+      steps: [
+        { k: "q", q: "Electronic parts?", yes: [{ k: "p", t: "Read the BOM", d: "Write the name, quantity, and spec" }], no: [
+          { k: "q", q: "Own drawing?", yes: [{ k: "p", t: "Read outline and material", d: "Use only the labeled size" }], no: [{ k: "p", t: "No size", d: "Skip length, width, and height" }] },
+        ] },
+        { k: "p", t: "Check the fields", d: "Mark each field matched or not" },
+        { k: "q", q: "Previous BOM?", yes: [{ k: "p", t: "Check quantity and spec", d: "Do not fill empty cells from the previous file" }], no: [{ k: "p", t: "Write this input only", d: "Do not add extra previous parts" }] },
+        { k: "p", t: "Write the supplier sheet", d: "Include the field check" },
+      ],
+    },
+  },
+  arch: {
+    zh: {
+      title: "需求拆解",
+      input: ["一份或多份需求 PDF"],
+      output: ["确认说明和需求清单", "整表和图表放在附件"],
+      bound: ["数值只来自原文", "状态留给人确认"],
+      steps: [
+        { k: "p", t: "选择 PDF", d: "可以一次选多份" },
+        { k: "q", q: "能读出文字？", join: false, no: [{ k: "e", t: "停止，并说明原因", stop: true }] },
+        { k: "p", t: "拆成条款", d: "保留出处和带单位的数值" },
+        { k: "p", t: "保留整表和图表", d: "看不清文字的页不拆进条款" },
+        { k: "p", t: "标出不一致", d: "前后对不上的标出来，不改原数值" },
+        { k: "p", t: "写出对照稿", d: "确认说明在前，状态待人确认" },
+      ],
+    },
+    en: {
+      title: "Requirement breakdown",
+      input: ["One or more requirement PDFs"],
+      output: ["A confirmation note and a requirement list", "Whole tables and figures go to the attachment"],
+      bound: ["Numbers come only from the document", "Status is left for a person"],
+      steps: [
+        { k: "p", t: "Choose PDFs", d: "Several files can be selected" },
+        { k: "q", q: "Text readable?", join: false, no: [{ k: "e", t: "Stop and say why", stop: true }] },
+        { k: "p", t: "Split into clauses", d: "Keep the source and values with units" },
+        { k: "p", t: "Keep tables and figures", d: "Pages without readable text are not split" },
+        { k: "p", t: "Mark conflicts", d: "Flag disagreements. Do not change the number" },
+        { k: "p", t: "Write the workbook", d: "Confirmation note first. Status stays pending" },
+      ],
+    },
+  },
+};
+
+function flowLang() {
+  return document.documentElement.getAttribute("data-lang") === "en" ? "en" : "zh";
+}
+
+function fcEsc(value) {
+  return String(value == null ? "" : value).replace(/[&<>"']/g, (ch) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[ch]));
+}
+
+function fcArrow(label, kind) {
+  const text = label ? `<span>${fcEsc(label)}</span>` : "";
+  const cls = kind === "no" ? " is-no" : "";
+  return `<div class="fc-arrow${cls}" aria-hidden="true"><svg viewBox="0 0 16 28" width="16" height="28"><path d="M8 0 V27 M3.2 20.5 L8 27 L12.8 20.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="miter" stroke-linecap="butt"/></svg>${text}</div>`;
+}
+
+function fcDiamond(question) {
+  return `<div class="fc-diamond"><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><polygon points="50,1.5 98.5,50 50,98.5 1.5,50"></polygon></svg><span>${fcEsc(question)}</span></div>`;
+}
+
+function fcNodes(nodes) {
+  return (nodes || []).map((node, index) => {
+    const prev = nodes[index - 1];
+    const lead = index ? fcArrow(prev && prev.k === "q" && prev.join === false ? tx("flow.yes") : "") : "";
+    return lead + fcNode(node);
+  }).join("");
+}
+
+function fcNode(node) {
+  if (node.k === "p") {
+    return `<div class="fc-proc"><b>${fcEsc(node.t)}</b>${node.d ? `<span>${fcEsc(node.d)}</span>` : ""}</div>`;
+  }
+  if (node.k === "e") return `<div class="fc-term${node.stop ? " is-stop" : ""}">${fcEsc(node.t)}</div>`;
+  if (node.k !== "q") return "";
+  if (node.join === false) {
+    return `<div class="fc-ask">${fcDiamond(node.q)}<div class="fc-out"><b>${fcEsc(tx("flow.no"))}</b>${fcNodes(node.no)}</div></div>`;
+  }
+  const yes = tx("flow.yes");
+  const no = tx("flow.no");
+  return `<div class="fc-fork">${fcDiamond(node.q)}<div class="fc-split" aria-hidden="true"></div><div class="fc-arms"><div class="fc-arm">${fcArrow(yes)}${fcNodes(node.yes)}</div><div class="fc-arm">${fcArrow(no, "no")}${fcNodes(node.no)}</div></div><div class="fc-join" aria-hidden="true"></div></div>`;
+}
+
+function openFlow(panel) {
+  const pack = FLOWS[panel];
+  const dialog = $("flow-dialog");
+  if (!pack || !dialog) return;
+  const data = pack[flowLang()] || pack.zh;
+  $("flow-title").textContent = data.title;
+  const meta = [
+    ["flow.input", data.input],
+    ["flow.output", data.output],
+    ["flow.bound", data.bound],
+  ].map(([key, items]) => (
+    `<section class="flow-meta"><h3>${tx(key)}</h3><p>${items.join("。")}</p></section>`
+  )).join("");
+  const chart = [
+    `<div class="fc-term">${fcEsc(tx("flow.start"))}</div>`,
+    fcArrow(""),
+    fcNodes(data.steps),
+    fcArrow(""),
+    `<div class="fc-term">${fcEsc(tx("flow.end"))}</div>`,
+  ].join("");
+  $("flow-body").innerHTML = `<div class="flow-meta-row">${meta}</div><div class="fc">${chart}</div>`;
+  if (typeof dialog.showModal === "function") dialog.showModal();
+  else dialog.setAttribute("open", "");
+}
+
 $("logout").onclick = async () => {
   await json("/api/logout", { method: "POST", body: "{}" });
   setFile(null);
@@ -1412,6 +1634,14 @@ $("logout").onclick = async () => {
   renderJobs();
   await showWork(false, "");
   await refresh();
+};
+
+document.querySelectorAll("[data-flow]").forEach((btn) => {
+  btn.onclick = () => openFlow(btn.dataset.flow || "");
+});
+$("flow-close").onclick = () => {
+  const dialog = $("flow-dialog");
+  if (dialog && typeof dialog.close === "function") dialog.close();
 };
 
 function extractBusy() {

@@ -20,4 +20,4 @@
 
 ## 闸门
 
-`test_arch_and_hsi_libraries_do_not_supply_values`：两份库 `fill_from_kb` 为 false，条目 `retrieve` 为 false。HSI 库正文不出现死区时间数字。未知库名返回空。
+`test_arch_and_hsi_libraries_do_not_supply_values`：两份库 `fill_from_kb` 为 false，条目 `retrieve` 为 false。HSI 库正文不出现死区时间数字。未知库名返回空。电驱每条意见和理由都有字，意见里不写可填表的数，也不写满足。来源登记覆盖本机电驱资料目录。

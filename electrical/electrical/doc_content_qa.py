@@ -42,6 +42,41 @@ class ContentFinding:
     level: str
     kind: str
     text: str
+    page: str = ""
+    clause: str = ""
+
+
+def _locate(text: str, index: int) -> tuple[str, str]:
+    """命中点之前最近的印页和条款号。没有就不编。"""
+    if index < 0:
+        return "", ""
+    page = ""
+    for match in re.finditer(r"## 第 (\d+) [页节]", text):
+        if match.start() <= index:
+            page = match.group(1)
+        else:
+            break
+    clause = ""
+    for match in _CLAUSE_HEAD.finditer(text[: index + 1]):
+        clause = match.group(1)
+    return page, clause
+
+
+def _mark(
+    level: str,
+    kind: str,
+    sentence: str,
+    text: str,
+    index: int,
+    clause: str = "",
+) -> ContentFinding:
+    page, found = _locate(text, index)
+    return ContentFinding(level, kind, sentence, page, clause or found)
+
+
+def _first_at(text: str, pattern: str) -> int:
+    match = re.search(pattern, text or "", re.I)
+    return match.start() if match else -1
 
 
 def review_document_content(markdown: str) -> list[ContentFinding]:
@@ -52,10 +87,10 @@ def review_document_content(markdown: str) -> list[ContentFinding]:
     found: list[ContentFinding] = []
     found.extend(_hvac_amp_conflicts(text))
     hvac_amps = _hvac_amp_present(text)
-    for clause, window in _clause_windows(text):
-        found.extend(_bilingual_unit_conflicts(clause, window, skip_a=hvac_amps))
-        found.extend(_semantic_reversals(clause, window))
-        found.extend(_claimed_power_vs_ui(clause, window))
+    for _clause, window, start in _clause_windows(text):
+        found.extend(_bilingual_unit_conflicts(window, text, start, skip_a=hvac_amps))
+        found.extend(_semantic_reversals(window, text, start))
+        found.extend(_claimed_power_vs_ui(window, text, start))
     found.extend(_weight_over_limit(text))
     found.extend(_can_channel_mismatch(text))
     found.extend(_model_mix(text))
@@ -77,7 +112,7 @@ def content_summary(findings: list[ContentFinding]) -> str:
         bits.append(f"中英冲突 {p0} 条")
     if p1:
         bits.append(f"内部/模板 {p1} 条")
-    return "、".join(bits) + "。详见「文件审查」页。"
+    return "、".join(bits) + "。详见「03_提取质量审查」。"
 
 
 def _dedupe(items: list[ContentFinding]) -> list[ContentFinding]:
@@ -93,10 +128,10 @@ def _dedupe(items: list[ContentFinding]) -> list[ContentFinding]:
     return out
 
 
-def _clause_windows(markdown: str) -> list[tuple[str, str]]:
+def _clause_windows(markdown: str) -> list[tuple[str, str, int]]:
     text = markdown or ""
     matches = list(_CLAUSE_HEAD.finditer(text))
-    raw: list[tuple[str, str]] = []
+    raw: list[tuple[str, str, int]] = []
     if matches:
         for i, match in enumerate(matches[:120]):
             start = match.start()
@@ -105,22 +140,30 @@ def _clause_windows(markdown: str) -> list[tuple[str, str]]:
                 if i + 1 < len(matches)
                 else min(len(text), start + 4000)
             )
-            raw.append((match.group(1), text[start:end][:4000]))
-        merged: list[tuple[str, str]] = []
-        for cid, chunk in raw:
+            raw.append((match.group(1), text[start:end][:4000], start))
+        merged: list[tuple[str, str, int]] = []
+        for cid, chunk, start in raw:
             if merged and len(chunk) < 160:
-                prev_id, prev = merged[-1]
-                merged[-1] = (prev_id, (prev + "\n" + chunk)[:4500])
+                prev_id, prev, prev_at = merged[-1]
+                merged[-1] = (prev_id, (prev + "\n" + chunk)[:4500], prev_at)
             else:
-                merged.append((cid, chunk))
+                merged.append((cid, chunk, start))
         lead = text[: matches[0].start()].strip()
         if len(lead) >= 200:
-            merged.insert(0, ("", lead[:4000]))
+            merged.insert(0, ("", lead[:4000], 0))
         return merged[:80]
     blocks = [p for p in _PAGE_SPLIT.split(text) if p.strip()]
     if not blocks:
-        return [("", text[:8000])]
-    return [("", block[:4000]) for block in blocks[:40]]
+        return [("", text[:8000], 0)]
+    located: list[tuple[str, str, int]] = []
+    cursor = 0
+    for block in blocks[:40]:
+        at = text.find(block[:60], cursor)
+        if at < 0:
+            at = cursor
+        located.append(("", block[:4000], at))
+        cursor = at + 1
+    return located
 
 
 def _has_bilingual(text: str) -> bool:
@@ -150,9 +193,21 @@ def _fmt_num(value: float) -> str:
     return text
 
 
-def _hvac_motor_lang_amps(text: str, motor: str) -> tuple[str, str]:
+_UNIT_SAY = {
+    "h": "小时",
+    "kW": "功率",
+    "A": "电流",
+    "kg": "重量",
+    "kPa": "压力",
+    "mA": "电流",
+    "µA": "电流",
+}
+
+
+def _hvac_motor_lang_amps(text: str, motor: str) -> tuple[str, str, int]:
     block = text or ""
     cn = ""
+    at = -1
     match = re.search(
         rf"测量[-－]?\s*(\d{{2,4}})\s*A至\+\s*\1\s*A峰值范围内.{{0,80}}{motor}",
         block,
@@ -160,6 +215,7 @@ def _hvac_motor_lang_amps(text: str, motor: str) -> tuple[str, str]:
     )
     if match:
         cn = match.group(1)
+        at = match.start()
     else:
         match = re.search(
             rf"{motor}逆变器[^\n]{{0,48}}测量[-－]?\s*(\d{{2,4}})\s*A至\+\s*\1\s*A",
@@ -168,6 +224,7 @@ def _hvac_motor_lang_amps(text: str, motor: str) -> tuple[str, str]:
         )
         if match:
             cn = match.group(1)
+            at = match.start()
     en = ""
     match = re.search(
         rf"PEI {motor}:[\s\S]{{0,280}}?-\s*(\d+)\s*A\s*to\s*\+\s*\1\s*A",
@@ -176,6 +233,8 @@ def _hvac_motor_lang_amps(text: str, motor: str) -> tuple[str, str]:
     )
     if match:
         en = match.group(1)
+        if at < 0:
+            at = match.start()
     else:
         match = re.search(
             rf"PEI {motor} within the range\s*-\s*(\d+)\s*A\s*to\s*\+\s*\1\s*A",
@@ -184,12 +243,14 @@ def _hvac_motor_lang_amps(text: str, motor: str) -> tuple[str, str]:
         )
         if match:
             en = match.group(1)
-    return cn, en
+            if at < 0:
+                at = match.start()
+    return cn, en, at
 
 
 def _hvac_amp_present(text: str) -> bool:
     for motor in ("P1", "P3"):
-        cn, en = _hvac_motor_lang_amps(text, motor)
+        cn, en, _at = _hvac_motor_lang_amps(text, motor)
         if cn or en:
             return True
     return False
@@ -198,24 +259,27 @@ def _hvac_amp_present(text: str) -> bool:
 def _hvac_amp_conflicts(text: str) -> list[ContentFinding]:
     out: list[ContentFinding] = []
     for motor in ("P1", "P3"):
-        cn, en = _hvac_motor_lang_amps(text, motor)
+        cn, en, at = _hvac_motor_lang_amps(text, motor)
         if cn and en and cn != en:
             out.append(
-                ContentFinding(
+                _mark(
                     "P0",
                     "中英冲突",
-                    f"{motor} 交流电流量程中英不一致：中文 ±{cn}A，英文 ±{en}A。",
+                    f"{motor} 交流电流：中文写 ±{cn}A，英文写 ±{en}A，两边对不上。",
+                    text,
+                    at,
                 )
             )
     return out
 
 
 def _bilingual_unit_conflicts(
-    clause: str, window: str, *, skip_a: bool
+    window: str, text: str, start: int, *, skip_a: bool
 ) -> list[ContentFinding]:
     if not _has_bilingual(window):
         return []
     by_unit: dict[str, dict[str, set[float]]] = {}
+    first_at: dict[str, int] = {}
     for match in _Q.finditer(window):
         unit = _norm_unit(match.group("unit"))
         if unit not in _GENERIC_UNITS:
@@ -231,29 +295,33 @@ def _bilingual_unit_conflicts(
             continue
         bucket = by_unit.setdefault(unit, {"zh": set(), "en": set()})
         bucket[lang].add(round(num, 4))
+        first_at.setdefault(unit, match.start())
     out: list[ContentFinding] = []
-    prefix = f"{clause} " if clause else ""
     for unit, langs in by_unit.items():
         zh_vals = langs["zh"]
         en_vals = langs["en"]
         if not zh_vals or not en_vals or zh_vals == en_vals:
             continue
-        zh_txt = "、".join(_fmt_num(v) for v in sorted(zh_vals))
-        en_txt = "、".join(_fmt_num(v) for v in sorted(en_vals))
+        zh_txt = "、".join(f"{_fmt_num(v)}{unit}" for v in sorted(zh_vals))
+        en_txt = "、".join(f"{_fmt_num(v)}{unit}" for v in sorted(en_vals))
+        name = _UNIT_SAY.get(unit, unit)
         out.append(
-            ContentFinding(
+            _mark(
                 "P0",
                 "中英冲突",
-                f"{prefix}{unit} 中英数字不一致：英文 {en_txt}{unit}，中文 {zh_txt}{unit}。",
+                f"英文{name}写 {en_txt}，中文写 {zh_txt}，两边对不上。",
+                text,
+                start + first_at.get(unit, 0),
             )
         )
     return out
 
 
-def _semantic_reversals(clause: str, window: str) -> list[ContentFinding]:
+def _semantic_reversals(
+    window: str, text: str, start: int
+) -> list[ContentFinding]:
     if not _has_bilingual(window):
         return []
-    prefix = f"{clause} " if clause else ""
     out: list[ContentFinding] = []
     for match in re.finditer(
         r"at\s+least\s+(\d+(?:\.\d+)?)\s*(A|V|kg)", window, re.I
@@ -261,10 +329,12 @@ def _semantic_reversals(clause: str, window: str) -> list[ContentFinding]:
         num, unit = match.group(1), match.group(2)
         if re.search(rf"小于\s*{re.escape(num)}\s*(?:{re.escape(unit)}|安)", window):
             out.append(
-                ContentFinding(
+                _mark(
                     "P0",
                     "语义相反",
-                    f"{prefix}英文 at least {num}{unit}，中文写成小于 {num}{unit}。",
+                    f"英文写 at least {num}{unit}，中文写成小于 {num}{unit}，意思相反。",
+                    text,
+                    start + match.start(),
                 )
             )
     if re.search(
@@ -275,17 +345,22 @@ def _semantic_reversals(clause: str, window: str) -> list[ContentFinding]:
         r"(?:误操作|错误操作).{0,24}(?:可能|也许).{0,20}(?:不安全|危险)",
         window,
     ):
+        hit = re.search(r"误操作|错误操作|shall not|must not", window, re.I)
         out.append(
-            ContentFinding(
+            _mark(
                 "P0",
                 "语义相反",
-                f"{prefix}英文禁止危险误操作，中文写成可能不安全。",
+                "英文写禁止危险误操作，中文写成可能不安全，意思相反。",
+                text,
+                start + (hit.start() if hit else 0),
             )
         )
     return out
 
 
-def _claimed_power_vs_ui(clause: str, window: str) -> list[ContentFinding]:
+def _claimed_power_vs_ui(
+    window: str, text: str, start: int
+) -> list[ContentFinding]:
     kws = [
         float(x)
         for x in re.findall(
@@ -305,7 +380,6 @@ def _claimed_power_vs_ui(clause: str, window: str) -> list[ContentFinding]:
         window,
         re.I,
     )
-    prefix = f"{clause} " if clause else ""
     out: list[ContentFinding] = []
     claimed = kws[0]
     for volt_s, amp_s in pairs[:3]:
@@ -317,12 +391,19 @@ def _claimed_power_vs_ui(clause: str, window: str) -> list[ContentFinding]:
             continue
         if abs(calc - claimed) / claimed < 0.04:
             continue
+        hit = re.search(
+            r"(?:Max(?:imum)?|max\.?|峰值|最大)\s*\d+(?:\.\d+)?\s*kW|\d+(?:\.\d+)?\s*kW\s*@",
+            window,
+            re.I,
+        )
         out.append(
-            ContentFinding(
+            _mark(
                 "P1",
                 "内部不一致",
-                f"{prefix}声称 {_fmt_num(claimed)}kW，"
-                f"按当份 {_fmt_num(volt)}V×{_fmt_num(amp)}A 为 {calc:.2f}kW。",
+                f"写的是 {_fmt_num(claimed)}kW，"
+                f"按同段 {_fmt_num(volt)}V×{_fmt_num(amp)}A 算是 {calc:.2f}kW。",
+                text,
+                start + (hit.start() if hit else 0),
             )
         )
         break
@@ -351,11 +432,14 @@ def _weight_over_limit(text: str) -> list[ContentFinding]:
     if not over:
         return []
     shown = "、".join(_fmt_num(w) for w in over[:4])
+    at = _first_at(text, rf"(?<![\d.]){re.escape(_fmt_num(over[0]))}\s*kg")
     return [
-        ContentFinding(
+        _mark(
             "P1",
             "内部不一致",
-            f"重量限值 {_fmt_num(limit)}kg，正文另有 {shown}kg。",
+            f"限值是 {_fmt_num(limit)}kg，正文里另有 {shown}kg。",
+            text,
+            at,
         )
     ]
 
@@ -383,11 +467,17 @@ def _can_channel_mismatch(text: str) -> list[ContentFinding]:
     if len(uniq) < 2:
         return []
     shown = "、".join(str(n) for n in uniq)
+    at = _first_at(
+        text,
+        r"(?:at least|至少|≥|>=)\s*\d{1,2}\s*(?:independent\s+)?CAN|路CAN|CAN通道",
+    )
     return [
-        ContentFinding(
+        _mark(
             "P1",
             "内部不一致",
-            f"CAN 通道数量写法不一致：{shown}。",
+            f"CAN 通道有的写 {shown}，数量对不上。",
+            text,
+            at,
         )
     ]
 
@@ -396,11 +486,21 @@ def _model_mix(text: str) -> list[ContentFinding]:
     has_s = bool(re.search(r"\bDHTS160S\b", text))
     has_plain = bool(re.search(r"\bDHTS160\b", text))
     if has_s and has_plain:
+        spots = [
+            n
+            for n in (
+                _first_at(text, r"\bDHTS160S\b"),
+                _first_at(text, r"\bDHTS160\b"),
+            )
+            if n >= 0
+        ]
         return [
-            ContentFinding(
+            _mark(
                 "P1",
                 "内部不一致",
-                "型号 DHTS160 与 DHTS160S 同时出现。",
+                "型号同时写了 DHTS160 和 DHTS160S。",
+                text,
+                min(spots) if spots else -1,
             )
         ]
     return []
@@ -411,10 +511,12 @@ def _hardware_vs_software(text: str) -> list[ContentFinding]:
         r"(?:OD\s+software|软件白盒|白盒交付)", text, re.I
     ):
         return [
-            ContentFinding(
+            _mark(
                 "P1",
                 "内部不一致",
-                "附录写 Hardware only，正文又出现软件白盒交付。",
+                "附录写 Hardware only，正文又写软件白盒交付。",
+                text,
+                _first_at(text, r"Hardware only"),
             )
         ]
     return []
@@ -423,13 +525,25 @@ def _hardware_vs_software(text: str) -> list[ContentFinding]:
 def _template_residue(text: str) -> list[ContentFinding]:
     out: list[ContentFinding] = []
     if re.search(r"\bVolvo\b", text):
-        extra = "，中英主体不一致" if re.search(r"吉利|Geely", text, re.I) else ""
+        tail = "。文中主体写的是吉利" if re.search(r"吉利|Geely", text, re.I) else ""
         out.append(
-            ContentFinding("P1", "模板残留", f"残留 Volvo 模板用语{extra}。")
+            _mark(
+                "P1",
+                "模板残留",
+                f"还留着 Volvo 的模板用语{tail}。",
+                text,
+                _first_at(text, r"\bVolvo\b"),
+            )
         )
     if re.search(r"Subject Matter Expert", text, re.I):
         out.append(
-            ContentFinding("P1", "模板残留", "残留 Subject Matter Expert 模板句。")
+            _mark(
+                "P1",
+                "模板残留",
+                "还留着 Subject Matter Expert 这句模板。",
+                text,
+                _first_at(text, r"Subject Matter Expert"),
+            )
         )
     return out
 
@@ -440,27 +554,53 @@ def _placeholders(text: str) -> list[ContentFinding]:
     if tags:
         shown = "、".join(tags[:3])
         out.append(
-            ContentFinding("P1", "占位未填", f"封面或正文仍有占位符 {shown}。")
+            _mark(
+                "P1",
+                "占位未填",
+                f"占位符 {shown} 还在，没有填上具体名称。",
+                text,
+                _first_at(text, r"<<[A-Z][A-Z0-9_ /.-]{2,}>>"),
+            )
         )
     head = text[:2500]
     if re.search(r"\b(?:TBD|TBC)\b", head):
-        out.append(ContentFinding("P1", "占位未填", "文首仍有 TBD/TBC 未填。"))
+        out.append(
+            _mark(
+                "P1",
+                "占位未填",
+                "文首还有 TBD/TBC，没有填上。",
+                text,
+                _first_at(head, r"\b(?:TBD|TBC)\b"),
+            )
+        )
     return out
 
 
 def _bad_dates(text: str) -> list[ContentFinding]:
-    hits = re.findall(r"(?<!\d)(20\d{7})(?!\d)", text)
+    hits = list(dict.fromkeys(re.findall(r"(?<!\d)(20\d{7})(?!\d)", text)))
     if not hits:
         return []
     shown = "、".join(hits[:3])
     return [
-        ContentFinding("P1", "日期格式", f"日期位数异常：{shown}。")
+        _mark(
+            "P1",
+            "日期格式",
+            f"日期写成 {shown}，位数不对，不是正常的年月日。",
+            text,
+            _first_at(text, r"(?<!\d)20\d{7}(?!\d)"),
+        )
     ]
 
 
 def _empty_tables(text: str) -> list[ContentFinding]:
     lines = (text or "").splitlines()
+    offsets: list[int] = []
+    cursor = 0
+    for line in lines:
+        offsets.append(cursor)
+        cursor += len(line) + 1
     empty_n = 0
+    first_at = -1
     i = 0
     while i < len(lines) - 2:
         line = lines[i]
@@ -479,9 +619,17 @@ def _empty_tables(text: str) -> list[ContentFinding]:
             j += 1
         if body >= 2 and blank == body:
             empty_n += 1
+            if first_at < 0:
+                first_at = offsets[i]
         i = j
     if not empty_n:
         return []
     return [
-        ContentFinding("P1", "空表", f"有 {empty_n} 张表表头后无内容。")
+        _mark(
+            "P1",
+            "空表",
+            f"有 {empty_n} 张表只有表头，下面是空的。",
+            text,
+            first_at,
+        )
     ]

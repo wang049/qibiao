@@ -153,6 +153,8 @@ class KnowledgePublishTests(unittest.TestCase):
         self.assertEqual(by_id["physics"]["status"], "待确认")
         self.assertEqual(by_id["enterprise-std"]["status"], "待确认")
         self.assertEqual(by_id["manuals"]["status"], "待确认")
+        self.assertEqual(by_id["arch-corpus"]["status"], "待确认")
+        self.assertEqual(by_id["arch-corpus"]["title"], "电驱资料目录")
         for src in data["sources"]:
             blob = json.dumps(src, ensure_ascii=False)
             self.assertNotIn("甲方", blob, src["id"])
@@ -534,6 +536,27 @@ class FeatureLibraryTests(unittest.TestCase):
         self.assertIn("同条中英数值要一致", arch_names)
         self.assertIn("同文件重量不得超出该文件写明的上限", arch_names)
         self.assertIn("曲线图整张截图，旁边的数据表不裁开", arch_names)
+        meas = re.compile(r"\d+(?:\.\d+)?\s*(?:kV|kW|kA|kg|Nm|rpm|mm|Vdc|Vac|V|A|G)\b", re.I)
+        for card in arch["clauses"]:
+            self.assertTrue(card["opinion"])
+            self.assertTrue(card["reason"])
+            self.assertTrue(card["applies"])
+            blob_card = " ".join([card["opinion"], card["reason"], card["applies"], card["gloss"], card["use"]])
+            self.assertIsNone(meas.search(blob_card), card["id"])
+            self.assertNotIn("满足", card["opinion"])
+        self.assertGreaterEqual(len(arch["sources"]), 100)
+        seen = set()
+        for src in arch["sources"]:
+            self.assertTrue(src["id"])
+            self.assertTrue(src["title"])
+            self.assertIn(src["role"], {"需求", "口径", "标准", "接口", "图纸", "参考", "未展开"})
+            self.assertNotIn("/Users", json.dumps(src, ensure_ascii=False))
+            self.assertNotIn(src["id"], seen)
+            seen.add(src["id"])
+            self.assertFalse(src["leave_site"])
+        self.assertEqual(len(seen), len(arch["sources"]))
+        no_hit = next(card for card in arch["clauses"] if card["id"] == "arch-no-source")
+        self.assertIn("尚无对应口径", no_hit["opinion"])
         hsi_names = {card["name"] for card in hsi["clauses"]}
         self.assertIn("同一电机的 PWM 在同一个 ATOM", hsi_names)
         self.assertIn("三相电流分到不同 group 的同一 channel", hsi_names)
@@ -541,6 +564,31 @@ class FeatureLibraryTests(unittest.TestCase):
         blob = json.dumps(hsi, ensure_ascii=False)
         self.assertNotIn("1.6", blob)
         self.assertEqual(feature_library("sor"), {})
+
+    def test_arch_source_register_matches_the_local_folders(self) -> None:
+        import yaml
+
+        raw = yaml.safe_load((ROOT / "docs" / "knowledge" / "arch_kb.yaml").read_text(encoding="utf-8"))
+        blob = json.dumps(raw, ensure_ascii=False)
+        self.assertNotIn("/Users", blob)
+        self.assertIs(raw.get("fill_from_kb"), False)
+        self.assertIs(raw.get("retrieve"), False)
+        places = {
+            "混放资料": Path("/Users/wwj/电子电器项目/资料/uploadae18f58a-3241-49ef-a8d4-c4045fedbf1e"),
+            "电驱资料": Path("/Users/wwj/电子电器项目/资料/电驱资料1015"),
+            "客户图纸": Path("/Users/wwj/电子电器项目/资料/第三阶段释放客户需求文件_20261112"),
+            "ICD": Path("/Users/wwj/电子电器项目/资料/ICD"),
+        }
+        if not all(folder.is_dir() for folder in places.values()):
+            self.assertGreaterEqual(len(raw["sources"]), 100)
+            return
+        expected = set()
+        for place, folder in places.items():
+            for path in folder.rglob("*"):
+                if path.is_file() and path.name != ".DS_Store":
+                    expected.add((place, path.relative_to(folder).as_posix()))
+        got = {(row["place"], row["file"]) for row in raw["sources"]}
+        self.assertEqual(got, expected)
 
 
 if __name__ == "__main__":

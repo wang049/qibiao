@@ -25,7 +25,8 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.hyperlink import Hyperlink
-from openpyxl.utils import column_index_from_string, get_column_letter
+from openpyxl.drawing.spreadsheet_drawing import OneCellAnchor, TwoCellAnchor
+from openpyxl.utils import column_index_from_string, coordinate_to_tuple, get_column_letter
 from openpyxl.workbook.workbook import Workbook
 
 from electrical_krow.hsi_qa import (
@@ -161,6 +162,54 @@ def _write_port_match(sheet, header_row: int, excel_row: int, human_col: int, te
     sheet.cell(header_row, column, "匹配")
     sheet.cell(excel_row, column, text)
     sheet.column_dimensions[get_column_letter(column)].width = 42
+
+
+def _manual_recommendation(pin: ChipPin) -> str:
+    """没有原理图时，Pin Definition 写手册上的分类和第一条复用，不写上一项目的端口名。"""
+    kind = pin_class(pin)
+    first = ""
+    for line in present_mux(pin.mux).splitlines():
+        text = line.strip()
+        if text:
+            first = text
+            break
+    if kind and first:
+        return f"手册推荐：{kind}；{first}"
+    if kind:
+        return f"手册推荐：{kind}"
+    if first:
+        return f"手册推荐：{first}"
+    return ""
+
+
+def _drop_carried_project(workbook: Workbook) -> None:
+    """按手册重出时，封面修改人和上一项目的变更记录不再留在这份表里。"""
+    cover = _cover_sheet(workbook)
+    if cover is not None:
+        editor_cols = [
+            col
+            for col in range(1, 8)
+            if _text(cover.cell(1, col).value) in {"修改人", "需要修改内容"}
+        ]
+        for row in range(2, (cover.max_row or 1) + 1):
+            for col in editor_cols:
+                cover.cell(row, col).value = None
+    history = _history_sheet(workbook)
+    if history is not None:
+        _clear_below(history, 1)
+    port = _port_sheet(workbook)
+    if port is None:
+        return
+    layout = _port_layout(port)
+    for row in range(1, layout.header + 1):
+        for col in range(1, 20):
+            cell = port.cell(row, col)
+            text = _text(cell.value)
+            if not text:
+                continue
+            cleaned = re.sub(r"[（(][^）)]*(?:EEDC|智控)[^）)]*[）)]", "", text).strip()
+            if cleaned != text:
+                cell.value = cleaned or None
 
 
 def _stamp_issue(workbook: Workbook, note: str) -> None:
@@ -2032,8 +2081,9 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
         if layout.mux and shown_function and not function_in_symbol and not _text(port.cell(row, layout.mux).value):
             mux_changed = bool(_set_if_changed(port.cell(row, layout.mux), shown_function))
         port_name = _text(port.cell(row, layout.name).value) if layout.name else ""
+        signal = pin.net or (shown_function if not port_name else "")
         net_changed = bool(
-            layout.name and pin.net and port_name != pin.net and _set_if_changed(port.cell(row, layout.name), pin.net)
+            layout.name and signal and port_name != signal and _set_if_changed(port.cell(row, layout.name), signal)
         )
         cross = bool(net_changed and port_name)
         review = ball_changed or net_changed or cross
@@ -2049,7 +2099,7 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
         _mark_new(port.cell(row, layout.status, "待人工复核"))
         parts = [f"原理图 {pin.sheet}"]
         if cross:
-            parts.append(f"交叉：端口名 {port_name}，原理图 {pin.net}")
+            parts.append(f"交叉：端口名 {port_name}，原理图 {signal}")
         if not pin.ball:
             parts.append("球号未在符号旁对上")
         if not shown_function:
@@ -2138,8 +2188,132 @@ def _function_belongs_on_sheet(sheet_name: str, function: str) -> bool:
     return False
 
 
+def _table_has_pins(sheet, header: int, end: int, pin_col: int) -> bool:
+    for row in range(header + 1, end):
+        text = _text(sheet.cell(row, pin_col).value)
+        if text and text.casefold() != "pin":
+            return True
+    return False
+
+
+def _bus_rows_for_empty_sheet(sheet_name: str, facts: dict[str, dict[str, str]]) -> list[tuple[str, str, str]]:
+    """只有表头时，收原理图里属于这一页的脚。已有数据行时不调用。"""
+    rows: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for key, fact in facts.items():
+        if not re.match(r"^(?:P\d{1,2}\.\d+|AN\d+)$", key, re.I):
+            continue
+        symbol = key.upper() if key.upper().startswith("AN") else key
+        if symbol in seen:
+            continue
+        function = str(fact.get("function") or "")
+        if not _function_belongs_on_sheet(sheet_name, function):
+            continue
+        seen.add(symbol)
+        net = str(fact.get("net") or "") or function
+        rows.append((symbol, function, net))
+    return rows
+
+
+def _unmerge_block(sheet, start_row: int, end_row: int, start_col: int, end_col: int) -> None:
+    stale = []
+    for merged in sheet.merged_cells.ranges:
+        if merged.max_row < start_row or merged.min_row > end_row:
+            continue
+        if merged.max_col < start_col or merged.min_col > end_col:
+            continue
+        stale.append(str(merged))
+    for ref in stale:
+        sheet.unmerge_cells(ref)
+
+
+def _append_bus_rows_when_empty(sheet, header: int, columns: dict[str, int], facts: dict[str, dict[str, str]]) -> int:
+    pin_col = columns["pin"]
+    if _table_has_pins(sheet, header, (sheet.max_row or header) + 1, pin_col):
+        return 0
+    pending = _bus_rows_for_empty_sheet(sheet.title, facts)
+    if not pending:
+        return 0
+    last = header + len(pending)
+    _unmerge_block(sheet, header + 1, last, 1, max(columns.values()))
+    for row in range(1, header):
+        for col in range(1, 8):
+            cell = sheet.cell(row, col)
+            if "TLE9255" in _text(cell.value):
+                cell.value = None
+    function_col = columns.get("function") or 0
+    net_col = columns["net"]
+    direction_col = 0
+    for col in range(1, 8):
+        if _text(sheet.cell(header, col).value).casefold() in {"i/o", "io"}:
+            direction_col = col
+            break
+    written = 0
+    for index, (symbol, function, net) in enumerate(pending, start=1):
+        row = header + index
+        if pin_col > 1:
+            _mark_new(sheet.cell(row, 1, index))
+        _mark_new(sheet.cell(row, pin_col, symbol))
+        if function_col:
+            _mark_new(sheet.cell(row, function_col, function))
+        if net:
+            _mark_new(sheet.cell(row, net_col, net))
+        if direction_col:
+            io = _spi_io(function)
+            if io:
+                _mark_new(sheet.cell(row, direction_col, io))
+        written += 1
+    return written
+
+
+def _anchor_span(anchor):
+    """返回 0 起始的行、列范围。字符串锚点只占那一格。"""
+    if isinstance(anchor, str):
+        row, col = coordinate_to_tuple(anchor)
+        return row - 1, col - 1, row - 1, col - 1
+    if isinstance(anchor, TwoCellAnchor):
+        return anchor._from.row, anchor._from.col, anchor.to.row, anchor.to.col
+    if isinstance(anchor, OneCellAnchor):
+        return anchor._from.row, anchor._from.col, anchor._from.row, anchor._from.col
+    return None
+
+
+def _place_anchor_at_column(image, top: int, col: int) -> None:
+    anchor = image.anchor
+    if isinstance(anchor, str):
+        image.anchor = f"{get_column_letter(col + 1)}{top + 1}"
+        return
+    if isinstance(anchor, TwoCellAnchor):
+        width = anchor.to.col - anchor._from.col
+        anchor._from.col = col
+        anchor.to.col = col + width
+        return
+    if isinstance(anchor, OneCellAnchor):
+        anchor._from.col = col
+
+
+def _move_images_beside_text(sheet) -> None:
+    """图盖住已有文字时，按原跨度挪到这段文字的右侧。不删图，也不按位图重新放大。"""
+    for image in sheet._images:
+        span = _anchor_span(image.anchor)
+        if span is None:
+            continue
+        top, left, bottom, right = span
+        text_cols: list[int] = []
+        for row in range(max(top, 0), max(bottom, top) + 1):
+            for col in range(1, min(sheet.max_column or 1, 30) + 1):
+                if _text(sheet.cell(row + 1, col).value):
+                    text_cols.append(col - 1)
+        if not text_cols or not any(left <= col <= right for col in text_cols):
+            continue
+        new_left = max(text_cols) + 1
+        if new_left <= left:
+            continue
+        _place_anchor_at_column(image, top, new_left)
+
+
 def _apply_schematic_pin_tables(workbook: Workbook, facts: dict[str, dict[str, str]]) -> int:
-    """把原理图导线上的网络名写入已有的 PIN / Net Name 表。不抄端口表 K 列，不新增行。"""
+    """已有 PIN 行只改网络名。整页只有表头时，把原理图里属于这一页的脚写成新行。"""
     if not any((slot.get("net") or slot.get("function")) for slot in facts.values()):
         return 0
     updated = 0
@@ -2149,6 +2323,15 @@ def _apply_schematic_pin_tables(workbook: Workbook, facts: dict[str, dict[str, s
         if _port_sheet(workbook) is sheet or _sheet(workbook, "3_ADC Table") is sheet:
             continue
         tables = _sheet_pin_tables(sheet)
+        if not tables and "CAN" in sheet.title.upper() and _bus_rows_for_empty_sheet(sheet.title, facts):
+            _unmerge_block(sheet, 1, 2, 1, 6)
+            for col in range(1, 8):
+                cell = sheet.cell(1, col)
+                if "TLE9255" in _text(cell.value) or _text(cell.value) in {"1", "概要"}:
+                    cell.value = None
+            for col, title in enumerate(("PIN", "PIN Fuction", "I/O", "Net Name", "Fuction Des"), start=2):
+                sheet.cell(2, col, title)
+            tables = [(2, {"pin": 2, "function": 3, "net": 5})]
         for index, (header, columns) in enumerate(tables):
             end = tables[index + 1][0] if index + 1 < len(tables) else (sheet.max_row or header) + 1
             for row in range(header + 1, end):
@@ -2179,6 +2362,9 @@ def _apply_schematic_pin_tables(workbook: Workbook, facts: dict[str, dict[str, s
                     wrote = True
                 if wrote:
                     updated += 1
+            if not _table_has_pins(sheet, header, end, columns["pin"]):
+                updated += _append_bus_rows_when_empty(sheet, header, columns, facts)
+        _move_images_beside_text(sheet)
     return updated
 
 
@@ -3227,6 +3413,9 @@ def _write_ports_v13(
         kind = pin_class(by_symbol[row.symbol]) if row.symbol in by_symbol else ""
         if layout.function and kind:
             sheet.cell(excel_row, layout.function, kind)
+        advice = _manual_recommendation(by_symbol[row.symbol]) if row.symbol in by_symbol else ""
+        if layout.name and advice:
+            sheet.cell(excel_row, layout.name, advice)
         sheet.cell(excel_row, layout.mux, present_mux(row.mux))
         sheet.cell(excel_row, layout.page, row.page)
         sheet.cell(excel_row, layout.excerpt, present_excerpt(excerpts.get(row.symbol, "")))
@@ -3240,7 +3429,7 @@ def _write_ports_v13(
             excel_row,
             (
                 1, ball_col, symbol_col, 4, 5, 6,
-                layout.direction, layout.function,
+                layout.direction, layout.function, layout.name,
                 layout.mux, layout.page, layout.excerpt, layout.status, layout.mark, layout.human,
             ),
         )
@@ -3571,6 +3760,7 @@ def write_hsi_workbook(
     port = _port_sheet(template_book)
     if cover is None or history is None or port is None:
         raise ValueError("HSI 模板缺少封面、变更记录或端口表。")
+    _drop_carried_project(template_book)
     _write_cover(cover, today, summary, version, remark)
     _write_history(history, today, changes)
     _write_ports(port, mcu, package, drafts, pins, human, usages)

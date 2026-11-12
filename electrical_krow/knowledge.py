@@ -523,6 +523,29 @@ _FEATURE_FILES = {
 }
 
 
+def _feature_sources(rows: object) -> list[dict]:
+    """来源登记给知识库页面。只带名称和用途，不带本机路径。"""
+    out: list[dict] = []
+    if not isinstance(rows, list):
+        return out
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        out.append(
+            {
+                "id": str(row.get("id") or "").strip(),
+                "title": _scrub_text(str(row.get("title") or "")),
+                "role": _scrub_text(str(row.get("role") or "")),
+                "place": _scrub_text(str(row.get("place") or "")),
+                "classification": str(row.get("classification") or "内部").strip() or "内部",
+                "status": str(row.get("status") or "待确认").strip() or "待确认",
+                "used_for": _scrub_text(str(row.get("used_for") or "")),
+                "leave_site": False,
+            }
+        )
+    return out
+
+
 def feature_library(kind: str) -> dict:
     """电驱对照库或 HSI 规则库。不开选段，不提供可填进表的数。"""
     filename = _FEATURE_FILES.get(kind)
@@ -541,6 +564,7 @@ def feature_library(kind: str) -> dict:
     for index, card in enumerate(raw.get("cards") or [], start=1):
         group = str(card.get("group") or "未分组").strip() or "未分组"
         groups[group] = groups.get(group, 0) + 1
+        status = str(card.get("status") or "active").strip() or "active"
         clauses.append(
             {
                 "seq": index,
@@ -548,6 +572,9 @@ def feature_library(kind: str) -> dict:
                 "name": _scrub_text(str(card.get("title") or "")),
                 "group": group,
                 "gloss": _scrub_text(str(card.get("gloss") or "")),
+                "applies": _scrub_text(str(card.get("applies") or "")),
+                "opinion": _scrub_text(str(card.get("opinion") or "")),
+                "reason": _scrub_text(str(card.get("reason") or "")),
                 "use": _scrub_text(str(card.get("use") or "")),
                 "limits": [_scrub_text(str(item)) for item in (card.get("does_not") or [])],
                 "aliases": [],
@@ -556,8 +583,8 @@ def feature_library(kind: str) -> dict:
                 "units": [],
                 "see": [],
                 "retrieve": False,
-                "status": "active",
-                "status_label": "已用于核对",
+                "status": status,
+                "status_label": "已用于核对" if status == "active" else "待专家确认",
                 "related": [],
                 "fill": False,
             }

@@ -1,66 +1,1088 @@
 # 电驱需求拆解的对照库。不提供规格数值，不开选段检索。
+# sources 只登记本机资料的名称和用途，不含文件正文，也不含本机路径。
+# 初步处理意见待专家抽检。确认前不写入需求清单的意见栏。
 id: arch
 title: 电驱对照知识库
-version: "2026-11-06.2"
+version: 2026-11-12.1
 fill_from_kb: false
 leave_site: false
 retrieve: false
-rule: 只说明当份架构材料怎么对照。冲突和待核对都标在当份原文上，库不提供电压、重量或其他规格值。
+rule: 说明当份材料怎么对照，并给出初步处理意见和理由。意见不写满足或不满足。库不提供电压、重量或其他规格值。
 scope:
   answers:
-    - 同一条里的中文和英文数值是否一致
-    - 同一份文件里写明的重量上限和别处的重量是否冲突
-    - 同一份文件里输出电压范围、机械冲击加速度前后是否一致
-    - 封面和目录不参与上述核对
+  - 同一条里的中文和英文数值是否一致
+  - 同一份文件里写明的重量上限和别处的重量是否冲突
+  - 同一份文件里输出电压范围、机械冲击加速度前后是否一致
+  - 封面和目录不参与上述核对
+  - 当份点名的标准、图号或接口能否对上来源登记
+  - 对得上时初步处理意见和理由怎么写
+  - 对不上时如何写明尚无对应口径
   does_not:
-    - 用知识库、上一份文件或常识填写拆解表
-    - 把电机控制器知识库的条款典型值拿来当架构规格
-    - 给当份没有写出的量补一个数
-    - 开放问答，或跨项目通用知识
-  owner: 核对规则已在电驱出表中使用；改口径须同时改卡片和对应测试
+  - 用知识库、上一份文件或常识填写拆解表
+  - 把电机控制器知识库的条款典型值拿来当架构规格
+  - 给当份没有写出的量补一个数
+  - 把已登记标准、图纸或评论里的限值写成初步意见
+  - 开放问答，或跨项目通用知识
+  owner: 来源已登记。处理意见待专家抽检。改口径须同时改卡片和对应测试
   site: 指定场所内使用，不出公网
 cards:
-  - id: arch-bilingual-number
-    group: 中英对照
-    title: 同条中英数值要一致
-    gloss: 同一条原文里，中文和英文都给出了同一单位的数时，两边的数应当相同。不同则标为中英数值冲突。
-    use: 文件质检只标冲突，不改原文，不把任一边的数写成抽出值。
-    does_not:
-      - 只有一种语言写出的数，不另造另一种语言的数
-      - 单位不同的数不互相改写
-  - id: arch-same-file-weight
-    group: 同文件核对
-    title: 同文件重量不得超出该文件写明的上限
-    gloss: 同一份文件里写了重量上限，又在别处给出更大的重量，标为冲突。上限和超出的数都要出现在这份文件里。
-    use: 封面和目录不参与。表格块说明行不参与。
-    does_not:
-      - 不用另一份文件的重量来判这份文件
-      - 不把上限写成这份文件没有写出的推荐值
-  - id: arch-same-file-spec
-    group: 同文件核对
-    title: 同文件关键规格前后要一致
-    gloss: 同一份文件里，输出电压范围或机械冲击加速度前后写法不一致时标为冲突。
-    use: 封面和目录不参与。只核对当份已经抽出的条目。
-    does_not:
-      - 不补当份没有写出的电压范围或冲击加速度
-      - 不把不同适用条件的数强行合成一个数
-  - id: arch-current-file
-    group: 边界
-    title: 只对照当次读入的文件
-    gloss: 中英对照、同条逻辑和跨章节冲突都限在当次读入的材料。
-    use: 质检可以对照当份中英和内部逻辑，不填格。
-    does_not:
-      - 不交叉使用电机控制器知识库里的典型值
-      - 不把上一份架构文档的规格抄进这一份
-  - id: arch-chart-screenshot
-    group: 出表
-    title: 曲线图整张截图，旁边的数据表不裁开
-    gloss: 任何输入文件都按同一套规则。一张曲线连同它自己旁边的数据表是一张截图。同一页有多张曲线时不合成一张图。截图含整张表，不从格子中间裁开。纯数字数据表只留在截图里，不摘录、不翻译。图框上方的页眉标题、编号条款、曲线标题和说明按行摘录并翻译。同一行原文和它的译文写在一起。
-    use: 出表按此执行。不看文件名，也不限转速、噪声这两个词。带 Table、Load、Speed rate 的规格表仍按原列画出，不并进曲线截图。
-    does_not:
-      - 不把曲线横轴刻度写成表
-      - 不把纯数字数据表写成摘录或翻译
-      - 不从数据表半格处裁截图
-      - 不把同一页的多张曲线合成一张图
-      - 不漏掉图框上方的页眉标题
-      - 不把一条编号条款的原文从句中折断或截掉
+- id: arch-bilingual-number
+  group: 中英对照
+  title: 同条中英数值要一致
+  status: active
+  applies: 同一条原文里，中文和英文都给出了同一单位的数。
+  gloss: 同一条原文里，中文和英文都给出了同一单位的数时，两边的数应当相同。不同则标为中英数值冲突。
+  opinion: 标为中英数值冲突，请对照这一条原文确认以哪一侧为准。
+  reason: 命中卡片 arch-bilingual-number。当份这一条两种语言都写出了数，而且不一致。
+  use: 文件质检只标冲突，不改原文，不把任一边的数写成抽出值。
+  does_not:
+  - 只有一种语言写出的数，不另造另一种语言的数
+  - 单位不同的数不互相改写
+  - 不把其中一侧写成满足
+- id: arch-same-file-weight
+  group: 同文件核对
+  title: 同文件重量不得超出该文件写明的上限
+  status: active
+  applies: 同一份文件里写了重量上限，别处又给出重量。
+  gloss: 同一份文件里写了重量上限，又在别处给出更大的重量，标为冲突。上限和超出的数都要出现在这份文件里。
+  opinion: 标为同文件重量冲突，请按这份文件写明的上限核对。
+  reason: 命中卡片 arch-same-file-weight。上限和更大的重量都出现在当份文件里。
+  use: 封面和目录不参与。表格块说明行不参与。
+  does_not:
+  - 不用另一份文件的重量来判这份文件
+  - 不把上限写成这份文件没有写出的推荐值
+- id: arch-same-file-spec
+  group: 同文件核对
+  title: 同文件关键规格前后要一致
+  status: active
+  applies: 同一份文件里，输出电压范围或机械冲击加速度前后都写了。
+  gloss: 同一份文件里，输出电压范围或机械冲击加速度前后写法不一致时标为冲突。
+  opinion: 标为同文件规格前后不一致，请按当份原文核对适用条件。
+  reason: 命中卡片 arch-same-file-spec。输出电压范围或机械冲击加速度在当份文件里前后写法不一致。
+  use: 封面和目录不参与。只核对当份已经抽出的条目。
+  does_not:
+  - 不补当份没有写出的电压范围或冲击加速度
+  - 不把不同适用条件的数强行合成一个数
+- id: arch-same-file-power
+  group: 同文件核对
+  title: 同文件功率前后要一致
+  status: active
+  applies: 同一份文件里，功率前后都写了。
+  gloss: 同一份文件里，功率前后写法不一致时标为冲突。两处的数都要出现在这份文件里。
+  opinion: 标为同文件功率不一致，请按当份原文核对适用条件。
+  reason: 命中卡片 arch-same-file-power。功率在当份文件里前后写法不一致。
+  use: 只核对当份已经抽出的条目。
+  does_not:
+  - 不把两处功率合成一个数
+  - 不把其中一处写成满足
+- id: arch-current-file
+  group: 边界
+  title: 只对照当次读入的文件
+  status: active
+  applies: 要判断冲突、中英或前后是否一致。
+  gloss: 中英对照、同条逻辑和跨章节冲突都限在当次读入的材料。
+  opinion: 只根据当次读入的文件给出对照，不引用其他项目的规格。
+  reason: 命中卡片 arch-current-file。冲突和待核对都限在当次材料。
+  use: 质检可以对照当份中英和内部逻辑，不填格。
+  does_not:
+  - 不交叉使用电机控制器知识库里的典型值
+  - 不把上一份架构文档的规格抄进这一份
+- id: arch-chart-screenshot
+  group: 出表
+  title: 曲线图整张截图，旁边的数据表不裁开
+  status: active
+  applies: 当份页面上有曲线，或曲线旁边有数据表。
+  gloss: 任何输入文件都按同一套规则。一张曲线连同它自己旁边的数据表是一张截图。同一页有多张曲线时不合成一张图。截图含整张表，不从格子中间裁开。纯数字数据表只留在截图里，不摘录、不翻译。图框上方的页眉标题、编号条款、曲线标题和说明按行摘录并翻译。同一行原文和它的译文写在一起。
+  opinion: 这条按整张曲线截图处理，旁边的数据表留在同一张图里，纯数字表不另写摘录。
+  reason: 命中卡片 arch-chart-screenshot。当份这一处是曲线，或曲线旁边有数据表。
+  use: 出表按此执行。不看文件名，也不限转速、噪声这两个词。带 Table、Load、Speed rate 的规格表仍按原列画出，不并进曲线截图。
+  does_not:
+  - 不把曲线横轴刻度写成表
+  - 不把纯数字数据表写成摘录或翻译
+  - 不从数据表半格处裁截图
+  - 不把同一页的多张曲线合成一张图
+  - 不漏掉图框上方的页眉标题
+  - 不把一条编号条款的原文从句中折断或截掉
+- id: arch-cite-standard
+  group: 处理意见
+  title: 点名的标准只引已登记的标准号
+  status: draft
+  applies: 当份需求写出的标准号，能在来源登记的标准里对上。
+  gloss: 意见可以写对照这份已登记标准的对应条款。标准里的限值不进入卡片，也不写成这条需求的要求。
+  opinion: 对照该标准的对应条款。限值以当份原文为准。
+  reason: 写来源编号、标准号，以及当份点名该标准的原句。
+  use: 对得上登记才引用。对不上就改走尚无对应口径。
+  does_not:
+  - 不把标准里的限值写成这条的要求
+  - 不对不上标准号时改指一份邻近标准
+  - 不把标准文本送出场所
+- id: arch-cite-drawing
+  group: 处理意见
+  title: 点名的图号只引已登记的图纸
+  status: draft
+  applies: 当份需求写出的图号，能在来源登记的图纸里对上。
+  gloss: 意见指向当份点名的那张图。零件、材料和重量只取该图，不取其他图。
+  opinion: 核对当份点名的那张图。零件和材料以该图为准。
+  reason: 写图纸来源编号、图号，以及当份点名该图的原句。
+  use: 图号对得上才引用。零件表仍按当份图纸读取。
+  does_not:
+  - 不把其他图的重量或材料写到这条
+  - 不把图号登记当成已经读出的抽出值
+- id: arch-cite-interface
+  group: 处理意见
+  title: 点名的接口只引已登记的版本
+  status: draft
+  applies: 当份需求点名 ICD、HSI 或原理图，且来源登记里有这份文件。
+  gloss: 意见按登记的接口文件核对对象和版本。脚位和网络只取当份那一版。
+  opinion: 按已登记的接口文件核对对象和版本。脚位以当份文件为准。
+  reason: 写接口来源编号、版本，以及当份点名该文件的原句。
+  use: 版本对得上才引用。另一版的脚位不代入。
+  does_not:
+  - 不把另一版本的脚位写进这条
+  - 不用控制器清单的典型值代替接口定义
+- id: arch-prior-comment
+  group: 处理意见
+  title: 已有评论只沿用同一条原文
+  status: draft
+  applies: 来源登记里的偏差跟踪有同一条款的评论，且当份原文与该行原文一致。
+  gloss: 初步意见可以转述该行评论的处理方向，并标明来自该表、待专家确认。
+  opinion: 转述该行已有评论的处理方向，标明待专家确认。
+  reason: 写偏差跟踪的来源编号、条款号，以及当份对得上的原句。
+  use: 原文不一致时不沿用。评论不改写成满足或不满足。
+  does_not:
+  - 不把该表里的数值写到对不上的条款
+  - 不把评论改写成满足或不满足
+  - 原文不一致时不沿用上一份评论
+- id: arch-no-source
+  group: 处理意见
+  title: 对不上登记时明确尚无口径
+  status: draft
+  applies: 当份条款对不上已登记的标准、图号、接口或同文件冲突，也没有同一条原文的已有评论。
+  gloss: 两条都要有字：意见说明知识库尚无对应口径，理由说明核对过哪些登记。
+  opinion: 知识库尚无对应口径，需专家给出处理意见。
+  reason: 已按来源登记核对，没有对上的标准号、图号、接口文件或同文件冲突。
+  use: 用这句话占住意见和理由，不留空，也不另编技术结论。
+  does_not:
+  - 不编造技术结论
+  - 不写满足或不满足
+  - 不拿其他项目的规格填上
+sources:
+- id: ed-35ad85f6
+  title: Base Tech SWRS CAN&LIN V07-GEEA3.0&EEA3.5
+  place: 混放资料
+  file: Base Tech SWRS CAN&LIN V07-GEEA3.0&EEA3.5.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-476557db
+  title: Base Tech SWRS-XCU-XCM-V05-GEEA3.0
+  place: 混放资料
+  file: Base Tech SWRS-XCU-XCM-V05-GEEA3.0.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-d8b316b5
+  title: DHT160OF 系统架构书 YGL v1.0 260228
+  place: 混放资料
+  file: DHT160OF_系统架构书_YGL_v1.0_260228.docx
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-78e26f45
+  title: DHT160OF 系统需求文档
+  place: 混放资料
+  file: DHT160OF_系统需求文档.docx
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-b08563b5
+  title: EEA 3.5 XCM2 SWRS 20250806
+  place: 混放资料
+  file: EEA 3.5 XCM2 SWRS 20250806.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-a69b1b3c
+  title: BHDC
+  place: 电驱资料
+  file: 20260710/Print/BHDC.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-821f2351
+  title: DIA工作表（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/FS/DIA工作表 在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-70010fc6
+  title: Dynamic（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/NVH/Dynamic  在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-b21b8a34
+  title: EMC_Design_simulation（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/EMC_Design_simulation在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-d7aa80f2
+  title: EMC_Developement_capacity（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/EMC_Developement_capacity在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-5ba892c2
+  title: EMC（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/EMC在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-9590aea2
+  title: FSC（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/FS/FSC_260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-69b46fc5
+  title: FSM
+  place: 电驱资料
+  file: 20260710/Print/FS/FSM.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-ec5ad184
+  title: Format Performance（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/Format Performance_260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-94dbe10c
+  title: G1（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/G1在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-fdf6f3a7
+  title: G2（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/G2在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-b8be6e7f
+  title: G3（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/G3在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-009bd56d
+  title: G4（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/G4在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-a2c0aa58
+  title: Gearbox Noise（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/NVH/Gearbox Noise在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-bf99971d
+  title: Motor NVH（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/NVH/Motor NVH 在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-8bd057d5
+  title: Motor_test_Condition（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/Motor_test_Condition在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-7e33b606
+  title: NVH（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/NVH/在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-08b2a04f
+  title: PCM_test_Condition（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/PCM_test_Condition在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-324b7b08
+  title: Performance工作表（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/Performance工作表 在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-bad07351
+  title: SR of PE System for AUROBAY v14 原文
+  place: 电驱资料
+  file: 20260710/Original/260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제.pptx
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-56f111d6
+  title: SR of PE System for AUROBAY v14 参照稿
+  place: 电驱资料
+  file: 20260710/Print/Refer/260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print2.pptx
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-ebf9f216
+  title: SR of PE System for AUROBAY v14 打印版
+  place: 电驱资料
+  file: 20260710/Print/260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-a94cdc11
+  title: item need for support（SR of PE System for AUROBAY v14）
+  place: 电驱资料
+  file: 20260710/Print/item need for support在 260703_SR of PE System for AUROBAY_v14_영문화_ESMS수정_보안해제_AB_Print.pdf
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-20ce0c31
+  title: 电驱需求拆解条级对照稿 20261015
+  place: 电驱资料
+  file: 电驱需求拆解-条级对照稿-20261015.xlsx
+  role: 需求
+  classification: 内部
+  status: 待确认
+  used_for: 电驱需求或架构原文。意见只引用当份对得上的原句，不把这份文件里的规格写进其他条款。
+  leave_site: false
+- id: ed-ff9760e7
+  title: DHT120高压电性能试验介绍及相关风险沟通-20241128-V02
+  place: 混放资料
+  file: DHT120高压电性能试验介绍及相关风险沟通-20241128-V02.pptx
+  role: 口径
+  classification: 内部
+  status: 待确认
+  used_for: 已有评论只在当份原文与该行一致时引用，并标明待专家确认。评论中的数值不写入其他条款。
+  leave_site: false
+- id: ed-764bb244
+  title: DHTS120BD Inverter 与 LDC 偏差跟踪 V02
+  place: 电驱资料
+  file: DHTS120BD -Inverter&LDC deviation_V02-20260903.xlsx
+  role: 口径
+  classification: 内部
+  status: 待确认
+  used_for: 已有评论只在当份原文与该行一致时引用，并标明待专家确认。评论中的数值不写入其他条款。
+  leave_site: false
+- id: ed-3a977b1f
+  title: AQ 324 Rel03 2021 withAnnex
+  place: 混放资料
+  file: AQ_324_Rel03_2021_withAnnex.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-1a748077
+  title: AQG324 Qualification of Power Modules for Use in Power Electronics Converter Units (PCUs) in Motor Vehicles
+  place: 混放资料
+  file: AQG324 Qualification of Power Modules for Use in Power Electronics  Converter Units (PCUs) in Motor Vehicles.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-343f33cd
+  title: GB/T 16935.1-2008 低压系统内设备的绝缘配合 第１部分：原理、要求和试验
+  place: 混放资料
+  file: GB_T+16935.1-2008+低压系统内设备的绝缘配合+第１部分：原理、要求和试验.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-0429f304
+  title: GB/T 16935.1-2023 低压供电系统内设备的绝缘配合 第1部分：原理、要求和试验
+  place: 混放资料
+  file: GB_T+16935.1-2023+低压供电系统内设备的绝缘配合+第1部分：原理、要求和试验.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-bd13cf8c
+  title: GB/T 18387—2017 电动车辆的电磁场发射强度的限值和测量方法
+  place: 混放资料
+  file: GB_T+18387—2017+电动车辆的电磁场发射强度的限值和测量方法.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-72b76805
+  title: GB/T 18488-2024 电动汽车用驱动电机系统
+  place: 混放资料
+  file: GB_T+18488-2024+电动汽车用驱动电机系统.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-e6b06905
+  title: GB/T 18488.1-2015 电动汽车用驱动电机系统 第1部分：技术条件
+  place: 混放资料
+  file: GB_T+18488.1-2015+电动汽车用驱动电机系统+第1部分：技术条件.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-87ccb902
+  title: GB/T 18488.2-2015 电动汽车用驱动电机系统 第2部分：试验方法
+  place: 混放资料
+  file: GB_T+18488.2-2015+电动汽车用驱动电机系统+第2部分：试验方法.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-def26d50
+  title: GB/T 19751-2005 混合动力电动汽车安全要求
+  place: 混放资料
+  file: GB_T+19751-2005+混合动力电动汽车安全要求.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-a0688878
+  title: GB/T 22719.1-2008 交流低压电机散嵌绕组匝间绝缘 第1部分：试验方法
+  place: 混放资料
+  file: GB_T+22719.1-2008+交流低压电机散嵌绕组匝间绝缘+第1部分：试验方法.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-6ae61387
+  title: GB/T 28046.1-2011道路车辆 电气及电子设备的环境条件和试验 第1部分：一般规定
+  place: 混放资料
+  file: GB_T+28046.1-2011道路车辆+电气及电子设备的环境条件和试验+第1部分：一般规定.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-3fe32a3b
+  title: GB/T 28046.2-2019 道路车辆 电气及电子设备的环境条件和试验 第2部分 电气负荷
+  place: 混放资料
+  file: GB_T+28046.2-2019+道路车辆+电气及电子设备的环境条件和试验+第2部分_电气负荷.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-701d566d
+  title: GB/T 28046.3-2011 道路车辆 电气及电子设备的环境条件和试验 第3部分：机械负荷
+  place: 混放资料
+  file: GB_T+28046.3-2011+道路车辆+电气及电子设备的环境条件和试验+第3部分：机械负荷.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-65fc0f47
+  title: GB/T 28046.4-2011 道路车辆 电气及电子设备的环境条件 和试验 第4部分：气候负荷
+  place: 混放资料
+  file: GB_T+28046.4-2011+道路车辆++电气及电子设备的环境条件+和试验++第4部分：气候负荷.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-3b43718b
+  title: GB/T 28046.5-2013 道路车辆 电气及电子设备的环境条件和试验 第5部分：化学负荷
+  place: 混放资料
+  file: GB_T+28046.5-2013+道路车辆+电气及电子设备的环境条件和试验+第5部分：化学负荷.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-2b2e4c0b
+  title: GB/T 29307-2022 电动汽车用驱动电机系统可靠性试验方法
+  place: 混放资料
+  file: GB_T+29307-2022+电动汽车用驱动电机系统可靠性试验方法.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-cedda2a4
+  title: GB/T 29332-2012 半导体器件 分立器件 第9部分：绝缘栅双极晶体管(IGBT)
+  place: 混放资料
+  file: GB_T+29332-2012+半导体器件+分立器件+第9部分：绝缘栅双极晶体管(IGBT).pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-40614c3a
+  title: GB/T 37133-2018 电动汽车用高压大电流线束和连接器 技术要求
+  place: 混放资料
+  file: GB_T+37133-2018+电动汽车用高压大电流线束和连接器+技术要求.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-22f66a9b
+  title: GB/T 42284.1-2022 道路车辆 电动汽车驱动系统用电气及电子设备的环境条件和试验 第1部分：一般规定
+  place: 混放资料
+  file: GB_T+42284.1-2022+道路车辆+电动汽车驱动系统用电气及电子设备的环境条件和试验+第1部分：一般规定.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-fc226127
+  title: GB/T 42284.3-2022 道路车辆 电动汽车驱动系统用电气及电子设备的环境条件和试验 第3部分：机械负荷
+  place: 混放资料
+  file: GB_T+42284.3-2022+道路车辆+电动汽车驱动系统用电气及电子设备的环境条件和试验+第3部分：机械负荷.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-d82b0e4a
+  title: GB/T 42284.4-2022 道路车辆 电动汽车驱动系统用电气及电子设备的环境条件和试验 第4部分：气候负荷
+  place: 混放资料
+  file: GB_T+42284.4-2022+道路车辆+电动汽车驱动系统用电气及电子设备的环境条件和试验+第4部分：气候负荷.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-b33abe63
+  title: GB/T 42284.5-2022 道路车辆 电动汽车驱动系统用电气及电子设备的环境条件和试验 第5部分：化学负荷
+  place: 混放资料
+  file: GB_T+42284.5-2022+道路车辆+电动汽车驱动系统用电气及电子设备的环境条件和试验+第5部分：化学负荷.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-b77aa349
+  title: IEC 60747-9-2019 绝缘栅双极晶体管
+  place: 混放资料
+  file: IEC 60747-9-2019 半导体器Semiconductor devices –Part 9_ Discrete devices – Insulated-gate bipolar transistors (IGBTs)件-第9部分_
+    分立器件-绝缘栅双极晶体管（IGBT）.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-af331949
+  title: ISO 21498-1 2021
+  place: 混放资料
+  file: ISO 21498-1_2021 - 2021-04-02 09_23_41_675.PDF.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-23d28413
+  title: ISO 21498-2 2021
+  place: 混放资料
+  file: ISO 21498-2_2021 - 2021-05-14 15_44_47_003.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-99dc3760
+  title: PCB工艺（IPC-A-610）
+  place: 混放资料
+  file: PCB工艺.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-6a7c06ff
+  title: Q JLY J7110218C-2018-电动汽车用驱动电机系统技术条件
+  place: 混放资料
+  file: Q JLY J7110218C-2018-电动汽车用驱动电机系统技术条件.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-42585f0a
+  title: Q-JL J100003-2021-汽车零部件永久性标识规定
+  place: 混放资料
+  file: Q-JL J100003-2021-汽车零部件永久性标识规定.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-106a4869
+  title: Q-JL J100013-2023-汽车零部件条形码和二维码管理规则
+  place: 混放资料
+  file: Q-JL J100013-2023-汽车零部件条形码和二维码管理规则.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-bf6f4a52
+  title: Q-JL J100021-2021-售后备件同步工程定义与管理规范
+  place: 混放资料
+  file: Q-JL J100021-2021-售后备件同步工程定义与管理规范.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-57937646
+  title: Q-JL J100022-2022-乘用车关重件清单
+  place: 混放资料
+  file: Q-JL J100022-2022-乘用车关重件清单.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-49012ab0
+  title: Q-JL J100023-2020①-汽车质量特性重要度分级
+  place: 混放资料
+  file: Q-JL J100023-2020①-汽车质量特性重要度分级.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-3bec6d6b
+  title: Q-JL J160001-2022-汽车零部件和材料禁用、限用物质要求
+  place: 混放资料
+  file: Q-JL J160001-2022-汽车零部件和材料禁用、限用物质要求.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-661fbc9d
+  title: Q-JL J160003-2021-乘用车零部件防腐技术要求
+  place: 混放资料
+  file: Q-JL J160003-2021-乘用车零部件防腐技术要求.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-4acacd51
+  title: Q-JL J180019-2022-CAMDS 数据填报规范
+  place: 混放资料
+  file: Q-JL J180019-2022-CAMDS 数据填报规范.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-a28d05f0
+  title: Q-JL J180028-2021-IMDS数据填报规范
+  place: 混放资料
+  file: Q-JL J180028-2021-IMDS数据填报规范.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-215cec55
+  title: Q-JLY J7110335C-2022-汽车非金属材料阻燃性限值要求及试验方法
+  place: 混放资料
+  file: Q-JLY J7110335C-2022-汽车非金属材料阻燃性限值要求及试验方法.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-dc5ca9bf
+  title: Q-JLY J7110779E-2023-乘用车电气-电子零部件电磁兼容规范
+  place: 混放资料
+  file: Q-JLY J7110779E-2023-乘用车电气-电子零部件电磁兼容规范.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-15de5af6
+  title: Q-JLY J7110922C-2019-电驱动乘用车高压零部件电磁兼容规范
+  place: 混放资料
+  file: Q-JLY J7110922C-2019-电驱动乘用车高压零部件电磁兼容规范.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-0c162243
+  title: Q-JLY J7111029D-2022-汽车电气和电子零部件通用技术规范
+  place: 混放资料
+  file: Q-JLY J7111029D-2022-汽车电气和电子零部件通用技术规范.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-6146e9aa
+  title: Q-JLY J7111341B-2020-电动汽车用驱动电机控制器技术要求
+  place: 混放资料
+  file: Q-JLY J7111341B-2020-电动汽车用驱动电机控制器技术要求.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-de04a7f0
+  title: Q-JLY J7111974A-2024-高压零部件电性能测试规范
+  place: 混放资料
+  file: Q-JLY J7111974A-2024-高压零部件电性能测试规范.pdf
+  role: 标准
+  classification: 企标
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-7f5c2875
+  title: QC/T 1136-2020 电动汽车用绝缘栅双极晶体管（IGBT）模块环境试验要求及试验方法
+  place: 混放资料
+  file: QC_T+1136-2020+电动汽车用绝缘栅双极晶体管（IGBT）模块环境试验要求及试验方法.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-32124133
+  title: T-CSAE-288-2022 纯电动汽车60V~1000V部件电源端口瞬态现象测试方法及要求
+  place: 混放资料
+  file: T-CSAE-288-2022 纯电动汽车60V~1000V部件电源端口瞬态现象测试方法及要求.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-c6d8fef4
+  title: VW 80300-2021
+  place: 混放资料
+  file: VW 80300-2021.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-bb49f753
+  title: 高压电气化试验大纲.DHT120-高压批注
+  place: 混放资料
+  file: 高压电气化试验大纲.DHT120-高压批注.pdf
+  role: 标准
+  classification: 标准
+  status: 待确认
+  used_for: 标准号可被意见引用。条款限值不写入卡片，抽出值仍看当份需求。
+  leave_site: false
+- id: ed-3f4d819e
+  title: 超级混动高低压接插件 ICD V3.11_20250928
+  place: ICD
+  file: 超级混动项目吉利混动高低压接插件ICD_V3.11_20250928.xlsx
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-55f8869d
+  title: 超级混动高低压接插件 ICD V3.12_20251202
+  place: ICD
+  file: 超级混动项目吉利混动高低压接插件ICD_V3.12_20251202.xlsx
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-0e75b8ed
+  title: 超级混动高低压接插件 ICD V3.5_20250725
+  place: ICD
+  file: 超级混动项目吉利混动高低压接插件ICD_V3.5_20250725.xlsx
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-4f6f7c2a
+  title: 超级混动高低压接插件 ICD V3.6_20250811
+  place: ICD
+  file: 超级混动项目吉利混动高低压接插件ICD_V3.6_20250811.xlsx
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-db0d284f
+  title: 超级混动高低压接插件 ICD V3.8_20250829
+  place: ICD
+  file: 超级混动项目吉利混动高低压接插件ICD_V3.8_20250829.xlsx
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-cbd29a4f
+  title: CT407 CB 5110600059 V06
+  place: 客户图纸
+  file: CT407 CB 5110600059 V06.pdf
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-02f06126
+  title: DHT160 超混平台 HSI B3V1 20260824
+  place: 混放资料
+  file: 副本DHT160超混平台-HSI-B3V1_20260824 -郝金宇更新.xlsx
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-25da54ea
+  title: DHT160OF 功率单元原理图 5501801721 B2V1
+  place: 混放资料
+  file: SCH_DHT160OF_PU_5501801721_B2V1_20260210.pdf
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-0b1000cc
+  title: DHT160OF 控制单元原理图 B2V1
+  place: 混放资料
+  file: DHT160OF_CU_B2V1_20260210.pdf
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-8aad44f9
+  title: 吉利超混 PMD 20250720
+  place: 混放资料
+  file: 吉利超混PMD_20250720.pdf
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-fbff8691
+  title: 超级混动高低压接插件 ICD V3.6_20250811
+  place: 混放资料
+  file: 超级混动-_ICD_V3.6_20250811.xlsx
+  role: 接口
+  classification: 内部
+  status: 待确认
+  used_for: 接口文件的名称和版本可被意见引用。脚位和网络只取当份文件。
+  leave_site: false
+- id: ed-70b6312f
+  title: DHT160OF-5501801755-三相插接件-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801755-三相插接件-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-fc26f712
+  title: DHT160OF-5501801756-母线电容-X00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801756-母线电容-X00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-f6037f09
+  title: DHT160OF-5501801758-电机控制器壳体-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801758-电机控制器壳体-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-f1abd25f
+  title: DHT160OF-5501801759-密封圈-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801759-密封圈-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-de1f48f0
+  title: DHT160OF-5501801792-密封圈-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801792-密封圈-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-ad39a7d9
+  title: DHT160OF-5501801798-保险盒接线盖板-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801798-保险盒接线盖板-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-9350f9cf
+  title: DHT160OF-5501801799-IPT保险丝接线盒-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801799-IPT保险丝接线盒-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-5d6386e8
+  title: DHT160OF-5501801801-PN塑料件-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801801-PN塑料件-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-37fcf4a7
+  title: DHT160OF-5501801802-密封圈-B00-临时图纸
+  place: 客户图纸
+  file: DHT160OF-5501801802-密封圈-B00-临时图纸.pdf
+  role: 图纸
+  classification: 内部
+  status: 待确认
+  used_for: 图号可被意见引用。零件、材料和重量只取当份图纸，不抄到其他条款。
+  leave_site: false
+- id: ed-065208f8
+  title: DHT160S 产品质量保证方案 TR与QTR 20250718
+  place: 混放资料
+  file: 汇川联合动力--吉利下一代超混产品质量保证方案(TR&QTR)交流  20250718.pdf
+  role: 参考
+  classification: 内部
+  status: 待确认
+  used_for: 仅当当份需求点名这份文件时引用。不把其中的方案或限值写成通用要求。
+  leave_site: false
+- id: ed-04d917a5
+  title: 电机驱动电路板绝缘设计说明（IEC 60664）
+  place: 混放资料
+  file: 符合 IEC60664 标准的电机驱动应用电路板绝缘设计-TI.pdf
+  role: 参考
+  classification: 内部
+  status: 待确认
+  used_for: 仅当当份需求点名这份文件时引用。不把其中的方案或限值写成通用要求。
+  leave_site: false
+- id: ed-f3487f2b
+  title: MCU SWSR
+  place: 电驱资料
+  file: 20260710/Print/MCU_SWSR.pdf
+  role: 参考
+  classification: 内部
+  status: 待确认
+  used_for: 仅当当份需求点名这份文件时引用。不把其中的方案或限值写成通用要求。
+  leave_site: false
+- id: ed-c37bab6b
+  title: SX3 HPCU LDC Sourcing Request VER1.0
+  place: 电驱资料
+  file: 260605_SX3id_HPCU_LDC_SR_VER1.0_보안해제.pdf
+  role: 参考
+  classification: 内部
+  status: 待确认
+  used_for: 仅当当份需求点名这份文件时引用。不把其中的方案或限值写成通用要求。
+  leave_site: false
+- id: ed-821da4aa
+  title: 电驱系统资料压缩包 20260710
+  place: 电驱资料
+  file: System_INV_20260710.7z
+  role: 未展开
+  classification: 内部
+  status: 待确认
+  used_for: 压缩包尚未展开，不能作为意见依据。
+  leave_site: false

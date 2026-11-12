@@ -1555,6 +1555,14 @@ def _join_notes(*notes: str) -> str:
     return "；".join(note for note in notes if note)
 
 
+def _opinion_for(row: list[object], text_col: int, note_col: int) -> tuple[str, str]:
+    from electrical_krow.arch_opinion import assign_opinion
+
+    opinion, reason = assign_opinion(str(row[text_col] or ""), str(row[note_col] or ""))
+    note = _join_notes(str(row[note_col] or ""), f"【初步意见理由】{reason}")
+    return opinion, note
+
+
 _LINE_POINTS = 14  # 宋体 10 号一行约 14 磅
 _MAX_ROW_HEIGHT = 409  # Excel 行高上限
 
@@ -2005,7 +2013,7 @@ def _write_drawn_table(sheet, grid: list[list[str]], identity: list[object], ext
     width = len(grid[0])
     grid_end = excerpt_col + width - 1
     start = sheet.max_row + 1
-    side = [(11 + extra, identity[10]), (13 + extra, identity[12]), (14 + extra, identity[13])]
+    side = [(9 + extra, identity[8]), (11 + extra, identity[10]), (13 + extra, identity[12]), (14 + extra, identity[13])]
     overflow = [value for col, value in side if value not in (None, "") and col <= grid_end]
     for index, cells in enumerate(grid):
         first = index == 0
@@ -2192,6 +2200,7 @@ def _write_reqs(
                     f"REQ-{stamp}-{number:03d}",
                     None,
                     section,
+                    None,
                     None,
                     None,
                     None,

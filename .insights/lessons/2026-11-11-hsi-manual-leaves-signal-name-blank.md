@@ -10,14 +10,13 @@
 
 ## 反事实
 
-继续写入，下一份按 TC39x 手册生成的端口表，Pin Function Description 仍是 `GM驱动芯片故障反馈信号`。有原理图时若也留空，读到的导线网络名就不再进入 Pin Definition。
+继续把模板端口名写进 Pin Definition，下一份按手册生成的表仍会带上 `GM驱动芯片故障反馈信号`。Pin Definition 一直空着，就看不出手册给出的推荐功能。封面和旧变更若留着，下一份 TC38x 仍会写着上一项目的修改人。
 
 ## 二级依据
 
-- 会议口径：没有原理图时信号名列不存在，空着。旧的端口名和每个项目自己的功能说明都会误导。有原理图才有信号名。
-- 功能列仍写对上的 Analog、PWM 等用法。复用仍来自手册。Pin Definition 和 Pin Function Description 不写。
+- 会议口径：没有原理图时不写上一项目的端口名和中文说明。Pin Definition 写「手册推荐」加当份手册的分类和第一条复用。Pin Function Description 仍空。
+- 功能列写手册分类。复用仍来自手册。
 
 ## 闸门
 
-`test_dhte400_keeps_atom_port_name_cover_and_history`：`AN0` 和 `P02.1` 的 Pin Definition、Pin Function Description 都为空。Function 仍是 Analog、PWM。
-`test_first_issue_drops_template_history_and_unmatched_names`：端口表不再写入 `KEEP_ME`。
+`test_dhte400_keeps_atom_port_name_cover_and_history`：`AN0` 的 Pin Definition 以「手册推荐：ADC」开头，不含 `IA_S`。`P02.1` 以「手册推荐：PWM」开头，不含 `PWM_M_AH`。两行的 Pin Function Description 都为空。封面修改人和 v1.0–v1.3 变更不再留下，新的一条是按芯片手册重出。

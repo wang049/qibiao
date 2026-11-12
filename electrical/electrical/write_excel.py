@@ -7,7 +7,7 @@ from pathlib import Path
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.comments import Comment
-from openpyxl.styles import Alignment, Font, PatternFill
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
 
@@ -47,6 +47,13 @@ HEADERS = (
     "置信度",
 )
 
+SHEET_COVER = "01_封面"
+SHEET_MAIN = "02_需求核对"
+SHEET_REVIEW = "03_正文审查"
+SHEET_OFF = "04_清单外"
+SHEET_GUIDE = "05_条目说明"
+SHEET_ORDER = (SHEET_COVER, SHEET_MAIN, SHEET_REVIEW, SHEET_OFF, SHEET_GUIDE)
+
 GUIDE_HEADERS = (
     "需求序号",
     "需求条目",
@@ -64,17 +71,20 @@ OFF_LIST_HEADERS = (
 )
 
 REVIEW_CHOICES = (
-    f'"{STATUS_FOUND},{STATUS_MISS},{STATUS_PARTIAL},'
+    f'"{STATUS_FOUND},{STATUS_MISS},局部对应,'
     f'{STATUS_PASS},{STATUS_FIX},{STATUS_NA}"'
 )
-YELLOW = PatternFill("solid", fgColor="FFF3CD")
-PARTIAL_FILL = PatternFill("solid", fgColor="FCE4D6")
-FILLED = PatternFill("solid", fgColor="D6EAF8")
-HEADER_FILL = PatternFill("solid", fgColor="4472C4")
-HEADER_FONT = Font(bold=True, color="FFFFFF", name="微软雅黑")
+YELLOW = PatternFill("solid", fgColor="FDF2F1")
+PARTIAL_FILL = PatternFill("solid", fgColor="FBF6EC")
+FILLED = PatternFill("solid", fgColor="F0FDF4")
+HEADER_FILL = PatternFill("solid", fgColor="1F2933")
+HEADER_FONT = Font(bold=True, color="FFFFFF", name="微软雅黑", size=10)
 TITLE_FONT = Font(bold=True, size=14, name="微软雅黑")
 BODY_FONT = Font(name="微软雅黑", size=10)
-VALUE_FONT = Font(name="微软雅黑", size=10, bold=True)
+VALUE_FONT = Font(name="微软雅黑", size=10, bold=True, color="1F2933")
+FOUND_FONT = Font(name="微软雅黑", size=10, bold=True, color="15803D")
+PARTIAL_FONT = Font(name="微软雅黑", size=10, bold=True, color="8A5A12")
+MISS_FONT = Font(name="微软雅黑", size=10, bold=True, color="B42318")
 MARKER_FONT = Font(name="微软雅黑", size=10, color="808080", italic=True)
 # 复核备注里带「待专家口径」的格子用深红标出来，和普通备注区分
 PENDING_FONT = Font(name="微软雅黑", size=10, color="9C0006")
@@ -83,17 +93,27 @@ _WS = re.compile(r"[ \t]+")
 _NL = re.compile(r"\n{3,}")
 
 
-COL_WIDTHS = (20, 12, 10, 28, 42, 9, 14, 48, 22, 36, 9)
+COL_WIDTHS = (16, 12, 8, 30, 46, 8, 14, 72, 18, 32, 8)
 GUIDE_WIDTHS = (10, 32, 40, 40, 36)
 OFF_LIST_WIDTHS = (28, 44, 9, 14, 56)
 LINE_PT = 16
 MIN_ROW_PT = 22
-MAX_ROW_PT = 220
+MAX_ROW_PT = 409
 
 
 def _clean_text(text: str) -> str:
     value = _WS.sub(" ", (text or "").replace("\r\n", "\n").replace("\r", "\n"))
     return _NL.sub("\n\n", value).strip()
+
+
+_STORED_PREFIX = re.compile(r"^[0-9a-f]{8}_", re.I)
+
+
+def _display_source_name(name: str) -> str:
+    """说明页写上传时的文件名。落盘名前面的 8 位记号不给工程师看。"""
+    text = Path(name or "").name
+    shown = _STORED_PREFIX.sub("", text, count=1)
+    return shown or text
 
 
 def _lexicon_kb_version() -> str:
@@ -130,11 +150,93 @@ def _wrapped_lines(text: str, col_width: float) -> int:
     return max(1, lines)
 
 
-def _row_height(values: list[object], widths: tuple[float, ...] = COL_WIDTHS) -> float:
+def _row_height(
+    values: list[object],
+    widths: tuple[float, ...] = COL_WIDTHS,
+    *,
+    limit_lines: int = 0,
+) -> float:
     lines = 1
     for item, width in zip(values, widths):
         lines = max(lines, _wrapped_lines(item, width))
+    if limit_lines:
+        lines = min(lines, limit_lines)
+    elif lines > 1:
+        # 按字宽估行数容易少一行，最后一行会被行高裁掉。
+        lines += 1
     return max(MIN_ROW_PT, min(MAX_ROW_PT, 6 + lines * LINE_PT))
+
+
+def _status_label(status: str) -> str:
+    """核对表状态列用短词，避免「局部对应/需人工复核」把行撑高。"""
+    if status == STATUS_PARTIAL:
+        return "局部对应"
+    return status
+
+
+def _status_from_sheet(text: str) -> str:
+    if text == "局部对应":
+        return STATUS_PARTIAL
+    return text
+
+
+_GRID = Border(
+    left=Side(style="thin", color="D0D5DD"),
+    right=Side(style="thin", color="D0D5DD"),
+    top=Side(style="thin", color="D0D5DD"),
+    bottom=Side(style="thin", color="D0D5DD"),
+)
+_NAVY = PatternFill("solid", fgColor="0F2744")
+_HUMAN_FILL = PatternFill("solid", fgColor="C6EFCE")
+_HUMAN_FONT = Font(bold=True, color="0F2744", name="微软雅黑")
+_CENTER = Alignment(wrap_text=True, vertical="center", horizontal="center")
+
+
+def _navy_title(ws, text: str, cols: int) -> None:
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=cols)
+    font = Font(name="微软雅黑", size=16, bold=True, color="FFFFFF")
+    align = Alignment(horizontal="left", vertical="center", indent=1)
+    for col in range(1, cols + 1):
+        cell = ws.cell(1, col, text if col == 1 else None)
+        cell.font = font
+        cell.fill = _NAVY
+        cell.alignment = align
+    ws.row_dimensions[1].height = 34
+
+
+def _dress_sheet(ws, tab: str) -> None:
+    ws.sheet_properties.tabColor = tab
+    ws.sheet_view.zoomScale = 110
+    ws.sheet_view.view = "normal"
+    ws.sheet_view.showGridLines = False
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.horizontalCentered = True
+    ws.print_title_rows = "1:2"
+    ws.page_margins.left = 0.4
+    ws.page_margins.right = 0.4
+    ws.page_margins.top = 0.5
+    ws.page_margins.bottom = 0.4
+    ws.oddHeader.left.text = ws.title
+    last = get_column_letter(ws.max_column or 1)
+    ws.print_area = f"A1:{last}{max(ws.max_row, 1)}"
+
+
+def _order_sheets(book: Workbook) -> None:
+    for index, name in enumerate(SHEET_ORDER):
+        if name not in book.sheetnames:
+            continue
+        book.move_sheet(name, offset=index - book.sheetnames.index(name))
+
+
+def _find_sheet(book: Workbook, *names: str):
+    for name in names:
+        if name in book.sheetnames:
+            return book[name]
+    return None
 
 
 def _display_value(row: ExtractedCell, status: str = "") -> str:
@@ -182,19 +284,15 @@ def _review_status(row: ExtractedCell) -> str:
 def _write_off_list_sheet(wb: Workbook, cells: list[ExtractedCell], *, extract: bool) -> int:
     from electrical.extract import is_off_list_requirement
 
-    ws = wb.create_sheet("清单外需求")
+    ws = wb.create_sheet(SHEET_OFF)
     last = get_column_letter(len(OFF_LIST_HEADERS))
-    ws.merge_cells(f"A1:{last}1")
-    title = ws["A1"]
-    title.value = "清单外需求（当份原文里对不上 1–120 的要求）"
-    title.font = TITLE_FONT
-    title.alignment = Alignment(vertical="center")
-    ws.row_dimensions[1].height = 22
+    _navy_title(ws, "当份原文里对不上清单的要求", len(OFF_LIST_HEADERS))
     for col, name in enumerate(OFF_LIST_HEADERS, start=1):
         cell = ws.cell(2, col, name)
         cell.fill = HEADER_FILL
         cell.font = HEADER_FONT
-        cell.alignment = Alignment(wrap_text=True, vertical="center")
+        cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+        cell.border = _GRID
     ws["B2"].comment = Comment(
         "只写当份规格书原文。不用知识库、清单示例或常识补格。"
         "能对上 1–120 的要求不出现在本页。",
@@ -218,16 +316,19 @@ def _write_off_list_sheet(wb: Workbook, cells: list[ExtractedCell], *, extract: 
             excel_row = ws.max_row
             ws.row_dimensions[excel_row].height = _row_height(values, OFF_LIST_WIDTHS)
             for col in range(1, len(OFF_LIST_HEADERS) + 1):
-                ws.cell(excel_row, col).font = BODY_FONT
-                ws.cell(excel_row, col).alignment = WRAP
-            ws.cell(excel_row, 2).font = VALUE_FONT
-            ws.cell(excel_row, 2).fill = FILLED
+                cell = ws.cell(excel_row, col)
+                cell.font = VALUE_FONT if col == 2 else BODY_FONT
+                cell.alignment = _CENTER if col in {3, 4} else WRAP
+                cell.border = _GRID
+                if col == 2:
+                    cell.fill = FILLED
             count += 1
     for idx, width in enumerate(OFF_LIST_WIDTHS, start=1):
         ws.column_dimensions[get_column_letter(idx)].width = width
     ws.auto_filter.ref = f"A2:{last}{max(ws.max_row, 2)}"
     ws.freeze_panes = "A3"
     ws.row_dimensions[2].height = 28
+    _dress_sheet(ws, "5B7C99")
     return count
 
 
@@ -262,25 +363,21 @@ def write_review_workbook(
 
     wb = Workbook()
     ws = wb.active
-    ws.title = "电控设计需求"
+    ws.title = SHEET_MAIN
 
     last_col = get_column_letter(len(HEADERS))
-    ws.merge_cells(f"A1:{last_col}1")
-    title = ws["A1"]
-    title.value = f"{template_title()}（规格书抽取核对）"
-    title.font = TITLE_FONT
-    title.alignment = Alignment(vertical="center")
-    ws.row_dimensions[1].height = 22
+    _navy_title(ws, "电控设计需求核对", len(HEADERS))
 
     for col, name in enumerate(HEADERS, start=1):
         cell = ws.cell(2, col, name)
-        cell.fill = HEADER_FILL
-        cell.font = HEADER_FONT
-        cell.alignment = Alignment(wrap_text=True, vertical="center")
+        cell.fill = _HUMAN_FILL if name == "人工填写" else HEADER_FILL
+        cell.font = _HUMAN_FONT if name == "人工填写" else HEADER_FONT
+        cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+        cell.border = _GRID
     ws["E2"].comment = Comment(
         "本份规格书抽出的值。"
         "「未检索到」「局部对应/需人工复核」为检索结论占位，不是规格书原文。"
-        "不要用「清单口径」里的参考示例顶替。"
+        "不要用「05_条目说明」里的参考示例顶替。"
         "缺项可由当份规格书已出现的量按公式算出，状态为局部对应；所用公式写在「复核备注」。"
         "当份未给出、条目需参考试验方法标准时，抽出值显示未检索到，方法号写在复核备注。",
         "KMind",
@@ -330,7 +427,7 @@ def write_review_workbook(
         display = _display_value(row, status)
         item_no = review_item_no(row.seq)
         values = [
-            status,
+            _status_label(status),
             item_group(row.name, row.seq),
             item_no or "",
             row.name,
@@ -347,25 +444,31 @@ def write_review_workbook(
         dim = ws.row_dimensions[excel_row]
         dim.height = _row_height(values, COL_WIDTHS)
         for col in range(1, len(HEADERS) + 1):
-            ws.cell(excel_row, col).font = BODY_FONT
-            ws.cell(excel_row, col).alignment = WRAP
+            cell = ws.cell(excel_row, col)
+            cell.font = BODY_FONT
+            cell.alignment = _CENTER if col in {1, 3, 6, 7, 11} else WRAP
+            cell.border = _GRID
+        conf = ws.cell(excel_row, 11)
+        if conf.value not in (None, ""):
+            conf.font = Font(name="微软雅黑", size=9, color="94A3B8")
+            conf.alignment = _CENTER
         value_cell = ws.cell(excel_row, 5)
         status_cell = ws.cell(excel_row, 1)
-        if (row.value or "").strip():
-            value_cell.font = VALUE_FONT
-            if status == STATUS_PARTIAL:
-                value_cell.fill = PARTIAL_FILL
-                status_cell.fill = PARTIAL_FILL
-            else:
-                value_cell.fill = FILLED
-        elif extract and status == STATUS_PARTIAL:
-            value_cell.font = MARKER_FONT
+        if status == STATUS_PARTIAL:
+            value_cell.font = PARTIAL_FONT if (row.value or "").strip() else MARKER_FONT
             value_cell.fill = PARTIAL_FILL
+            status_cell.font = PARTIAL_FONT
             status_cell.fill = PARTIAL_FILL
         elif extract and status == STATUS_MISS:
             value_cell.font = MARKER_FONT
             value_cell.fill = YELLOW
+            status_cell.font = MISS_FONT
             status_cell.fill = YELLOW
+        elif (row.value or "").strip():
+            value_cell.font = VALUE_FONT
+            value_cell.fill = FILLED
+            status_cell.font = FOUND_FONT
+            status_cell.fill = FILLED
         note_text = _clean_text(row.note)
         plain = note_without_pending(note_text)
         if plain.startswith("由物理公式计算") or plain.startswith("企标方法对照"):
@@ -377,7 +480,7 @@ def write_review_workbook(
 
     dv = DataValidation(type="list", formula1=REVIEW_CHOICES, allow_blank=True)
     dv.error = (
-        "请选择：已检索到 / 未检索到 / 局部对应/需人工复核 / 通过 / 需修改 / 不适用"
+        "请选择：已检索到 / 未检索到 / 局部对应 / 通过 / 需修改 / 不适用"
     )
     dv.errorTitle = "核对状态"
     ws.add_data_validation(dv)
@@ -388,19 +491,19 @@ def write_review_workbook(
         ws.column_dimensions[get_column_letter(idx)].width = width
     ws.sheet_format.defaultRowHeight = MIN_ROW_PT
     ws.auto_filter.ref = f"A2:{last_col}{ws.max_row}"
-    ws.freeze_panes = "A3"
-    ws.row_dimensions[2].height = 28
+    ws.freeze_panes = "E3"
+    ws.row_dimensions[2].height = 32
+    _dress_sheet(ws, "1F2933")
     n_off = _write_off_list_sheet(wb, cells, extract=extract)
 
-    guide = wb.create_sheet("清单口径")
-    guide.merge_cells("A1:E1")
-    guide["A1"] = "清单口径（不是本份规格书的抽出值）"
-    guide["A1"].font = TITLE_FONT
+    guide = wb.create_sheet(SHEET_GUIDE)
+    _navy_title(guide, "条目说明。这一页不是本份规格书的抽出值。", len(GUIDE_HEADERS))
     for col, name in enumerate(GUIDE_HEADERS, start=1):
         cell = guide.cell(2, col, name)
         cell.fill = HEADER_FILL
         cell.font = HEADER_FONT
-        cell.alignment = Alignment(wrap_text=True, vertical="center")
+        cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
+        cell.border = _GRID
     for row in cells:
         if row.extra:
             continue
@@ -416,128 +519,393 @@ def write_review_workbook(
         dim = guide.row_dimensions[excel_row]
         dim.height = _row_height(vals, GUIDE_WIDTHS)
         for col in range(1, len(GUIDE_HEADERS) + 1):
-            guide.cell(excel_row, col).font = BODY_FONT
-            guide.cell(excel_row, col).alignment = WRAP
-        guide.cell(excel_row, 5).font = Font(name="微软雅黑", size=10, color="808080")
+            cell = guide.cell(excel_row, col)
+            cell.font = Font(name="微软雅黑", size=10, color="808080") if col == 5 else BODY_FONT
+            cell.alignment = _CENTER if col == 1 else WRAP
+            cell.border = _GRID
     for idx, width in enumerate(GUIDE_WIDTHS, start=1):
         guide.column_dimensions[get_column_letter(idx)].width = width
-    guide.freeze_panes = "A3"
+    guide.freeze_panes = "C3"
     guide.auto_filter.ref = f"A2:E{max(guide.max_row, 2)}"
+    guide.row_dimensions[2].height = 28
+    _dress_sheet(guide, "64748B")
 
-    cover = wb.create_sheet("说明", 0)
-    cover["A1"] = template_title()
-    cover["A1"].font = Font(bold=True, size=14, name="微软雅黑")
-    _write_content_review_sheet(wb, qa)
-    cover.append([])
-    cover.append(["源文件", source_name])
-    cover.append(["文档类型", kind_label or "未标注"])
-    cover.append(["知识库版本", _knowledge_version_label(knowledge_version)])
-    cover.append(["清单条目", template_n])
-    cover.append(["已检索到", n_found if extract else 0])
-    cover.append(["未检索到", n_miss if extract else 0])
-    cover.append(["局部对应/需人工复核", n_partial if extract else 0])
-    cover.append(["清单外需求", n_off if extract else 0])
-    if extract and n_pending:
-        cover.append(
-            [
-                "待专家口径",
-                f"{n_pending} 格。取值本身来自当份原文，但填法或算不算正式指标还没定，"
-                "见「电控设计需求」复核备注中「待专家口径：」段（深红）。口径定下后该标注自动消失。",
-            ]
-        )
-    if (extract_warning or "").strip():
-        cover.append([])
-        cover.append(["识别完整性", extract_warning.strip()])
-    if not extract and (kind_note or "").strip():
-        cover.append([])
-        cover.append(["说明", kind_note.strip()])
-    cover.append([])
-    cover.append(
-        [
-            "用法",
-            "先看「电控设计需求」。浅蓝 = 已检索到；橙底 = 局部对应；黄底 = 未检索到。"
-            "人工确认后把核对状态改为通过 / 需修改。"
-            "当份对不上 1–120 的要求在「清单外需求」。",
-        ]
+    _write_cover_sheet(
+        wb,
+        source_name=source_name,
+        kind_label=kind_label or "未标注",
+        knowledge_version=_knowledge_version_label(knowledge_version),
+        template_n=template_n,
+        extract=extract,
+        n_found=n_found if extract else 0,
+        n_miss=n_miss if extract else 0,
+        n_partial=n_partial if extract else 0,
+        n_off=n_off if extract else 0,
+        n_pending=n_pending if extract else 0,
+        extract_warning=(extract_warning or "").strip(),
+        kind_note=(kind_note or "").strip() if not extract else "",
     )
-    cover.column_dimensions["A"].width = 36
-    cover.column_dimensions["B"].width = 88
-    for excel_row, row in enumerate(cover.iter_rows(), start=1):
-        for cell in row:
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
-            if cell.font and cell.font.bold:
-                continue
-            cell.font = Font(name="微软雅黑", size=11)
-        vals = [cell.value for cell in row]
-        if any(vals):
-            cover.row_dimensions[excel_row].height = _row_height(vals, (36, 88))
+    _write_content_review_sheet(wb, qa)
+    _order_sheets(wb)
 
     wb.save(output_path)
     return output_path
 
 
+_COVER_COLS = 2
+_INK = "0F2744"
+_TEAL = "0F766E"
+_PAPER = "F7F8FA"
+_LINE = Border(bottom=Side(style="thin", color="E6E8EC"))
+
+
+def _solid(color: str) -> PatternFill:
+    return PatternFill("solid", fgColor=color)
+
+
+def _paint(ws, row: int, cols: int, fill: PatternFill) -> None:
+    for col in range(1, cols + 1):
+        ws.cell(row, col).fill = fill
+
+
+def _span(ws, row: int, cols: int, text: str, font: Font, fill: PatternFill, height: float) -> None:
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=cols)
+    align = Alignment(horizontal="left", vertical="center", indent=1)
+    for col in range(1, cols + 1):
+        cell = ws.cell(row, col, text if col == 1 else None)
+        cell.font = font
+        cell.fill = fill
+        cell.alignment = align
+    ws.row_dimensions[row].height = height
+
+
+_BOX = Border(
+    left=Side(style="thin", color="D0D5DD"),
+    right=Side(style="thin", color="D0D5DD"),
+    top=Side(style="thin", color="D0D5DD"),
+    bottom=Side(style="thin", color="D0D5DD"),
+)
+_LABEL_FILL = PatternFill("solid", fgColor="F4F6F8")
+
+
+def _form_title(ws, text: str) -> None:
+    ws.merge_cells("A1:B1")
+    font = Font(name="微软雅黑", size=16, bold=True, color=_INK)
+    align = Alignment(horizontal="left", vertical="center")
+    cell = ws["A1"]
+    cell.value = text
+    cell.font = font
+    cell.alignment = align
+    ws["B1"].font = font
+    ws["B1"].alignment = align
+    ws.row_dimensions[1].height = 28
+
+
+def _form_head(ws, row: int, left: str, right: str) -> None:
+    for col, name in enumerate((left, right), start=1):
+        cell = ws.cell(row, col, name)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.alignment = Alignment(horizontal="left", vertical="center")
+        cell.border = _BOX
+    ws.row_dimensions[row].height = 24
+
+
+def _form_row(ws, row: int, key: str, value: object, widths: tuple[float, float]) -> None:
+    ws.cell(row, 1, key)
+    ws.cell(row, 2, value)
+    for col in range(1, 3):
+        cell = ws.cell(row, col)
+        cell.font = Font(name="微软雅黑", size=11, bold=col == 1, color="1F2933")
+        cell.fill = _LABEL_FILL if col == 1 else _solid("FFFFFF")
+        cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+        cell.border = _BOX
+    ws.row_dimensions[row].height = _row_height([key, value], widths)
+
+
+def _form_sheet(ws, widths: tuple[int, int]) -> None:
+    ws.sheet_view.showGridLines = True
+    ws.sheet_view.zoomScale = 100
+    ws.sheet_view.view = "normal"
+    ws.sheet_properties.tabColor = _INK
+    ws.page_setup.orientation = "portrait"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.freeze_panes = "A3"
+    for index, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    ws.print_area = f"A1:B{max(ws.max_row, 1)}"
+    ws.page_setup.horizontalCentered = True
+    ws.sheet_format.defaultRowHeight = 22
+
+
+def _sheet_frame(ws, tab: str, cols: int, widths: tuple[int, ...]) -> None:
+    ws.sheet_view.showGridLines = False
+    ws.sheet_view.zoomScale = 120
+    ws.sheet_properties.tabColor = tab
+    ws.page_setup.orientation = "landscape"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_margins.left = 0.55
+    ws.page_margins.right = 0.55
+    ws.page_margins.top = 0.5
+    ws.page_margins.bottom = 0.45
+    ws.sheet_view.view = "normal"
+    ws.print_options.horizontalCentered = True
+    for index, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    ws.sheet_format.defaultRowHeight = 22
+    ws.print_area = f"A1:{get_column_letter(cols)}{max(ws.max_row, 1)}"
+
+
+_COUNT_FILL = {
+    "已检索到": FILLED,
+    "局部对应/需人工复核": PARTIAL_FILL,
+    "未检索到": YELLOW,
+    "清单外需求": PatternFill("solid", fgColor="E7EEF8"),
+}
+
+
+def _brief_title(ws, text: str, cols: int) -> None:
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=cols)
+    font = Font(name="微软雅黑", size=18, bold=True, color="FFFFFF")
+    align = Alignment(horizontal="left", vertical="center", indent=1)
+    for col in range(1, cols + 1):
+        cell = ws.cell(1, col, text if col == 1 else None)
+        cell.font = font
+        cell.fill = _solid(_INK)
+        cell.alignment = align
+    ws.row_dimensions[1].height = 40
+
+
+def _brief_sheet(ws, widths: tuple[int, ...], *, landscape: bool) -> None:
+    ws.sheet_view.showGridLines = False
+    ws.sheet_view.zoomScale = 120
+    ws.sheet_view.view = "normal"
+    ws.freeze_panes = "A3"
+    ws.sheet_properties.tabColor = _INK
+    ws.page_setup.orientation = "landscape" if landscape else "portrait"
+    ws.page_setup.paperSize = ws.PAPERSIZE_A4
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 0
+    ws.sheet_properties.pageSetUpPr.fitToPage = True
+    ws.page_setup.horizontalCentered = True
+    ws.page_margins.left = 0.5
+    ws.page_margins.right = 0.5
+    ws.page_margins.top = 0.45
+    ws.page_margins.bottom = 0.4
+    ws.sheet_view.view = "normal"
+    ws.oddHeader.left.text = "需求核对"
+    for index, width in enumerate(widths, start=1):
+        ws.column_dimensions[get_column_letter(index)].width = width
+    last = get_column_letter(len(widths))
+    ws.print_area = f"A1:{last}{max(ws.max_row, 1)}"
+    ws.sheet_format.defaultRowHeight = 22
+    ws.auto_filter.ref = None
+    ws.sheet_view.showRowColHeaders = True
+    ws.page_setup.scale = 100
+
+
+def _cover_card(ws, row: int, key: str, value: object, hint: str, fill: str, ink: str) -> None:
+    wash = _solid(fill)
+    hair = Border(bottom=Side(style="thin", color="E7E5E4"))
+    label = ws.cell(row, 1, key)
+    label.font = Font(name="微软雅黑", size=11, bold=True, color=ink)
+    label.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+    number = ws.cell(row, 2, value)
+    number.font = Font(name="微软雅黑", size=18, bold=True, color=ink)
+    number.alignment = Alignment(horizontal="center", vertical="center")
+    note = ws.cell(row, 3, hint)
+    note.font = Font(name="微软雅黑", size=11, color="57534E")
+    note.alignment = Alignment(horizontal="left", vertical="center", indent=1, wrap_text=True)
+    for col in range(1, 4):
+        cell = ws.cell(row, col)
+        cell.fill = wash
+        cell.border = hair
+    ws.row_dimensions[row].height = 36
+
+
+def _cover_fact(ws, row: int, key: str, value: object, *, emphasize: bool = False) -> None:
+    hair = Border(bottom=Side(style="thin", color="E7E5E4"))
+    label = ws.cell(row, 1, key)
+    label.font = Font(name="微软雅黑", size=10, color="78716C")
+    label.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+    label.fill = _solid("FAFAF9")
+    label.border = hair
+    ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=3)
+    body = ws.cell(row, 2, value)
+    body.font = Font(
+        name="微软雅黑",
+        size=12 if emphasize else 11,
+        bold=emphasize,
+        color="1C1917",
+    )
+    body.alignment = Alignment(horizontal="left", vertical="center", indent=1, wrap_text=True)
+    for col in range(2, 4):
+        cell = ws.cell(row, col)
+        cell.fill = _solid("FFFFFF")
+        cell.border = hair
+    text = "" if value is None else str(value)
+    ws.row_dimensions[row].height = 28 if len(text) < 36 else min(52, 18 + 14 * ((len(text) // 36) + 1))
+
+
+def _write_cover_sheet(
+    wb: Workbook,
+    *,
+    source_name: str,
+    kind_label: str,
+    knowledge_version: str,
+    template_n: int,
+    extract: bool,
+    n_found: int,
+    n_miss: int,
+    n_partial: int,
+    n_off: int,
+    n_pending: int,
+    extract_warning: str,
+    kind_note: str,
+) -> None:
+    """封面。四个计数紧挨着这份文件，不冻窗。键在第一列，数在第二列。"""
+    cover = wb.create_sheet(SHEET_COVER, 0)
+    widths = (32, 12, 62)
+    _brief_title(cover, "电控设计需求核对", 3)
+    cover.row_dimensions[1].height = 48
+    cover["A1"].font = Font(name="微软雅黑", size=20, bold=True, color="FFFFFF")
+    cards = (
+        ("已检索到", n_found, "F0FDF4", "15803D", "原文对上了。在「02_需求核对」里是绿色。"),
+        ("局部对应/需人工复核", n_partial, "FBF6EC", "8A5A12", "只对上一部分。琥珀底，看这一行原文。"),
+        ("未检索到", n_miss, "FDF2F1", "B42318", "当份没有写出这项。浅红底。"),
+        ("清单外需求", n_off, "F8FAFC", "1F2933", "在「04_清单外」。"),
+    )
+    for offset, (key, value, fill, ink, hint) in enumerate(cards):
+        _cover_card(cover, 2 + offset, key, value, hint, fill, ink)
+    facts: list[tuple[str, object, bool]] = [
+        ("源文件", _display_source_name(source_name), True),
+        ("文档类型", kind_label, False),
+        ("对照清单", template_title(), False),
+        ("知识库版本", knowledge_version, False),
+        ("清单条目", template_n, False),
+    ]
+    if extract and n_pending:
+        facts.append(("待专家口径", f"{n_pending} 格。取值来自当份原文，填法还没定。", False))
+    if extract_warning:
+        facts.append(("识别完整性", extract_warning, False))
+    if kind_note:
+        facts.append(("说明", kind_note, False))
+    facts.append(
+        (
+            "用法",
+            "在「02_需求核对」里对抽出值和同一行的原文摘录。"
+            "核对后把状态改成通过或需修改。「人工填写」留给核对后的值。",
+            False,
+        )
+    )
+    for offset, (key, value, emphasize) in enumerate(facts):
+        _cover_fact(cover, 6 + offset, key, value, emphasize=emphasize)
+    _brief_sheet(cover, widths, landscape=False)
+    cover.freeze_panes = None
+    cover.sheet_view.zoomScale = 110
+    cover.sheet_view.topLeftCell = "A1"
+    cover.sheet_properties.tabColor = "1F2933"
+    cover.page_setup.fitToHeight = 1
+    cover.page_setup.orientation = "portrait"
+    cover.oddHeader.left.text = "电控设计需求核对"
+    cover.oddFooter.right.text = "电控设计需求核对"
+
+
 def _write_content_review_sheet(wb: Workbook, qa) -> None:
+    """当份正文里要对一下的地方。一条一行，类型和原句分开，不标等级。"""
     findings = list(getattr(qa, "content_findings", None) or [])
     if not findings:
         return
-    sheet = wb.create_sheet("文件审查", 1)
-    title = sheet["A1"]
-    title.value = "当份正文审查"
-    title.font = Font(bold=True, size=13, name="微软雅黑")
-    sheet.merge_cells("A1:C1")
-    sheet.append([])
-    headers = ["等级", "类型", "说明"]
-    sheet.append(headers)
-    for col in range(1, 4):
-        cell = sheet.cell(3, col)
-        cell.font = HEADER_FONT
-        cell.fill = HEADER_FILL
-    p0_fill = PatternFill("solid", fgColor="F5C6CB")
-    p1_fill = PatternFill("solid", fgColor="FCE4B3")
-    for item in findings:
-        sheet.append([item.level, item.kind, item.text])
-        excel_row = sheet.max_row
-        fill = p0_fill if item.level == "P0" else p1_fill
-        for col in range(1, 4):
-            cell = sheet.cell(excel_row, col)
-            cell.font = Font(name="微软雅黑", size=11)
-            cell.alignment = Alignment(wrap_text=True, vertical="top")
-            if col == 1:
-                cell.fill = fill
-        sheet.row_dimensions[excel_row].height = _row_height(
-            [item.level, item.kind, item.text], (10, 16, 88)
-        )
-    sheet.column_dimensions["A"].width = 10
-    sheet.column_dimensions["B"].width = 16
-    sheet.column_dimensions["C"].width = 88
-    sheet.freeze_panes = "A4"
-    sheet.append([])
-    sheet.append(
-        [
-            "",
-            "",
-            "上表只记录当份正文问题。",
-        ]
+    sheet = wb.create_sheet(SHEET_REVIEW)
+    widths = (8, 14, 10, 16, 72)
+    _brief_title(sheet, "当份正文审查", 5)
+    sheet.row_dimensions[1].height = 48
+    sheet["A1"].font = Font(name="微软雅黑", size=20, bold=True, color="FFFFFF")
+    sheet.merge_cells("A2:E2")
+    lead = sheet.cell(
+        2,
+        1,
+        f"共 {len(findings)} 条。页码和条款号标在同一行。抽出值在「02_需求核对」。",
     )
-    last = sheet.max_row
-    for col in range(1, 4):
-        sheet.cell(last, col).font = Font(name="微软雅黑", size=10, color="666666")
-        sheet.cell(last, col).alignment = Alignment(wrap_text=True, vertical="top")
+    lead.font = Font(name="微软雅黑", size=11, color="57534E")
+    lead.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+    for col in range(1, 6):
+        sheet.cell(2, col).fill = _solid("FAFAF9")
+        sheet.cell(2, col).border = Border(bottom=Side(style="thin", color="E7E5E4"))
+    sheet.row_dimensions[2].height = 28
+    headers = ("序号", "类型", "页码", "条款号", "要对照的地方")
+    for col, name in enumerate(headers, start=1):
+        cell = sheet.cell(3, col, name)
+        cell.font = Font(name="微软雅黑", size=10, bold=True, color="FFFFFF")
+        cell.fill = _solid("292524")
+        cell.alignment = Alignment(horizontal="left", vertical="center", indent=1)
+    sheet.row_dimensions[3].height = 26
+    kind_style = {
+        "中英冲突": ("FBF6EC", "8A5A12"),
+        "内部不一致": ("FDF2F1", "B42318"),
+        "语义相反": ("FDF2F1", "B42318"),
+        "模板残留": ("F1F5F9", "1E3A5F"),
+        "占位未填": ("F8FAFC", "44403C"),
+        "日期格式": ("F8FAFC", "44403C"),
+        "空表": ("F8FAFC", "44403C"),
+    }
+    hair = Border(bottom=Side(style="thin", color="E7E5E4"))
+    for offset, item in enumerate(findings, start=1):
+        row = 3 + offset
+        wash, ink = kind_style.get(item.kind, ("FFFFFF", "1C1917"))
+        page = str(getattr(item, "page", "") or "")
+        clause = str(getattr(item, "clause", "") or "")
+        values = (offset, item.kind, page, clause, item.text)
+        fonts = (
+            Font(name="微软雅黑", size=12, color="A8A29E"),
+            Font(name="微软雅黑", size=11, bold=True, color=ink),
+            Font(name="微软雅黑", size=12, color="1C1917"),
+            Font(name="微软雅黑", size=11, bold=True, color="1E3A5F"),
+            Font(name="微软雅黑", size=11, color="1C1917"),
+        )
+        for col, (value, font) in enumerate(zip(values, fonts), start=1):
+            cell = sheet.cell(row, col, value)
+            cell.font = font
+            cell.fill = _solid(wash)
+            cell.alignment = Alignment(
+                horizontal="center" if col in {1, 3, 4} else "left",
+                vertical="center",
+                wrap_text=True,
+                indent=0 if col in {1, 3, 4} else 1,
+            )
+            cell.border = hair
+        sheet.row_dimensions[row].height = max(36, _row_height(list(values), widths, limit_lines=4))
+    _brief_sheet(sheet, widths, landscape=True)
+    sheet.freeze_panes = "A4"
+    sheet.auto_filter.ref = f"A3:E{3 + len(findings)}"
+    sheet.sheet_view.zoomScale = 120
+    sheet.sheet_properties.tabColor = "8A5A12"
+    sheet.print_title_rows = "1:3"
+    sheet.oddHeader.left.text = "当份正文审查"
+    sheet.oddFooter.right.text = "当份正文审查"
 
 
 def load_review_cells(path: Path) -> tuple[list[ExtractedCell], dict[str, str]]:
     """读已导出的核对表，便于改版式后重出（不重跑抽取）。"""
     wb = load_workbook(path, data_only=True)
     meta: dict[str, str] = {}
-    if "说明" in wb.sheetnames:
-        for row in wb["说明"].iter_rows(min_row=2, max_col=2, values_only=True):
+    cover = _find_sheet(wb, SHEET_COVER, "说明")
+    if cover is not None:
+        for row in cover.iter_rows(min_row=2, max_col=2, values_only=True):
             key, val = (list(row) + [None, None])[:2]
             if key:
                 meta[str(key).strip()] = "" if val is None else str(val).strip()
 
     hint_by_seq: dict[int, tuple[str, str, str]] = {}
-    if "清单口径" in wb.sheetnames:
-        gws = wb["清单口径"]
+    guide_sheet = _find_sheet(wb, SHEET_GUIDE, "清单口径")
+    if guide_sheet is not None:
+        gws = guide_sheet
         grow = 2
         for i, row in enumerate(gws.iter_rows(min_row=1, max_row=5, values_only=True), start=1):
             if "需求条目" in [str(v or "") for v in row]:
@@ -555,7 +923,8 @@ def load_review_cells(path: Path) -> tuple[list[ExtractedCell], dict[str, str]]:
                 str(cells[4] or "").strip(),
             )
 
-    ws = wb["电控设计需求"] if "电控设计需求" in wb.sheetnames else wb.active
+    found = _find_sheet(wb, SHEET_MAIN, "电控设计需求")
+    ws = found if found is not None else wb.active
     header_row = 2
     headers: list[str] = []
     for i, row in enumerate(ws.iter_rows(min_row=1, max_row=5, values_only=True), start=1):
@@ -631,6 +1000,7 @@ def load_review_cells(path: Path) -> tuple[list[ExtractedCell], dict[str, str]]:
         )
         if status_raw in {"待核对", "未抽出"}:
             status_raw = ""
+        status_raw = _status_from_sheet(status_raw)
         rows.append(
             ExtractedCell(
                 name=name,

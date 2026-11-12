@@ -129,6 +129,7 @@ Sleep current of the XCM shall be 100 µA.
         md = DHTS_SNIPPET + """
 <<SYSTEM/COMPONENT>>
 Date: 202601202
+Date: 202601202
 Volvo Car Corporation Subject Matter Expert
 吉利主题专家
 
@@ -165,7 +166,7 @@ The system shall not allow dangerous misoperation leading to unsafe behaviour.
         report = inspect_document(_doc(md))
         self.assertFalse(report.skip_extract)
         self.assertEqual(report.verdict, "warn")
-        self.assertIn("文件审查", report.summary)
+        self.assertIn("03_提取质量审查", report.summary)
         self.assertNotIn("不写入抽出值", report.summary)
         p0 = [f for f in report.content_findings if f.level == "P0"]
         p1 = [f for f in report.content_findings if f.level == "P1"]
@@ -183,6 +184,40 @@ The system shall not allow dangerous misoperation leading to unsafe behaviour.
         for bad in FORBIDDEN_FILL:
             self.assertNotIn(bad, blob)
         self.assertNotIn("J7110218", blob)
+        amps = [f for f in report.content_findings if "±180A" in f.text]
+        self.assertTrue(amps)
+        self.assertEqual(amps[0].clause, "6.3.3.1")
+        self.assertEqual(amps[0].page, "10")
+        dates = [f for f in report.content_findings if "202601202" in f.text]
+        self.assertEqual(len(dates), 1)
+        self.assertEqual(dates[0].text.count("202601202"), 1)
+
+    def test_conflict_uses_the_page_of_that_clause(self) -> None:
+        from electrical.doc_content_qa import review_document_content
+
+        md = """
+## 第 32 页
+5.2.5 Random vibration
+The English profile holds each axis for 30h and then describes the mounting, the spectrum and the dwell in English only.
+
+随机振动这一条按中文要求，把每个方向的持续时间、安装方式和谱型都写在本句里，数值是 20h。
+
+## 第 44 页
+6.2.3.2 Power
+The English statement lists both 62.5kW and 125kW and then keeps the operating point in English for this whole line.
+
+中文功率这一条只保留一个数，工况和说明都继续用中文来写，数值是 62.5kW。
+"""
+        findings = review_document_content(md)
+        hours = [f for f in findings if "20h" in f.text]
+        power = [f for f in findings if "125kW" in f.text]
+        self.assertEqual(len(hours), 1)
+        self.assertEqual(hours[0].page, "32")
+        self.assertEqual(hours[0].clause, "5.2.5")
+        self.assertIn("两边对不上", hours[0].text)
+        self.assertEqual(len(power), 1)
+        self.assertEqual(power[0].page, "44")
+        self.assertEqual(power[0].clause, "6.2.3.2")
 
     def test_internal_logic_flags_weight_can_and_power_map(self) -> None:
         md = DHTS_SNIPPET + """
@@ -297,7 +332,7 @@ class PipelineQaTests(unittest.TestCase):
             wb = load_workbook(out, data_only=True)
             cover = {
                 str(row[0] or ""): str(row[1] or "")
-                for row in wb["说明"].iter_rows(max_col=2, values_only=True)
+                for row in wb["01_封面"].iter_rows(max_col=2, values_only=True)
             }
             self.assertIn("2 个分段识别失败", cover.get("识别完整性", ""))
 
@@ -329,7 +364,7 @@ class PipelineQaTests(unittest.TestCase):
             wb = load_workbook(out, data_only=True)
             cover = {
                 str(row[0] or ""): str(row[1] or "")
-                for row in wb["说明"].iter_rows(max_col=2, values_only=True)
+                for row in wb["01_封面"].iter_rows(max_col=2, values_only=True)
             }
             self.assertIn("27 个分段识别失败", cover.get("识别完整性", ""))
             self.assertIn("reasoning only", cover.get("识别完整性", ""))
@@ -357,7 +392,7 @@ Volvo Car Corporation
             extract.assert_called_once()
             self.assertTrue(result.extract)
             self.assertEqual(result.qa_verdict, "warn")
-            self.assertIn("文件审查", result.qa_summary)
+            self.assertIn("03_提取质量审查", result.qa_summary)
             self.assertTrue(all(not (cell.value or "").strip() for cell in result.cells))
             blob = " ".join(
                 (cell.value or "") + (cell.note or "") for cell in result.cells

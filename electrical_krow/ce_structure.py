@@ -154,6 +154,21 @@ def _title_row(words: list[tuple[float, float, float, float, str]], source: str)
     )
 
 
+def _owned_column(x: float, columns: list[tuple[float, str]]) -> str:
+    """字落在哪一列表头的半宽里，才算这一列。隔列的标注不就近并进来。"""
+    ordered = sorted(columns)
+    for index, (origin, name) in enumerate(ordered):
+        left = (ordered[index - 1][0] + origin) / 2 if index else origin - 36
+        right = (origin + ordered[index + 1][0]) / 2 if index + 1 < len(ordered) else origin + 36
+        if left <= x <= right:
+            if name == "材料标记":
+                return "材料"
+            if name == "零件名称":
+                return "零件名"
+            return name
+    return ""
+
+
 def _bom_rows(words: list[tuple[float, float, float, float, str]], source: str, parent: str) -> list[StructureRow]:
     header = [word for word in words if word[4] == "序号"]
     if not header:
@@ -189,12 +204,12 @@ def _bom_rows(words: list[tuple[float, float, float, float, str]], source: str, 
         for word in body:
             if abs(word[1] - anchor[1]) > 12:
                 continue
-            column = min(columns, key=lambda item: abs(item[0] - word[0]))[1]
-            if column == "材料标记":
-                column = "材料"
-            if column == "零件名称":
-                column = "零件名"
+            column = _owned_column(word[0], columns)
+            if not column:
+                continue
             text = _text(word[4])
+            if re.search(r"±|技术要求|未注公差|未注|MAX", text, re.I):
+                continue
             if text in {"/", "序号"} or text.startswith(("CAD", "DWG")) or re.fullmatch(r"[A-Z][A-Z0-9]*_[A-Z0-9_]+", text):
                 continue
             cells.setdefault(column, []).append(text)
@@ -269,8 +284,55 @@ def _main_view_clips(page, words: list[tuple[float, float, float, float, str]]):
     return clips
 
 
+def _scanned_view_clip(page):
+    """没有文字层时，截标题栏以外的全部视图。右下角标题栏不占画面。"""
+    import pymupdf
+
+    rect = page.rect
+    title = pymupdf.Rect(
+        rect.x0 + rect.width * 0.58,
+        rect.y0 + rect.height * 0.72,
+        rect.x1,
+        rect.y1,
+    )
+    # 0.06 倍时密封圈这种细线会消失，只剩清洁度表那种深色网格。
+    scale = 0.28
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), colorspace=pymupdf.csGRAY, clip=rect, alpha=False)
+    width, height = pix.width, pix.height
+    samples = memoryview(pix.samples)
+    min_x, min_y, max_x, max_y = width, height, 0, 0
+    found = False
+    for y in range(height):
+        row = y * width
+        for x in range(width):
+            if samples[row + x] >= 242:
+                continue
+            px = rect.x0 + x / scale
+            py = rect.y0 + y / scale
+            if title.x0 <= px <= title.x1 and title.y0 <= py <= title.y1:
+                continue
+            found = True
+            if x < min_x:
+                min_x = x
+            if y < min_y:
+                min_y = y
+            if x > max_x:
+                max_x = x
+            if y > max_y:
+                max_y = y
+    if not found:
+        return rect
+    box = pymupdf.Rect(
+        rect.x0 + min_x / scale - 10,
+        rect.y0 + min_y / scale - 10,
+        rect.x0 + (max_x + 1) / scale + 10,
+        rect.y0 + (max_y + 1) / scale + 10,
+    )
+    return box & rect
+
+
 def _view_png(page) -> bytes:
-    """截外形尺寸旁边的主视图。整页左上角、技术要求和标题栏不放进图片。"""
+    """有文字层时截外形尺寸旁边的主视图。扫描图截标题栏以外的全部视图，并保留足够像素。"""
     import pymupdf
     from io import BytesIO
 
@@ -278,7 +340,7 @@ def _view_png(page) -> bytes:
 
     words = [(word[0], word[1], word[2], word[3], word[4]) for word in page.get_text("words")]
     clips = _main_view_clips(page, words)
-    if not clips:
+    if not clips and words:
         notes_x = page.rect.width
         for word in words:
             text = word[4]
@@ -291,9 +353,12 @@ def _view_png(page) -> bytes:
         right = notes_x - 16 if notes_x < page.rect.width else page.rect.width * 0.7
         bottom = title_top - 16 if title_top < page.rect.height else page.rect.height * 0.82
         clips = [pymupdf.Rect(24, 24, max(right, 80), max(bottom, 80)) & page.rect]
+    elif not clips:
+        clips = [_scanned_view_clip(page)]
     images = []
+    zoom = 1.8
     for clip in clips:
-        pix = page.get_pixmap(matrix=pymupdf.Matrix(0.55, 0.55), clip=clip, alpha=False)
+        pix = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=clip, alpha=False)
         images.append(PilImage.open(BytesIO(pix.tobytes("png"))).convert("RGB"))
     width = max(image.width for image in images)
     gap = 12
@@ -302,10 +367,183 @@ def _view_png(page) -> bytes:
     for image in images:
         canvas.paste(image, ((width - image.width) // 2, top))
         top += image.height + gap
-    canvas.thumbnail((420, 360))
+    if max(canvas.size) > 1800:
+        canvas.thumbnail((1800, 1800), PilImage.Resampling.LANCZOS)
     out = BytesIO()
     canvas.save(out, format="PNG")
     return out.getvalue()
+
+
+def _center(word: tuple[float, float, float, float, str]) -> tuple[float, float]:
+    return ((word[0] + word[2]) / 2, (word[1] + word[3]) / 2)
+
+
+def _nearest(origin: tuple[float, float], words: list[tuple[float, float, float, float, str]]):
+    best = None
+    best_distance = 0.0
+    for word in words:
+        cx, cy = _center(word)
+        distance = (cx - origin[0]) ** 2 + (cy - origin[1]) ** 2
+        if best is None or distance < best_distance:
+            best = word
+            best_distance = distance
+    return best
+
+
+def _ocr_title_words(page) -> list[tuple[float, float, float, float, str]]:
+    """没有文字层的图纸，只认标题栏这一块。"""
+    import os
+    import tempfile
+
+    import pymupdf
+
+    try:
+        from electrical_krow.arch_ocr import _ocr_engine
+    except Exception:
+        return []
+    clip = pymupdf.Rect(page.rect.width * 0.55, page.rect.height * 0.58, page.rect.width, page.rect.height)
+    zoom = 2.6
+    fd, image_path = tempfile.mkstemp(suffix=".png")
+    os.close(fd)
+    try:
+        page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), clip=clip, alpha=False).save(image_path)
+        result = _ocr_engine()(image_path)
+    except Exception:
+        return []
+    finally:
+        try:
+            os.unlink(image_path)
+        except OSError:
+            pass
+    txts = getattr(result, "txts", None) or ()
+    boxes = getattr(result, "boxes", None)
+    if boxes is None:
+        return []
+    words: list[tuple[float, float, float, float, str]] = []
+    for text, box in zip(txts, boxes):
+        shown = _text(str(text))
+        if not shown:
+            continue
+        xs = [float(point[0]) for point in box]
+        ys = [float(point[1]) for point in box]
+        words.append(
+            (
+                clip.x0 + min(xs) / zoom,
+                clip.y0 + min(ys) / zoom,
+                clip.x0 + max(xs) / zoom,
+                clip.y0 + max(ys) / zoom,
+                shown,
+            )
+        )
+    return words
+
+
+_NAME_SKIP = ("极光湾", "科技", "有限公司", "质量", "比例", "日期", "签字", "设计", "审核", "批准", "校对", "会签", "标准", "数量", "材料", "版本", "项目", "特性")
+
+
+def _ocr_name(text: str) -> bool:
+    shown = _chinese_title(text)
+    if len(re.findall(r"[\u4e00-\u9fff]", shown)) < 2:
+        return False
+    return not any(token in shown for token in _NAME_SKIP)
+
+
+def _title_from_ocr(
+    words: list[tuple[float, float, float, float, str]],
+    source: str,
+) -> StructureRow | None:
+    """扫描件标题栏没有「图样名称」这四个字时，用零件名、图号和质量。"""
+    names = [word for word in words if _ocr_name(word[4])]
+    pool = [word for word in names if re.search(r"\[\d+\]", word[4])]
+    labels = [
+        word
+        for word in words
+        if re.search(r"图样名称|图科名称|drawing\s*title|dr[ae][ws]ing\s*[tjil]", word[4], re.I)
+    ]
+    name_word = _nearest(_center(labels[0]), pool) if labels and pool else (max(pool, key=lambda word: word[0]) if pool else None)
+    title = _chinese_title(name_word[4]) if name_word else ""
+    numbers = []
+    for word in words:
+        compact = re.sub(r"\s+", "", word[4])
+        if _PART_NO.fullmatch(compact):
+            numbers.append((word[0], word[1], word[2], word[3], compact))
+            continue
+        found = _PART_NO.search(compact)
+        if found and found.group(0) != compact:
+            numbers.append((word[0], word[1], word[2], word[3], found.group(0)))
+    part_no = ""
+    if numbers:
+        counts: dict[str, int] = {}
+        for word in numbers:
+            counts[word[4]] = counts.get(word[4], 0) + 1
+        part_no = max(counts, key=counts.get)
+    parent = ""
+    others = [word for word in numbers if word[4] != part_no]
+    parent_labels = [word for word in words if re.search(r"总成|上级|Assembly|Ass", word[4], re.I)]
+    if others and parent_labels:
+        parent = _nearest(_center(parent_labels[0]), others)[4]
+    elif len({word[4] for word in others}) == 1 and others:
+        parent = others[0][4]
+    weight = ""
+    weights = [word for word in words if re.fullmatch(r"\d+(?:\.\d+)?g", word[4].replace(" ", ""), re.I)]
+    mass_labels = [word for word in words if word[4] == "质量" or word[4].startswith("质量")]
+    if weights and mass_labels:
+        weight = _nearest(_center(mass_labels[0]), weights)[4].replace(" ", "")
+    elif len(weights) == 1:
+        weight = weights[0][4].replace(" ", "")
+    if weight and not _WEIGHT.match(weight):
+        weight = ""
+    material = ""
+    material_labels = [word for word in words if re.search(r"材料|Material|Moterial|Materiol|Moleriol", word[4], re.I)]
+
+    def _material_text(text: str) -> str:
+        token = re.sub(r"^A[1lI](?=\d{3,4})", "Al", text.replace(" ", ""))
+        if re.fullmatch(r"EPDM|NBR|FKM|VMQ", token, re.I):
+            return token.upper()
+        if re.search(r"^(Al|ADC|PPS|PA|T2)\d", token, re.I) or re.search(r"碳钢|铝合金|铜", token):
+            return token
+        return ""
+
+    if material_labels:
+        hit = _nearest(
+            _center(material_labels[0]),
+            [word for word in words if _material_text(word[4])],
+        )
+        if hit:
+            material = _material_text(hit[4])
+    if not material:
+        tokens = []
+        for word in words:
+            token = _material_text(word[4])
+            if token and token not in tokens:
+                tokens.append(token)
+        if len(tokens) == 1:
+            material = tokens[0]
+    if not title and not part_no:
+        return None
+    return StructureRow(title, part_no, "", "", weight, material, parent, source, "")
+
+
+def _fill_title(located: StructureRow | None, guessed: StructureRow | None) -> StructureRow | None:
+    if located is None:
+        return guessed
+    if guessed is None:
+        return located
+    return StructureRow(
+        located.name or guessed.name,
+        located.part_no or guessed.part_no,
+        located.quantity or guessed.quantity,
+        located.thickness or guessed.thickness,
+        located.weight or guessed.weight,
+        located.material or guessed.material,
+        located.parent or guessed.parent,
+        located.source or guessed.source,
+        located.note or guessed.note,
+        located.size_x or guessed.size_x,
+        located.size_y or guessed.size_y,
+        located.size_z or guessed.size_z,
+        located.picture or guessed.picture,
+    )
 
 
 def read_structure_drawing(path: Path) -> list[StructureRow]:
@@ -320,9 +558,13 @@ def read_structure_drawing(path: Path) -> list[StructureRow]:
         seen_titles: set[str] = set()
         for page in doc:
             words = [(word[0], word[1], word[2], word[3], word[4]) for word in page.get_text("words")]
-            if not any(word[4] == "图样名称" for word in words):
-                continue
-            title = _title_row(words, path.name)
+            if any(word[4] == "图样名称" for word in words):
+                title = _title_row(words, path.name)
+            else:
+                words = _ocr_title_words(page)
+                located = _title_row(words, path.name) if words else None
+                guessed = _title_from_ocr(words, path.name) if words else None
+                title = _fill_title(located, guessed)
             if title is None:
                 continue
             picture = _view_png(page)

@@ -71,6 +71,14 @@ class ClassifyTests(unittest.TestCase):
         self.assertTrue(kind.extract)
         self.assertEqual(kind.family, "dpr")
 
+    def test_scanned_4ldht_filename_is_still_dpr(self) -> None:
+        kind = classify_document(Path("4LDHT260_DPR(扫描件).pdf"), "")
+        self.assertEqual(kind.code, "xcm_dpr")
+        self.assertTrue(kind.extract)
+        self.assertEqual(kind.label, "电控 DPR")
+        self.assertNotIn("非电控", kind.label)
+        self.assertNotIn("不按", kind.note)
+
     def test_scan_toc_skips_extract(self) -> None:
         kind = classify_document(
             Path("scan.pdf"),

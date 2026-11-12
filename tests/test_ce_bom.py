@@ -405,6 +405,30 @@ class CeBomTests(unittest.TestCase):
         self.assertEqual(details[0].parent, "5501801798")
         self.assertEqual(title.quantity, "")
 
+    def test_scanned_title_block_still_reads_the_part(self) -> None:
+        from electrical_krow.ce_structure import _title_from_ocr
+
+        words = [
+            (700, 400, 820, 418, "Drasing lille:"),
+            (690, 360, 860, 380, "保险盒接线盖板[3]"),
+            (640, 200, 720, 216, "5501801798"),
+            (640, 250, 720, 266, "5501801798"),
+            (900, 250, 980, 266, "5501801726"),
+            (860, 240, 980, 258, "Upper Assembly"),
+            (760, 300, 800, 316, "质量"),
+            (820, 300, 860, 316, "31g"),
+            (700, 220, 800, 236, "Material Mark"),
+            (820, 220, 900, 236, "A15052-0"),
+            (500, 500, 640, 518, "极光湾科技有限公司"),
+        ]
+        row = _title_from_ocr(words, "cover.pdf")
+        self.assertIsNotNone(row)
+        self.assertEqual(row.name, "保险盒接线盖板")
+        self.assertEqual(row.part_no, "5501801798")
+        self.assertEqual(row.parent, "5501801726")
+        self.assertEqual(row.weight, "31g")
+        self.assertEqual(row.material, "Al5052-0")
+
     def test_structure_drawing_fills_supplier_sheet_and_drops_template_rows(self) -> None:
         import pymupdf
 
@@ -653,6 +677,23 @@ class CeBomTests(unittest.TestCase):
         self.assertEqual(details[1].quantity, "1")
         self.assertNotIn("/", details[1].name)
 
+    def test_bom_note_beside_the_name_does_not_join_the_part(self) -> None:
+        from electrical_krow.ce_structure import _bom_rows
+
+        words = [
+            (100, 200, 130, 212, "序号"),
+            (180, 200, 240, 212, "零件名称"),
+            (400, 200, 440, 212, "数量"),
+            (100, 230, 112, 242, "1"),
+            (180, 230, 230, 242, "摩擦焊板"),
+            (210, 230, 280, 242, "技术要求见总图"),
+            (400, 230, 412, 242, "2"),
+        ]
+        rows = _bom_rows(words, "board.pdf", "5501801726")
+        self.assertEqual([row.name for row in rows], ["摩擦焊板"])
+        self.assertEqual(rows[0].quantity, "2")
+        self.assertNotIn("技术要求", rows[0].name)
+
     def test_parenthetical_view_sizes_fill_xyz_and_skip_local_notes(self) -> None:
         from electrical_krow.ce_structure import _title_row
 
@@ -695,7 +736,69 @@ class CeBomTests(unittest.TestCase):
         from PIL import Image
 
         with Image.open(BytesIO(png)) as image:
-            self.assertLess(image.width, 1000)
+            self.assertGreater(image.width, 700)
+            self.assertLess(image.width, 1400)
+
+    def test_thin_seal_view_is_not_dropped_for_the_table(self) -> None:
+        import pymupdf
+        from electrical_krow.ce_structure import _view_png
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=1000, height=700)
+        page.draw_circle(pymupdf.Point(180, 180), 70, color=(0, 0, 0), width=0.8)
+        for index in range(8):
+            y = 320 + index * 16
+            page.draw_line(pymupdf.Point(640, y), pymupdf.Point(920, y), color=(0, 0, 0), width=1.4)
+        png = _view_png(page)
+        doc.close()
+        from io import BytesIO
+        from PIL import Image
+
+        with Image.open(BytesIO(png)) as image:
+            gray = image.convert("L")
+            left = gray.crop((0, 0, max(1, gray.width // 3), max(1, gray.height // 2)))
+            dark = sum(count for tone, count in enumerate(left.histogram()) if tone < 80)
+            self.assertGreater(dark, 15)
+
+    def test_seal_title_keeps_the_rubber_grade(self) -> None:
+        from electrical_krow.ce_structure import _title_from_ocr
+
+        row = _title_from_ocr(
+            [
+                (10, 10, 40, 20, "密封[3]"),
+                (80, 10, 160, 20, "5501801802"),
+                (80, 40, 120, 50, "0.6g"),
+                (40, 40, 80, 50, "EPDM"),
+                (120, 40, 200, 50, "5501801726"),
+            ],
+            "seal.pdf",
+        )
+        self.assertIsNotNone(row)
+        assert row is not None
+        self.assertEqual(row.name, "密封")
+        self.assertEqual(row.material, "EPDM")
+        self.assertEqual(row.weight, "0.6g")
+
+    def test_scanned_sheet_picture_keeps_the_right_hand_view(self) -> None:
+        import pymupdf
+        from electrical_krow.ce_structure import _view_png
+
+        doc = pymupdf.open()
+        page = doc.new_page(width=1000, height=700)
+        page.draw_rect(pymupdf.Rect(40, 40, 220, 200), color=(0, 0, 0), width=4)
+        page.draw_rect(pymupdf.Rect(760, 50, 960, 220), color=(0, 0, 0), width=4)
+        page.draw_rect(pymupdf.Rect(700, 560, 980, 680), color=(0, 0, 0), width=1)
+        png = _view_png(page)
+        doc.close()
+        from io import BytesIO
+        from PIL import Image
+
+        with Image.open(BytesIO(png)) as image:
+            self.assertGreater(max(image.size), 800)
+            gray = image.convert("L")
+            right = gray.crop((int(gray.width * 0.72), 0, gray.width, int(gray.height * 0.55)))
+            dark = sum(count for tone, count in enumerate(right.histogram()) if tone < 80)
+            self.assertGreater(dark, 20)
 
     def test_level_two_picture_is_embedded(self) -> None:
         import pymupdf

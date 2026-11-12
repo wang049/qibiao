@@ -437,6 +437,7 @@ def compact_field_list() -> str:
 
 
 def template_title() -> str:
+    """客户清单原名。核对表封面只作对照清单，不作整本标题。"""
     return "XCM控制器前期设计最小化输入清单"
 
 

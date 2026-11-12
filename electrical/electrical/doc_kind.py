@@ -32,7 +32,7 @@ INVERTER_RE = re.compile(
     re.I,
 )
 DPR_RE = re.compile(
-    r"\bDPR\b|Design Prerequisites|DHTS|SuperEvo|XCM控制器|电控设计需求",
+    r"(?<![A-Za-z])DPR(?![A-Za-z])|Design Prerequisites|DHTS|4LDHT|SuperEvo|XCM控制器|电控设计需求",
     re.I,
 )
 

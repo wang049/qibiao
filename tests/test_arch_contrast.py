@@ -470,9 +470,15 @@ class ArchContrastTests(unittest.TestCase):
                 self.assertEqual(statuses, {STATUS_CURRENT})
                 lists = [dv.formula1 for dv in rows.data_validations.dataValidation]
                 self.assertTrue(any("Requirement Met" in (formula or "") and "Require Customer Clarified" in (formula or "") and "Closed" in (formula or "") for formula in lists))
-                for name in ("Priority\n优先级", "Comments\n意见", "From whom\n提出人", "HMC feedback\n客户反馈"):
+                for name in ("Priority\n优先级", "From whom\n提出人", "HMC feedback\n客户反馈"):
                     col = REQ_COLUMNS.index(name) + 1
                     self.assertEqual([rows.cell(r, col).value for r in range(2, rows.max_row + 1) if rows.cell(r, col).value], [], name)
+                comment_col = REQ_COLUMNS.index("Comments\n意见") + 1
+                opinions = [rows.cell(r, comment_col).value for r in range(2, rows.max_row + 1) if rows.cell(r, 1).value]
+                self.assertTrue(opinions)
+                self.assertTrue(all(opinions))
+                for text in opinions:
+                    self.assertNotIn("满足", str(text))
                 qty_col = REQ_COLUMNS.index("数值与单位") + 1
                 self.assertIn("Closed-loop feedback applies within 10 ms；(at 25 °C；ambient, 50%", [rows.cell(r, qty_col).value for r in range(2, rows.max_row + 1)])
                 excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
@@ -879,6 +885,35 @@ class ArchContrastTests(unittest.TestCase):
             "1000 210.00 21.99"
         )
         self.assertEqual(blocks, ["500 210.00 10.99", "1000 210.00 21.99"])
+
+
+class ArchOpinionTests(unittest.TestCase):
+    def test_power_conflict_uses_the_power_card_and_keeps_the_current_wording(self) -> None:
+        from electrical_krow.arch_opinion import assign_opinion
+
+        note = "【内容质检】同条最大输出功率口径不一：既写 2.5kW，又写 Max. output = 2.72kW"
+        opinion, reason = assign_opinion("Max. output = 2.72kW", note)
+        self.assertIn("同文件功率不一致", opinion)
+        self.assertNotIn("满足", opinion)
+        self.assertIn("arch-same-file-power", reason)
+        self.assertIn("2.5kW", reason)
+        self.assertIn("2.72kW", reason)
+
+    def test_named_standard_cites_the_registered_source(self) -> None:
+        from electrical_krow.arch_opinion import assign_opinion
+
+        opinion, reason = assign_opinion("The insulation shall comply with GB/T 18488-2024.")
+        self.assertIn("对照该标准", opinion)
+        self.assertNotIn("满足", opinion)
+        self.assertIn("ed-", reason)
+        self.assertIn("18488", reason)
+
+    def test_unmatched_row_still_gets_an_opinion(self) -> None:
+        from electrical_krow.arch_opinion import assign_opinion
+
+        opinion, reason = assign_opinion("Submit the development plan.")
+        self.assertIn("尚无对应口径", opinion)
+        self.assertIn("没有对上", reason)
 
 
 if __name__ == "__main__":

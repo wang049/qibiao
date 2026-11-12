@@ -52,6 +52,12 @@ sources:
     classification: 内部
     leave_site: false
     used_for: 确认后补卡片，未提供前不进检索
+  - id: arch-corpus
+    title: 电驱资料目录
+    provided_by: 现场整理，待确认
+    classification: 内部
+    leave_site: false
+    used_for: 电驱需求、标准、接口、图纸和已有对照的来源登记。待确认前不把其中的限值写入抽出值，也不开选段。
 
 topics:
   - 设计范围

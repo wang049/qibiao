@@ -940,13 +940,16 @@ def _place_picture(sheet: Worksheet, row: int, col: int, png: bytes) -> None:
     with PilImage.open(BytesIO(png)) as raw:
         width, height = max(1, raw.width), max(1, raw.height)
     image = XlImage(BytesIO(png))
-    image.width = width
-    image.height = height
+    scale = min(640 / width, 400 / height, 1.0)
+    show_w = max(1, int(width * scale))
+    show_h = max(1, int(height * scale))
+    image.width = show_w
+    image.height = show_h
     sheet.add_image(image, f"{get_column_letter(col)}{row}")
-    sheet.row_dimensions[row].height = height + 8
+    sheet.row_dimensions[row].height = min(409, show_h + 8)
     letter = get_column_letter(col)
     current = sheet.column_dimensions[letter].width or 0
-    needed = width / 7 + 2
+    needed = show_w / 7 + 2
     if current < needed:
         sheet.column_dimensions[letter].width = needed
 

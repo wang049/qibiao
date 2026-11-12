@@ -131,11 +131,11 @@ class WorkbookTests(unittest.TestCase):
                 extract=True,
             )
             wb = load_workbook(out)
-            cover = {r[0]: r[1] for r in wb["说明"].iter_rows(values_only=True) if r and r[0]}
+            cover = {r[0]: r[1] for r in wb["01_封面"].iter_rows(values_only=True) if r and r[0]}
             self.assertEqual(cover["已检索到"], 2)
             self.assertEqual(cover["局部对应/需人工复核"], 0)
             self.assertIn("待专家口径", cover)
-            ws = wb["电控设计需求"]
+            ws = wb["02_需求核对"]
             rows = {r[2].value: r for r in ws.iter_rows(min_row=3) if isinstance(r[2].value, int)}
             r75, r24 = rows[75], rows[24]
             self.assertEqual(r75[0].value, STATUS_FOUND)

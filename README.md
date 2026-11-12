@@ -31,7 +31,7 @@ python -m electrical_krow desktop
 
 仍可用 `python -m electrical_krow gateway` 只起服务并打开系统浏览器。
 
-需要旁边的 `electrical` 工程（默认与本仓库同级），或设 `ELECTRICAL_ROOT`。
+SOR 出表用本仓库里的 `electrical/`。要换成本机另一份时，再设 `ELECTRICAL_ROOT`。
 
 ## Windows 客户端包
 

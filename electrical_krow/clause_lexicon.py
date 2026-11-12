@@ -84,6 +84,7 @@ def lexicon_json_path() -> Path | None:
     candidates = [
         _PROJECT_ROOT / "docs" / "clause_lexicon.json",
         Path.cwd() / "docs" / "clause_lexicon.json",
+        _PROJECT_ROOT / "electrical" / "electrical" / "templates" / "clause_lexicon.json",
         _PROJECT_ROOT.parent / "electrical" / "electrical" / "templates" / "clause_lexicon.json",
     ]
     for path in candidates:

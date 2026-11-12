@@ -376,7 +376,23 @@ select:disabled {
   gap: 12px;
 }
 .toolbar-end { display: flex; align-items: flex-end; gap: 8px; }
-.tool-top { display: flex; justify-content: flex-end; margin: 0 0 10px; }
+.tool-top { display: flex; justify-content: flex-end; margin: 0 0 12px; }
+.flow-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px 0 10px;
+  background: var(--accent-wash);
+  color: var(--accent-ink);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 650;
+  box-shadow: none;
+}
+.flow-open svg { width: 14px; height: 14px; flex: none; }
+.flow-open:hover { background: var(--surface); }
 .embed-settings { display: none; }
 body.is-embed .embed-settings { display: inline-flex; align-items: center; justify-content: center; height: 42px; align-self: flex-end; }
 .model-pick { margin-bottom: 0; }

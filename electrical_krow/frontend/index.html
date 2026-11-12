@@ -239,7 +239,7 @@
           </div>
 
           <div id="arch-card" class="card tool-card" hidden>
-            <div class="tool-top"><button type="button" class="ghost header-btn" data-flow="arch" data-i18n="flow.open">流程图</button></div>
+            <div class="tool-top"><button type="button" class="flow-open" data-flow="arch"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="1.6" width="11.6" height="12.8" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 5.2h6M5 8h6M5 10.8h3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span data-i18n="flow.open">使用说明</span></button></div>
             <ol class="io-steps">
               <li><span>1</span><em data-i18n="arch.step1">读取前先做文件内容质检：拦下不可读文件，核对同文件参数冲突、中英数值与语义矛盾、算式与待定项</em></li>
               <li><span>2</span><em data-i18n="arch.step2">按条款拆条，记下页码、章节、条款号、原文和带单位的数值</em></li>
@@ -279,7 +279,7 @@
           </div>
 
           <div id="bom-card" class="card tool-card" hidden>
-            <div class="tool-top"><button type="button" class="ghost header-btn" data-flow="bom" data-i18n="flow.open">流程图</button></div>
+            <div class="tool-top"><button type="button" class="flow-open" data-flow="bom"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="1.6" width="11.6" height="12.8" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 5.2h6M5 8h6M5 10.8h3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span data-i18n="flow.open">使用说明</span></button></div>
             <ol class="io-steps">
               <li><span>1</span><em data-i18n="bom.step1">电子件用 AD 导出的 BOM，结构件用总成图纸</em></li>
               <li><span>2</span><em data-i18n="bom.step2">电子件按 TYPE 写中文名称、用量、规格，级别默认 4</em></li>
@@ -317,7 +317,7 @@
           </div>
 
           <div id="icd-card" class="card tool-card" hidden>
-            <div class="tool-top"><button type="button" class="ghost header-btn" data-flow="icd" data-i18n="flow.open">流程图</button></div>
+            <div class="tool-top"><button type="button" class="flow-open" data-flow="icd"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="1.6" width="11.6" height="12.8" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 5.2h6M5 8h6M5 10.8h3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span data-i18n="flow.open">使用说明</span></button></div>
             <ol class="io-steps">
               <li><span>1</span><em data-i18n="icd.step1">读取当份 ICD 工作簿</em></li>
               <li><span>2</span><em data-i18n="icd.step2">按表抽出接插件、引脚号、信号定义、信号名称、类型和电流</em></li>
@@ -355,7 +355,7 @@
           </div>
 
           <div id="io-card" class="card tool-card" hidden>
-            <div class="tool-top"><button type="button" class="ghost header-btn" data-flow="io" data-i18n="flow.open">流程图</button></div>
+            <div class="tool-top"><button type="button" class="flow-open" data-flow="io"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="1.6" width="11.6" height="12.8" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 5.2h6M5 8h6M5 10.8h3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span data-i18n="flow.open">使用说明</span></button></div>
             <div class="io-modes" role="radiogroup" aria-label="生成方式">
               <label><input type="radio" name="io-mode" value="schematic" checked /><span data-i18n="io.modeSchematic">按原理图生成</span></label>
               <label><input type="radio" name="io-mode" value="mcu" /><span data-i18n="io.modeMcu">按芯片手册生成</span></label>
@@ -456,7 +456,7 @@
                 <select id="model"></select>
         </label>
               <div class="toolbar-end">
-                <button type="button" class="ghost header-btn" data-flow="extract" data-i18n="flow.open">流程图</button>
+                <button type="button" class="flow-open" data-flow="extract"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.2" y="1.6" width="11.6" height="12.8" rx="1.4" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 5.2h6M5 8h6M5 10.8h3.8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg><span data-i18n="flow.open">使用说明</span></button>
                 <button type="button" class="ghost header-btn js-open-settings embed-settings" data-i18n="settings">设置</button>
               </div>
             </div>

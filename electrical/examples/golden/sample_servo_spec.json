@@ -1,0 +1,19 @@
+{
+  "source": "sample_servo_spec.pdf",
+  "must": [
+    {"group": "文档", "name": "标题", "contains": "交流伺服电机"},
+    {"group": "文档", "name": "版本", "contains": "V2.1"},
+    {"group": "文档", "name": "日期", "contains": "2026-03-12"},
+    {"group": "产品标识", "name": "产品名称", "contains": "交流伺服电机"},
+    {"group": "产品标识", "name": "型号", "contains": "SV-200A-400W"},
+    {"group": "产品标识", "name": "制造商", "contains": "华科驱动"},
+    {"group": "电气/性能", "name": "额定电压", "contains": "220"},
+    {"group": "电气/性能", "name": "额定电流", "contains": "2.8"},
+    {"group": "电气/性能", "name": "额定功率", "contains": "400"},
+    {"group": "机械", "name": "外形尺寸", "contains": "128"},
+    {"group": "机械", "name": "重量", "contains": "1.35"},
+    {"group": "环境与认证", "name": "防护等级", "contains": "IP65"},
+    {"group": "环境与认证", "name": "认证标准", "contains": "CCC"}
+  ],
+  "must_not": []
+}

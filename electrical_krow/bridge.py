@@ -1,4 +1,4 @@
-"""接到旁边的 electrical 出表流水线。
+"""接到本仓库里的 electrical 出表流水线。
 
 填表仍走 electrical（读文件 → 分流 → 规则 + 分段识别 → Excel）。
 识别请求打回本登录页的 /v1/chat/completions（Bearer local）。
@@ -14,6 +14,7 @@ from electrical_krow.paths import PROJECT_ROOT
 
 
 def electrical_root() -> Path:
+    """出表工程在本仓库 electrical/。ELECTRICAL_ROOT 只用于换一份本地副本。"""
     override = (os.environ.get("ELECTRICAL_ROOT") or "").strip()
     if override:
         return Path(override).expanduser().resolve()
@@ -35,7 +36,7 @@ def ensure_electrical() -> Path:
     if not pkg.is_dir():
         raise FileNotFoundError(
             f"找不到 electrical 出表工程: {root}。"
-            "请把它放在与 electrical-krow 同级的目录，或设置 ELECTRICAL_ROOT。"
+            "本仓库应自带 electrical/。若要改用别的副本，设置 ELECTRICAL_ROOT。"
         )
     path = str(root)
     if path not in sys.path:

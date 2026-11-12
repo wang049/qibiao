@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+output/
+*.xlsx
+.DS_Store
+krow_workspace/
+.ocr_bin/
+
+!electrical/templates/*.xlsx
+!examples/**/*.xlsx

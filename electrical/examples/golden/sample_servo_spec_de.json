@@ -1,0 +1,14 @@
+{
+  "source": "sample_servo_spec_de.pdf",
+  "must": [
+    {"group": "产品标识", "name": "型号", "contains": "SV-200A-400W"},
+    {"group": "电气/性能", "name": "额定电流", "contains": "2.8"},
+    {"group": "机械", "name": "重量", "contains": "1.35"},
+    {"group": "环境与认证", "name": "认证标准", "contains": "CE"}
+  ],
+  "must_not": [
+    {"group": "产品标识", "name": "型号", "contains": "SV-200A-200W"},
+    {"group": "电气/性能", "name": "额定电流", "contains": "8.4"},
+    {"group": "机械", "name": "重量", "contains": "1.8"}
+  ]
+}

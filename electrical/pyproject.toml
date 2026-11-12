@@ -1,0 +1,30 @@
+[project]
+name = "electrical"
+version = "0.1.0"
+description = "电子电器 · SOR填表：拖入 PDF/Word/Excel，产出可核对的字段表"
+requires-python = ">=3.11"
+dependencies = [
+    "krow-agent-sdk[office]==0.9.2.2",
+    "httpx>=0.26",
+    "openpyxl>=3.1",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+ocr = ["rapidocr>=3.0", "onnxruntime"]
+
+[project.scripts]
+electrical = "electrical.__main__:main"
+electrical-web = "electrical.backend.app:main"
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["electrical*"]
+
+[tool.setuptools.package-data]
+electrical = ["frontend/*", "templates/*"]

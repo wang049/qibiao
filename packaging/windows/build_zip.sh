@@ -12,7 +12,10 @@ PY_ZIP="python-${PY_VER}-embed-amd64.zip"
 PY_URL="https://www.python.org/ftp/python/${PY_VER}/${PY_ZIP}"
 GET_PIP_URL="https://bootstrap.pypa.io/get-pip.py"
 NAME="${PACK_NAME:-电子电器SOR填表-windows-x64}"
-ELECTRICAL="${ELECTRICAL_ROOT:-$ROOT/../electrical}"
+ELECTRICAL="${ELECTRICAL_ROOT:-$ROOT/electrical}"
+if [ ! -d "$ELECTRICAL/electrical" ]; then
+  ELECTRICAL="$ROOT/../electrical"
+fi
 MODULES="${MODULES_SRC:-$HOME/.venv/lib/python3.12/site-packages/modules}"
 SDK_VER="$(sed -n 's/^krow-agent-sdk==//p' "$WIN/requirements.txt" | head -n 1)"
 if [ -z "$SDK_VER" ]; then

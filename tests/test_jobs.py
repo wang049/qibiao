@@ -38,6 +38,21 @@ class RetrievalCountTests(unittest.TestCase):
 
 
 class ReviewSheetNameTests(unittest.TestCase):
+    def test_extract_pipeline_lives_in_this_repo(self) -> None:
+        import os
+
+        from electrical_krow.bridge import electrical_root
+        from electrical_krow.paths import PROJECT_ROOT
+
+        old = os.environ.pop("ELECTRICAL_ROOT", None)
+        try:
+            root = electrical_root()
+        finally:
+            if old is not None:
+                os.environ["ELECTRICAL_ROOT"] = old
+        self.assertEqual(root, (PROJECT_ROOT / "electrical").resolve())
+        self.assertTrue((root / "electrical" / "pipeline.py").is_file())
+
     def test_original_name_and_export_time(self) -> None:
         when = datetime(2026, 9, 4, 10, 25, 33)
         self.assertEqual(

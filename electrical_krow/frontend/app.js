@@ -284,6 +284,7 @@ function applyWorkPanel() {
   const io = on && workPanel === "io";
   const icd = on && workPanel === "icd";
   const bom = on && workPanel === "bom";
+  const etest = on && workPanel === "etest";
   const arch = on && workPanel === "arch";
   $("home-card").hidden = !home;
   $("work-card").hidden = !extract;
@@ -291,6 +292,7 @@ function applyWorkPanel() {
   $("io-card").hidden = !io;
   $("icd-card").hidden = !icd;
   $("bom-card").hidden = !bom;
+  $("etest-card").hidden = !etest;
   $("arch-card").hidden = !arch;
   document.body.classList.toggle("is-logged", on);
   document.body.classList.toggle("is-home", home);
@@ -302,11 +304,13 @@ function applyWorkPanel() {
   $("rail-io")?.classList.toggle("is-on", io);
   $("rail-icd")?.classList.toggle("is-on", icd);
   $("rail-bom")?.classList.toggle("is-on", bom);
+  $("rail-etest")?.classList.toggle("is-on", etest);
   $("rail-arch")?.classList.toggle("is-on", arch);
   $("rail-kb")?.classList.toggle("is-on", kb);
   if (io) setRailRecordTab("hsi");
   else if (icd) setRailRecordTab("icd");
   else if (bom) setRailRecordTab("bom");
+  else if (etest) setRailRecordTab("etest");
   else if (arch) setRailRecordTab("arch");
   else if (extract) setRailRecordTab("jobs");
   // 知识库页的口径只在页内蓝条说一次，标题下不再放副标题
@@ -346,6 +350,12 @@ function applyWorkPanel() {
     $("kicker").textContent = tx("hero.bom.kicker");
     $("title").innerHTML = tx("hero.bom.title");
     $("lead").textContent = tx("hero.bom.lead");
+    return;
+  }
+  if (etest) {
+    $("kicker").textContent = tx("hero.etest.kicker");
+    $("title").innerHTML = tx("hero.etest.title");
+    $("lead").textContent = tx("hero.etest.lead");
     return;
   }
   if (arch) {
@@ -470,11 +480,13 @@ let hsiRows = [];
 let jobSources = [];
 let hsiSources = [];
 let archSources = [];
-let recordFolders = { jobs: [], hsi: [], arch: [], icd: [], bom: [] };
+let recordFolders = { jobs: [], hsi: [], arch: [], icd: [], bom: [], etest: [] };
 let icdRows = [];
 let bomRows = [];
+let etestRows = [];
 let icdSources = [];
 let bomSources = [];
+let etestSources = [];
 let recordNote = null;
 let recordOpen = {};
 let recordDraft = null;
@@ -485,11 +497,12 @@ function renderByKind(kind) {
   else if (kind === "arch") renderArch();
   else if (kind === "icd") renderSheetRecords("icd");
   else if (kind === "bom") renderSheetRecords("bom");
+  else if (kind === "etest") renderSheetRecords("etest");
   else renderJobs();
 }
 
 function recordListId(kind) {
-  return { hsi: "hsi-list", arch: "arch-list", icd: "icd-list", bom: "bom-list" }[kind] || "job-list";
+  return { hsi: "hsi-list", arch: "arch-list", icd: "icd-list", bom: "bom-list", etest: "etest-list" }[kind] || "job-list";
 }
 
 function recordFolderTitle(row, kind) {
@@ -987,6 +1000,7 @@ function renderArch() {
 const sheetRecord = {
   icd: { rows: () => icdRows, sources: () => icdSources, empty: "empty.icd", attr: "data-icd", panel: "icd", msg: setIcdMsg, show: showIcdDownload },
   bom: { rows: () => bomRows, sources: () => bomSources, empty: "empty.bom", attr: "data-bom", panel: "bom", msg: setBomMsg, show: showBomDownload },
+  etest: { rows: () => etestRows, sources: () => etestSources, empty: "empty.etest", attr: "data-etest", panel: "etest", msg: setEtestMsg, show: showEtestDownload },
 };
 
 function renderSheetRecords(kind) {
@@ -1000,9 +1014,9 @@ function renderSheetRecords(kind) {
     const when = fmtWhen(row.created_at);
     if (when) bits.push(when);
     if (kind === "icd" && row.pins) bits.push(tx("io.pins", { n: row.pins }));
-    if (kind === "bom" && row.rows) bits.push(tx("arch.rows", { n: row.rows }));
+    if ((kind === "bom" || kind === "etest") && row.rows) bits.push(tx("arch.rows", { n: row.rows }));
     const meta = "<span class='job-meta'><span class='job-meta-text'>" + escText(bits.join(" · ")) + "</span></span>";
-    const kindLabel = kind === "bom" ? tx("record.kind.bom") : tx("record.kind.icd");
+    const kindLabel = kind === "bom" ? tx("record.kind.bom") : kind === "etest" ? tx("record.kind.etest") : tx("record.kind.icd");
     const inner = recordInner(kindLabel, recordTitle(name), meta);
     return recordCard(kind, row, spec.attr, row.download || "", name, inner);
   }, () => "<p class='job-empty'>" + tx(spec.empty) + "</p>");
@@ -1170,12 +1184,13 @@ $("work-open-dir")?.addEventListener("click", async () => {
 async function loadJobs() {
   if (!loggedIn) return;
   try {
-    const [data, hsi, arch, icd, bom] = await Promise.all([
+    const [data, hsi, arch, icd, bom, etest] = await Promise.all([
       json("/api/jobs"),
       json("/api/hsi/history").catch(() => ({ records: [] })),
       json("/api/arch/history").catch(() => ({ records: [] })),
       json("/api/icd/history").catch(() => ({ records: [] })),
       json("/api/ce-bom/history").catch(() => ({ records: [] })),
+      json("/api/enterprise-test/history").catch(() => ({ records: [] })),
     ]);
     const split = (rows) => {
       const outputs = [];
@@ -1191,18 +1206,21 @@ async function loadJobs() {
     [archRows, archSources] = split(arch.records);
     [icdRows, icdSources] = split(icd.records);
     [bomRows, bomSources] = split(bom.records);
+    [etestRows, etestSources] = split(etest.records);
     recordFolders = {
       jobs: data.folders || [],
       hsi: hsi.folders || [],
       arch: arch.folders || [],
       icd: icd.folders || [],
       bom: bom.folders || [],
+      etest: etest.folders || [],
     };
     renderJobs();
     renderHsi();
     renderArch();
     renderSheetRecords("icd");
     renderSheetRecords("bom");
+    renderSheetRecords("etest");
   } catch {
     if (!$("job-list").children.length) {
       $("job-list").innerHTML = "<p class='job-empty'>" + tx("jobs.unread") + "</p>";
@@ -1751,9 +1769,9 @@ function goExtract(opts) {
 }
 
 function setRailRecordTab(tab) {
-  const pick = ["hsi", "arch", "icd", "bom"].includes(tab) ? tab : "jobs";
-  const panels = { jobs: $("job-list"), hsi: $("hsi-list"), icd: $("icd-list"), bom: $("bom-list"), arch: $("arch-list") };
-  const tabs = { jobs: $("rail-tab-jobs"), hsi: $("rail-tab-hsi"), icd: $("rail-tab-icd"), bom: $("rail-tab-bom"), arch: $("rail-tab-arch") };
+  const pick = ["hsi", "arch", "icd", "bom", "etest"].includes(tab) ? tab : "jobs";
+  const panels = { jobs: $("job-list"), hsi: $("hsi-list"), icd: $("icd-list"), bom: $("bom-list"), etest: $("etest-list"), arch: $("arch-list") };
+  const tabs = { jobs: $("rail-tab-jobs"), hsi: $("rail-tab-hsi"), icd: $("rail-tab-icd"), bom: $("rail-tab-bom"), etest: $("rail-tab-etest"), arch: $("rail-tab-arch") };
   Object.keys(panels).forEach((key) => {
     const on = key === pick;
     if (panels[key]) panels[key].hidden = !on;
@@ -1767,12 +1785,14 @@ $("rail-extract").onclick = () => goExtract({ clearFile: true });
 $("rail-io").onclick = () => setPanel("io");
 $("rail-icd").onclick = () => setPanel("icd");
 $("rail-bom").onclick = () => setPanel("bom");
+$("rail-etest").onclick = () => setPanel("etest");
 $("rail-arch").onclick = () => setPanel("arch");
 $("rail-kb").onclick = () => setPanel("kb");
 $("rail-tab-jobs").onclick = () => setRailRecordTab("jobs");
 $("rail-tab-hsi").onclick = () => setRailRecordTab("hsi");
 $("rail-tab-icd").onclick = () => setRailRecordTab("icd");
 $("rail-tab-bom").onclick = () => setRailRecordTab("bom");
+$("rail-tab-etest").onclick = () => setRailRecordTab("etest");
 $("rail-tab-arch").onclick = () => setRailRecordTab("arch");
 function syncIoResult() {
   const row = $("io-result");
@@ -2046,7 +2066,7 @@ function syncIoFileName(input, nameEl) {
 }
 
 function storedSources(accept, kind) {
-  const rows = kind === "hsi" ? hsiSources : kind === "arch" ? archSources : kind === "icd" ? icdSources : kind === "bom" ? bomSources : jobSources;
+  const rows = kind === "hsi" ? hsiSources : kind === "arch" ? archSources : kind === "icd" ? icdSources : kind === "bom" ? bomSources : kind === "etest" ? etestSources : jobSources;
   const seen = new Set();
   return rows.filter((row) => {
     const id = String(row.id || "");
@@ -2119,6 +2139,7 @@ function reportPickError(target, err) {
   if (target === "io-manual" || target === "io-previous" || target === "io-schematic" || target === "io-template") setIoMsg(msg);
   else if (target === "icd-file" || target === "icd-previous") setIcdMsg(msg);
   else if (target === "bom-manuals" || target === "bom-template" || target === "bom-previous") setBomMsg(msg);
+  else if (target === "etest-standard" || target === "etest-existing" || target === "etest-rules" || target === "etest-report" || target === "etest-plan") setEtestMsg(msg);
   else if (target === "arch-files") setArchMsg(msg);
   else {
     const host = $("file-info");
@@ -2800,6 +2821,164 @@ $("bom-build").onclick = async () => {
     refreshBomGenerate();
   }
 };
+function setEtestMsg(text, kind) {
+  const msg = $("etest-msg");
+  const box = $("etest-result");
+  if (!msg || !box) return;
+  box.hidden = !text;
+  msg.hidden = !text;
+  msg.textContent = text || "";
+  msg.className = "msg" + (kind === "ok" ? " is-ok" : "");
+}
+
+function bindEtestLink(id, href, label) {
+  const link = $(id);
+  if (!link) return;
+  if (!href) {
+    link.hidden = true;
+    link.removeAttribute("href");
+    link.textContent = "";
+    return;
+  }
+  link.hidden = false;
+  link.href = apiUrl(href);
+  link.textContent = label;
+}
+
+function clearEtestDownload() {
+  bindEtestLink("etest-dl", "", "");
+  bindEtestLink("etest-report-dl", "", "");
+  bindEtestLink("etest-plan-dl", "", "");
+}
+
+function showEtestDownload(data) {
+  if (!data) return;
+  bindEtestLink("etest-dl", data.download, tx("etest.download"));
+  bindEtestLink("etest-report-dl", data.report_download, tx("etest.reportDownload"));
+  bindEtestLink("etest-plan-dl", data.plan_download, tx("etest.planDownload"));
+}
+
+const etestTalk = [];
+
+function renderEtestTalk() {
+  const log = $("etest-log");
+  if (!log) return;
+  log.replaceChildren();
+  if (!etestTalk.length) {
+    const empty = document.createElement("p");
+    empty.className = "etest-empty";
+    empty.textContent = tx("etest.emptyTalk");
+    log.append(empty);
+    return;
+  }
+  for (const row of etestTalk) {
+    const item = document.createElement("div");
+    item.className = "etest-turn" + (row.role === "user" ? " is-user" : " is-assistant");
+    const text = document.createElement("p");
+    text.textContent = row.content || "";
+    item.append(text);
+    for (const sheet of row.tables || []) {
+      const block = document.createElement("div");
+      block.className = "etest-sheet";
+      const caption = document.createElement("strong");
+      caption.textContent = sheet.title || "";
+      const wrap = document.createElement("div");
+      wrap.className = "etest-table-wrap";
+      const table = document.createElement("table");
+      table.className = "etest-table";
+      const head = document.createElement("thead");
+      const headRow = document.createElement("tr");
+      for (const name of sheet.headers || []) {
+        const cell = document.createElement("th");
+        cell.textContent = name;
+        headRow.append(cell);
+      }
+      head.append(headRow);
+      const body = document.createElement("tbody");
+      for (const values of sheet.rows || []) {
+        const line = document.createElement("tr");
+        for (const value of values) {
+          const cell = document.createElement("td");
+          cell.textContent = value == null ? "" : String(value);
+          line.append(cell);
+        }
+        body.append(line);
+      }
+      table.append(head, body);
+      wrap.append(table);
+      block.append(caption, wrap);
+      item.append(block);
+    }
+    log.append(item);
+  }
+  log.scrollTop = log.scrollHeight;
+}
+
+async function sendEtestTalk() {
+  const input = $("etest-input");
+  const text = (input.value || "").trim();
+  if (!text) return;
+  etestTalk.push({ role: "user", content: text });
+  input.value = "";
+  renderEtestTalk();
+  $("etest-send").disabled = true;
+  setEtestMsg(tx("etest.busy"), "ok");
+  try {
+    const resp = await fetch(apiUrl("/api/enterprise-test/chat"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { ...authHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify({ messages: etestTalk }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) {
+      const detail = data.detail || data.error || resp.statusText;
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    etestTalk.push({
+      role: "assistant",
+      content: data.reply || "",
+      tables: Array.isArray(data.tables) ? data.tables : [],
+    });
+    renderEtestTalk();
+    setEtestMsg(data.page_note || "", data.source_url_set ? "ok" : "");
+  } catch (err) {
+    etestTalk.pop();
+    renderEtestTalk();
+    input.value = text;
+    setEtestMsg(err.message || String(err));
+  } finally {
+    $("etest-send").disabled = false;
+  }
+}
+
+$("etest-back").onclick = () => setPanel("home");
+$("etest-form").addEventListener("submit", (ev) => {
+  ev.preventDefault();
+  sendEtestTalk();
+});
+renderEtestTalk();
+async function saveEtestLink(ev) {
+  const link = ev.currentTarget;
+  const api = desktopSave();
+  if (!api) return;
+  ev.preventDefault();
+  const href = link.getAttribute("href") || "";
+  const name = decodeURIComponent(href.split("/").pop() || "");
+  const filter = name.toLowerCase().endsWith(".docx") ? "Word (*.docx)" : "Excel (*.xlsx)";
+  try {
+    const out = await api.save_sheet(name, filter);
+    if (out && out.canceled) return;
+    if (out && out.ok) return;
+    throw new Error((out && out.error) || tx("err.save"));
+  } catch (e) {
+    setEtestMsg(e.message || String(e));
+  }
+}
+for (const id of ["etest-dl", "etest-report-dl", "etest-plan-dl"]) {
+  const link = $(id);
+  if (link) link.addEventListener("click", saveEtestLink);
+}
 $("bom-dl").addEventListener("click", async (ev) => {
   const link = ev.currentTarget;
   const api = desktopSave();

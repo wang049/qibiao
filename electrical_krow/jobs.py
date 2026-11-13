@@ -70,11 +70,13 @@ _HISTORY_FIELDS = (
 ARCH_PREFIX = "架构对照-"
 ICD_PREFIX = "ICD引脚清单-"
 BOM_PREFIX = "CEBOM-"
+ETEST_PREFIX = "企标测试清单-"
 OUTPUT_KINDS = {
     "icd": (ICD_PREFIX, "引脚清单已生成"),
     "bom": (BOM_PREFIX, "CE BOM 已生成"),
+    "etest": (ETEST_PREFIX, "企标测试清单已生成"),
 }
-RECORD_KINDS = frozenset({"jobs", "hsi", "arch", "icd", "bom"})
+RECORD_KINDS = frozenset({"jobs", "hsi", "arch", "icd", "bom", "etest"})
 # 出表中的实时计数（不进历史）：已处理分段 / 分段总数 / 已抽出格数
 _LIVE_FIELDS = {"chunk_done", "chunk_total", "filled"}
 _COMPARE_LIST_LIMIT = 20

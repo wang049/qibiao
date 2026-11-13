@@ -37,6 +37,15 @@ from electrical_krow.hsi_book import (
     revise_hsi_from_schematic,
 )
 from electrical_krow.ce_bom import DEFAULT_CE_BOM_TEMPLATE, build_ce_bom, ce_bom_file_name
+from electrical_krow.enterprise_dialogue import (
+    analysis_messages,
+    clean_turns,
+    fetch_source_page,
+    file_key_brief,
+    output_tables,
+    source_url,
+)
+from electrical_krow.enterprise_test import Clock, build_enterprise_test, enterprise_test_file_name
 from electrical_krow.icd_book import build_icd, icd_file_name
 from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
 from electrical_krow.io_plan import write_io_sheet
@@ -1370,6 +1379,172 @@ def create_app(
             "folders": request.app.state.jobs.list_record_folders(user, "bom"),
         }
 
+    @app.post("/api/enterprise-test")
+    async def create_enterprise_test(
+        request: Request,
+        standard: UploadFile = File(...),
+        existing: UploadFile | None = File(default=None),
+        rules: UploadFile | None = File(default=None),
+        report_template: UploadFile | None = File(default=None),
+        plan_template: UploadFile | None = File(default=None),
+        supplier: str = Form(""),
+        start_date: str = Form(""),
+        day_count: str = Form(""),
+        material_version: str = Form(""),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """生成企标测试清单、对比表和用例，并按已给阶段模板填报。"""
+        item = _require_session(request, authorization)
+        standard_name = Path(standard.filename or "").name
+        if Path(standard_name).suffix.lower() not in {".pdf", ".docx", ".xlsx", ".xlsm", ".txt", ".md"}:
+            raise HTTPException(400, "企标请用 PDF、Word、Excel 或文本。")
+        standard_bytes = await read_capped_upload(standard)
+
+        async def _optional(
+            upload: UploadFile | None,
+            allowed: set[str],
+            message: str,
+        ) -> tuple[str, bytes]:
+            if upload is None or not upload.filename:
+                return "", b""
+            name = Path(upload.filename).name
+            if Path(name).suffix.lower() not in allowed:
+                raise HTTPException(400, message)
+            return name, await read_capped_upload(upload)
+
+        existing_name, existing_bytes = await _optional(
+            existing, {".docx", ".xlsx", ".xlsm", ".txt", ".md"}, "既有测试项请用 Excel、Word 或文本。"
+        )
+        rules_name, rules_bytes = await _optional(
+            rules, {".docx", ".xlsx", ".xlsm", ".txt", ".md"}, "测试用例规则请用 Excel、Word 或文本。"
+        )
+        report_name, report_bytes = await _optional(
+            report_template, {".docx", ".xlsx", ".xlsm"}, "测试报告阶段模板请用 Word 或 Excel。"
+        )
+        plan_name, plan_bytes = await _optional(
+            plan_template, {".docx", ".xlsx", ".xlsm"}, "测试方案阶段模板请用 Word 或 Excel。"
+        )
+        with tempfile.TemporaryDirectory() as raw:
+            folder = Path(raw)
+
+            def _write(name: str, payload: bytes) -> Path | None:
+                if not name or not payload:
+                    return None
+                path = folder / name
+                path.write_bytes(payload)
+                return path
+
+            standard_path = folder / standard_name
+            standard_path.write_bytes(standard_bytes)
+            final_name = enterprise_test_file_name()
+            dest_tmp = folder / final_name
+            try:
+                result = await asyncio.to_thread(
+                    build_enterprise_test,
+                    standard_path,
+                    dest_tmp,
+                    existing=_write(existing_name, existing_bytes),
+                    rules=_write(rules_name, rules_bytes),
+                    report_template=_write(report_name, report_bytes),
+                    plan_template=_write(plan_name, plan_bytes),
+                    supplier=supplier,
+                    clock=Clock(start_date, day_count, material_version),
+                )
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
+            dest = request.app.state.jobs.output_dir / final_name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(dest_tmp.read_bytes())
+            saved: dict[str, Path | None] = {"report": None, "plan": None}
+            for key, produced in (("report", result.report_path), ("plan", result.plan_path)):
+                if produced is None or not produced.is_file():
+                    continue
+                copy = dest.parent / produced.name
+                copy.write_bytes(produced.read_bytes())
+                saved[key] = copy
+        try:
+            open_locally(dest)
+        except OpenError as exc:
+            raise HTTPException(500, str(exc)) from exc
+        request.app.state.jobs.remember_output(
+            kind="etest",
+            name=dest.name,
+            username=item.auth.username,
+            rows=result.listed,
+            pending_note=result.pending,
+        )
+        return {
+            "ok": True,
+            "name": dest.name,
+            "download": f"/files/{dest.name}",
+            "items": result.items,
+            "listed": result.listed,
+            "pending": result.pending,
+            "clock_started": result.clock_started,
+            "due": result.due,
+            "cases": result.cases,
+            "ruled": result.ruled,
+            "drafts": result.drafts,
+            "report": saved["report"].name if saved["report"] else "",
+            "report_download": f"/files/{saved['report'].name}" if saved["report"] else "",
+            "plan": saved["plan"].name if saved["plan"] else "",
+            "plan_download": f"/files/{saved['plan'].name}" if saved["plan"] else "",
+        }
+
+    @app.post("/api/enterprise-test/chat")
+    async def enterprise_test_chat(
+        body: ChatIn,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """对话整理问题，读取已配置网址，再对照本地企标关键行作答。"""
+        item = _require_session(request, authorization)
+        try:
+            turns = clean_turns(
+                [{"role": row.role, "content": row.content} for row in body.messages]
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        model = (item.extract_model or _active_model(item) or cfg.chat_model).strip()
+        try:
+            analysed = await asyncio.to_thread(
+                complete,
+                cfg.server_url,
+                item.auth,
+                analysis_messages(turns),
+                model=model,
+                temperature=0.0,
+                timeout=cfg.timeout_sec,
+                extra={"thinking": {"type": "disabled"}},
+            )
+            page_text, page_note = await asyncio.to_thread(fetch_source_page, source_url())
+            brief = await asyncio.to_thread(file_key_brief)
+            tables = output_tables(page_text, brief)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except LLMError as exc:
+            raise HTTPException(502, str(exc)) from exc
+        return {
+            "reply": "已按企标测试清单、测试项对比表、测试用例和填报记录列出。",
+            "tables": tables,
+            "analysis": analysed.content,
+            "page_note": page_note,
+            "source_url_set": bool(source_url()),
+        }
+
+    @app.get("/api/enterprise-test/history")
+    def enterprise_test_history(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        item = _require_session(request, authorization)
+        user = item.auth.username
+        rows = request.app.state.jobs.list_output("etest", username=user)
+        return {
+            "records": request.app.state.jobs.with_sources(rows, user, "etest"),
+            "folders": request.app.state.jobs.list_record_folders(user, "etest"),
+        }
+
     @app.get("/files/{name}")
     def download(
         name: str,
@@ -1381,11 +1556,14 @@ def create_app(
         path = (root / name).resolve()
         if path.parent != root.resolve() or not path.is_file():
             raise HTTPException(404, "找不到核对表")
-        return FileResponse(
-            path,
-            filename=path.name,
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        media = {
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
+        }.get(
+            path.suffix.lower(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
+        return FileResponse(path, filename=path.name, media_type=media)
 
     @app.post("/api/files/{name}/open")
     def open_file(

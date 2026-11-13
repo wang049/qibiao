@@ -84,6 +84,9 @@
           <button type="button" id="rail-bom" class="rail-fn">
             <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4h12v3H4zM4 8.5h12v3H4zM4 13h8v3H4z"/></svg><span data-i18n="rail.bom">CE BOM 输出</span></span>
           </button>
+          <button type="button" id="rail-etest" class="rail-fn">
+            <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3h12v2H4zM4 7h12v2H4zM4 11h8v2H4zM4 15h10v2H4z"/></svg><span data-i18n="rail.etest">企标测试</span></span>
+          </button>
           <button type="button" id="rail-arch" class="rail-fn">
             <span class="rail-fn-label"><svg class="rail-ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4h12v3H4zM4 8.5h12v3H4zM4 13h12v3H4z"/></svg><span data-i18n="rail.arch">电驱需求拆解</span></span>
           </button>
@@ -99,12 +102,14 @@
             <button type="button" id="rail-tab-hsi" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.hsiJobs">HSI</button>
             <button type="button" id="rail-tab-icd" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.icdJobs">ICD</button>
             <button type="button" id="rail-tab-bom" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.bomJobs">BOM</button>
+            <button type="button" id="rail-tab-etest" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.etestJobs">企标</button>
             <button type="button" id="rail-tab-arch" class="rail-tab" role="tab" aria-selected="false" data-i18n="rail.archJobs">拆解</button>
           </div>
           <div id="job-list" class="job-list" role="tabpanel"></div>
           <div id="hsi-list" class="job-list" role="tabpanel" hidden></div>
           <div id="icd-list" class="job-list" role="tabpanel" hidden></div>
           <div id="bom-list" class="job-list" role="tabpanel" hidden></div>
+          <div id="etest-list" class="job-list" role="tabpanel" hidden></div>
           <div id="arch-list" class="job-list" role="tabpanel" hidden></div>
         </div>
         <div id="who-wrap" class="rail-user" hidden>
@@ -223,6 +228,18 @@
                 </span>
                 <span class="fn-go" data-i18n="home.bom.go">进入输出</span>
               </button>
+              <button type="button" class="fn-card" data-go="etest">
+                <span class="fn-head">
+                  <span class="fn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16v3H4zM4 9h16v3H4zM4 14h12v3H4zM4 19h14v2H4z"/></svg></span>
+                  <span class="fn-kicker" data-i18n="home.etest.kicker">企标测试</span>
+                </span>
+                <strong data-i18n="home.etest.cardTitle">从企标抽出测试项，建立清单、对比表和用例。</strong>
+                <span class="fn-chips">
+                  <span data-i18n="home.etest.chipStd">企标</span>
+                  <span data-i18n="home.etest.chipList">清单</span>
+                </span>
+                <span class="fn-go" data-i18n="home.etest.go">进入清单</span>
+              </button>
               <button type="button" class="fn-card" data-go="arch">
                 <span class="fn-head">
                   <span class="fn-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 4h16v4H4zM4 10h16v4H4zM4 16h16v4H4z"/><path d="M8 6h.01M8 12h.01M8 18h.01" class="ico-line ico-dot"/></svg></span>
@@ -313,6 +330,29 @@
             <div id="bom-result" class="io-result" hidden>
               <p id="bom-msg" class="msg" hidden></p>
               <a id="bom-dl" class="dl" hidden></a>
+            </div>
+          </div>
+
+          <div id="etest-card" class="card tool-card" hidden>
+            <ol class="io-steps">
+              <li><span>1</span><em data-i18n="etest.step1">对话说明要查的测试内容</em></li>
+              <li><span>2</span><em data-i18n="etest.step2">模型整理问题</em></li>
+              <li><span>3</span><em data-i18n="etest.step3">读取后续提供的网址</em></li>
+              <li><span>4</span><em data-i18n="etest.step4">按清单、对比表、用例和填报记录列出</em></li>
+            </ol>
+            <div id="etest-log" class="etest-log" aria-live="polite"></div>
+            <form id="etest-form" class="etest-compose">
+              <label class="visually-hidden" for="etest-input" data-i18n="etest.inputLabel">对话内容</label>
+              <textarea id="etest-input" rows="3" data-i18n-placeholder="etest.placeholder" placeholder="说明要查的试验或条款"></textarea>
+              <div class="io-bar">
+                <button id="etest-back" type="button" class="ghost" data-i18n="io.back">返回</button>
+                <div class="io-bar-end">
+                  <button id="etest-send" type="submit" data-i18n="etest.send">发送</button>
+                </div>
+              </div>
+            </form>
+            <div id="etest-result" class="io-result" hidden>
+              <p id="etest-msg" class="msg" hidden></p>
             </div>
           </div>
 

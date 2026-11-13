@@ -16,10 +16,10 @@
 
 - 确认口径：意见写卡片里的说法，理由带卡片编号和当份质检原句。数值与单位仍只来自当份原文。状态保持 To be confirmed。
 - 卡片 `arch-same-file-power`：同文件功率前后不一致时，意见为「标为同文件功率不一致，请按当份原文核对适用条件」。
-- 对不上标准、图号、接口和同文件冲突时，意见为「知识库尚无对应口径，需专家给出处理意见」。
+- 对不上标准、图号、接口和同文件冲突时，函数仍能返回「知识库尚无对应口径」。需求清单不把这句写进每一行，见 `2026-11-13-arch-blank-repeated-opinion.md`。
 
 ## 闸门
 
 `test_power_conflict_uses_the_power_card_and_keeps_the_current_wording`：意见含「同文件功率不一致」，不含「满足」；理由含卡片编号和当份的 2.5kW、2.72kW。
 `test_named_standard_cites_the_registered_source`：原文点名 GB/T 18488-2024 时，意见为对照该标准，理由带来源编号。
-`test_unmatched_row_still_gets_an_opinion`：对不上的条目仍有「尚无对应口径」。
+`test_unmatched_row_still_gets_an_opinion`：函数对不上时仍返回「尚无对应口径」。出表不把这句写入每一行。

@@ -103,16 +103,18 @@ _TABLE_MIN_TOKENS = 10
 _TABLE_NUMERIC = 0.5
 _TABLE_UNIQUE = 0.2
 
-_HEADER_FILL = PatternFill("solid", fgColor="1F4E79")
-_DIFF_FILL = PatternFill("solid", fgColor="FCE4E4")  # 参数清单里取值不一致的行
-_HEADER_FONT = Font(name="宋体", bold=True, color="FFFFFF", size=11)
-_BODY_FONT = Font(name="宋体", size=10)
+_HEADER_FILL = PatternFill("solid", fgColor="142B49")
+_DIFF_FILL = PatternFill("solid", fgColor="FCE4E4")  # 取值不一致或待定的行，隔行底色不能盖住
+_BAND_FILL = PatternFill("solid", fgColor="F3F6FA")
+_HEADER_FONT = Font(name="微软雅黑", bold=True, color="FFFFFF", size=11)
+_BODY_FONT = Font(name="微软雅黑", size=10, color="263445")
+_ID_FONT = Font(name="微软雅黑", size=10, bold=True, color="142B49")
 _WRAP = Alignment(wrap_text=True, vertical="top")
 _THIN = Border(
-    left=Side(style="thin", color="D9D9D9"),
-    right=Side(style="thin", color="D9D9D9"),
-    top=Side(style="thin", color="D9D9D9"),
-    bottom=Side(style="thin", color="D9D9D9"),
+    left=Side(style="thin", color="DCE3EB"),
+    right=Side(style="thin", color="DCE3EB"),
+    top=Side(style="thin", color="DCE3EB"),
+    bottom=Side(style="thin", color="DCE3EB"),
 )
 
 
@@ -131,6 +133,7 @@ class SourceDoc:
     path: str = ""  # 原文件路径，条款截图时再打开渲染；空则不截图
     lines: dict[int, list] = field(default_factory=dict)  # 页码 → 文字行 (bbox, text)，正文条目定位用
     table_rows: dict[int, list[list]] = field(default_factory=dict)  # 页码 → 每张表每行的范围，与 tables 对齐
+    unread: tuple[Unreadable, ...] = field(default_factory=tuple)  # 这份里单独读失败的页
 
 
 @dataclass(frozen=True)
@@ -138,6 +141,7 @@ class Unreadable:
     name: str
     pages: int
     reason: str
+    page: int = 0  # 大于 0 时是这一页读失败；0 表示整份文件
 
 
 @dataclass(frozen=True)
@@ -178,7 +182,7 @@ SHEET_REQS = "需求清单"
 REQ_COLUMNS = (
     "REQ-ID", "Priority\n优先级", "Base on SR\n章节", "SR content\n原文截图", "原文摘录", "数值与单位", "适用条件（原文括注）",
     "Category\n类别（建议）", "Comments\n意见", "From whom\n提出人", "Currently status\n状态", "HMC feedback\n客户反馈",
-    "Remark\n备注", "PDF页码",
+    "Remark\n备注", "PDF页码", "置信度", "人工修改",
 )
 # 类别建议：按章节名和条文里的关键词给一个值，供人改。只是建议，不是认条。
 _CATEGORY_RULES = (
@@ -215,6 +219,7 @@ def read_pdf_pages(path: Path, progress=None) -> SourceDoc | Unreadable:
             except Exception:  # noqa: BLE001
                 return Unreadable(path.name, 0, "文件已加密，读不出正文。")
         pages: list[tuple[int, str]] = []
+        failed_extract: set[int] = set()
         total_pages = len(reader.pages)
         for index, page in enumerate(reader.pages, start=1):
             if progress:
@@ -222,6 +227,7 @@ def read_pdf_pages(path: Path, progress=None) -> SourceDoc | Unreadable:
             try:
                 pages.append((index, _plain_glyphs(page.extract_text() or "")))
             except Exception:  # noqa: BLE001
+                failed_extract.add(index)
                 pages.append((index, ""))
     except Exception:  # noqa: BLE001
         return Unreadable(path.name, 0, "文件打不开，不是可读的 PDF。")
@@ -245,9 +251,19 @@ def read_pdf_pages(path: Path, progress=None) -> SourceDoc | Unreadable:
     from electrical_krow.arch_figures import apply_outlined_titles
 
     pages = apply_outlined_titles(path, tuple(pages), figures)
+    unread: list[Unreadable] = []
+    for index, text in pages:
+        if _compact(text) or tables.get(index) or image_tables.get(index) or figures.get(index):
+            continue
+        if index in failed_extract:
+            reason = f"第 {index} 页读取失败，未拆条，未从其他页补写。"
+        else:
+            reason = f"第 {index} 页没有文字，未拆条，未从其他页补写。"
+        unread.append(Unreadable(path.name, 1, reason, page=index))
     return SourceDoc(
         path.name, pages, tables, image_tables, figures,
         path=str(path), lines=read_text_lines(path, boxes), table_rows=row_boxes,
+        unread=tuple(unread),
     )
 
 
@@ -1462,7 +1478,10 @@ def split_document(doc: SourceDoc) -> tuple[list[list[object]], list[list[object
                 rows.append(plain(index, inner, section, "", entry_text, entry_val, entry.remark, note, entry.item, shot=Shot(index, box) if box else None))
 
     carried = ""  # 上一页末尾所在的章节；本页没有标题时沿用
+    skipped = {item.page for item in doc.unread if item.page}
     for index, raw in doc.pages:
+        if index in skipped:
+            continue
         inner = inner_page(raw, total)
         body = page_body(raw, boilerplate, inner, drop_hangul=drop_hangul)
         grids = doc.tables.get(index, [])
@@ -1556,9 +1575,12 @@ def _join_notes(*notes: str) -> str:
 
 
 def _opinion_for(row: list[object], text_col: int, note_col: int) -> tuple[str, str]:
+    """对上标准、图号、接口或同文件冲突才写入。对不上的那句「尚无对应口径」不占每一行。"""
     from electrical_krow.arch_opinion import assign_opinion
 
     opinion, reason = assign_opinion(str(row[text_col] or ""), str(row[note_col] or ""))
+    if not opinion or "尚无对应口径" in opinion:
+        return "", str(row[note_col] or "")
     note = _join_notes(str(row[note_col] or ""), f"【初步意见理由】{reason}")
     return opinion, note
 
@@ -1609,33 +1631,69 @@ def _fit_row_height(cells, widths: dict[str, int], minimum: int) -> int:
     return min(_MAX_ROW_HEIGHT, max(minimum, lines * _LINE_POINTS + 4))
 
 
-def _style_sheet(sheet, header_row: int, widths: dict[str, int], *, body_height: int = 48) -> None:
+def _style_sheet(
+    sheet,
+    header_row: int,
+    widths: dict[str, int],
+    *,
+    body_height: int = 48,
+    fit_width: bool = True,
+    zoom: int = 110,
+    tab: str = "2878B9",
+) -> None:
     for col, width in widths.items():
         sheet.column_dimensions[col].width = width
     for cell in sheet[header_row]:
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
         cell.alignment = Alignment(wrap_text=True, vertical="center", horizontal="center")
-    sheet.row_dimensions[header_row].height = 22
+        cell.border = _THIN
+    sheet.row_dimensions[header_row].height = 30
     last = sheet.max_column
     for cells in sheet.iter_rows(min_row=header_row + 1, max_row=sheet.max_row, max_col=last):
+        band = _BAND_FILL if cells[0].row % 2 == 0 else None
         for cell in cells:
-            cell.font = _BODY_FONT
+            cell.font = _ID_FONT if cell.column == 1 and cell.value not in (None, "") else _BODY_FONT
             cell.alignment = _WRAP
             cell.border = _THIN
+            if band is not None:
+                cell.fill = band
         sheet.row_dimensions[cells[0].row].height = _fit_row_height(cells, widths, body_height)
     sheet.freeze_panes = f"A{header_row + 1}"
     if sheet.max_row > header_row:
         from openpyxl.utils import get_column_letter
 
         sheet.auto_filter.ref = f"A{header_row}:{get_column_letter(last)}{sheet.max_row}"
+    sheet.sheet_view.showGridLines = False
+    sheet.sheet_view.zoomScale = zoom
+    sheet.sheet_view.view = "normal"
+    sheet.sheet_properties.tabColor = tab
     sheet.page_setup.orientation = "landscape"
     sheet.page_setup.paperSize = sheet.PAPERSIZE_A4
-    sheet.page_setup.fitToWidth = 1
-    sheet.page_setup.fitToHeight = 0
-    sheet.sheet_properties.pageSetUpPr.fitToPage = True
+    sheet.page_setup.pageOrder = "downThenOver"
+    sheet.page_setup.horizontalCentered = True
+    if fit_width:
+        sheet.page_setup.fitToWidth = 1
+        sheet.page_setup.fitToHeight = 0
+        sheet.sheet_properties.pageSetUpPr.fitToPage = True
+    else:
+        sheet.page_setup.fitToWidth = 0
+        sheet.page_setup.fitToHeight = 0
+        sheet.page_setup.scale = 100
+        sheet.sheet_properties.pageSetUpPr.fitToPage = False
+    sheet.page_margins.left = 0.5
+    sheet.page_margins.right = 0.5
+    sheet.page_margins.top = 0.55
+    sheet.page_margins.bottom = 0.5
+    sheet.page_margins.header = 0.25
+    sheet.page_margins.footer = 0.25
     sheet.print_title_rows = f"{header_row}:{header_row}"
-    sheet.oddFooter.center.text = "第 &P 页"
+    sheet.oddHeader.left.text = sheet.title
+    sheet.oddHeader.left.font = "微软雅黑"
+    sheet.oddHeader.left.size = 9
+    sheet.oddFooter.center.text = "第 &P 页 / 共 &N 页"
+    sheet.oddFooter.center.font = "微软雅黑"
+    sheet.oddFooter.center.size = 9
 
 
 _SHEET_BAD = re.compile(r"[\[\]:*?/\\]")
@@ -1659,10 +1717,170 @@ def _excel_sheet_titles(names: list[str]) -> dict[str, str]:
     return titles
 
 
+def _mark_suspected_duplicates(docs: list[SourceDoc], rows: list[list[object]]) -> None:
+    """摘录相同的只在备注里互相标明，不合并、不删除。跨文件写明另一边的文件、页码和章节。"""
+    sec_col, file_col, seq_col = COLUMNS.index("章节"), COLUMNS.index("文件"), COLUMNS.index("序号")
+    text_col, page_col, note_col = COLUMNS.index("原文摘录"), COLUMNS.index("PDF页码"), COLUMNS.index("备注")
+    doc_has_sections = {
+        doc.name: any(str(r[sec_col] or "") not in {"", SECTION_COVER, SECTION_TOC} for r in rows if r[file_col] == doc.name)
+        for doc in docs
+    }
+    doc_has_lines = {doc.name: bool(doc.lines) for doc in docs}
+    buckets: dict[str, list[list[object]]] = {}
+    for row in rows:
+        if not _is_requirement_row(
+            row,
+            has_sections=doc_has_sections.get(str(row[file_col]), False),
+            has_lines=doc_has_lines.get(str(row[file_col]), False),
+        ):
+            continue
+        key = _compact(str(row[text_col] or ""))
+        if len(key) < 24:
+            continue
+        buckets.setdefault(key, []).append(row)
+    for group in buckets.values():
+        if len(group) < 2:
+            continue
+        for row in group:
+            hints = []
+            for other in group:
+                if other is row:
+                    continue
+                hints.append(f"{other[file_col]} 第 {other[page_col]} 页 {other[sec_col] or ''}".strip())
+            row[note_col] = _join_notes(str(row[note_col] or ""), "疑似重复：" + "；".join(hints[:3]))
+
+
+def _quantity_on_page(qty: str, excerpt: str, page_text: str) -> tuple[str, str]:
+    """数值里的数字必须出现在当页或摘录里。对不上的整格留空，不另写一个数。"""
+    text = (qty or "").strip()
+    if not text:
+        return "", ""
+    hay = re.sub(r"\s+", "", f"{excerpt}\n{page_text}")
+    missing = [number for number in re.findall(r"\d+(?:\.\d+)?", text) if not re.search(rf"(?<!\d){re.escape(number)}(?!\d)", hay)]
+    if missing:
+        return "", "待人工确认：数值不在当页原文，已留空"
+    return text, ""
+
+
+def _row_confidence(excerpt: str, page_text: str, *, review: bool) -> str:
+    """摘录里的词要能在当页找到。对不上、或已经标明要人工看的，不升成已确认。"""
+    if review:
+        return "待人工确认"
+    words = re.findall(r"[A-Za-z]{4,}|[\u4e00-\u9fff]{2,}", excerpt or "")
+    if not words:
+        return "中"
+    page = (page_text or "").lower()
+    hit = sum(1 for word in words if word.lower() in page)
+    if hit * 5 >= len(words) * 4:
+        return "高"
+    return "待人工确认"
+
+
+_NOTE_FOCUS = PatternFill("solid", fgColor="FFF1D6")
+_NOTE_PASS = PatternFill("solid", fgColor="E5F4EA")
+_NOTE_BAD = PatternFill("solid", fgColor="FCE4E4")
+_NOTE_TBD = PatternFill("solid", fgColor="FFF1D6")
+_NOTE_KIND = {
+    "中英数值冲突": "中英数值不一致",
+    "中英语义冲突": "中英语义不一致",
+    "内部逻辑冲突": "内部逻辑冲突",
+    "跨处参数冲突": "取值不一致",
+    "未定项": "待定项",
+    "可读性": "未能读清",
+}
+_NOTE_BAD_LABELS = {"中英数值不一致", "中英语义不一致", "内部逻辑冲突", "取值不一致"}
+
+
+def _quality_headline(quality) -> str:
+    bits: list[str] = []
+    if quality.bilingual_conflicts:
+        bits.append(f"中英数值不一致 {quality.bilingual_conflicts}")
+    if quality.logic_conflicts:
+        bits.append(f"内部逻辑冲突 {quality.logic_conflicts}")
+    if quality.param_conflicts:
+        bits.append(f"取值不一致 {quality.param_conflicts}")
+    if quality.tbd_count:
+        bits.append(f"待定项 {quality.tbd_count}")
+    if not bits:
+        return "通过。未发现中英冲突、内部算式冲突或同参数前后取值不一致。"
+    return "需注意：" + " · ".join(bits) + "。下面每一条对应需求清单里标红的一行。"
+
+
+def _issue_place(issue, req_map: dict[int, tuple[int, str]] | None, sheet_names: dict[str, str]) -> str:
+    if req_map and issue.row_seq in req_map:
+        xl_row, req_id = req_map[issue.row_seq]
+        sheet = sheet_names.get(issue.file, "") if len(sheet_names) > 1 else ""
+        where = f"「{sheet}」" if sheet else "需求清单"
+        page = f"第 {issue.page} 页 · " if issue.page else ""
+        return f"{page}{where}第 {xl_row} 行（{req_id}）"
+    if issue.page:
+        return f"{issue.file} 第 {issue.page} 页"
+    return issue.file
+
+
+def _fill_note_sheet(note, docs, unreadable, quality, req_map, sheet_titles, param_notes, used_model) -> None:
+    """确认说明先写结论和一条一行的问题，读表方法收在最后。"""
+    note.append(["项目", "位置", "内容"])
+    note.append(["结论", "先看", _quality_headline(quality)])
+    if len(docs) == 1:
+        note.append(["来源", f"{len(docs[0].pages)} 页", docs[0].name])
+    else:
+        listed = "；".join(
+            f"「{sheet_titles.get(doc.name, doc.name)}」{doc.name}（{len(doc.pages)} 页）" for doc in docs
+        )
+        note.append(["来源", f"{len(docs)} 份", f"每个需求文件单独一张表：{listed}"])
+    for item in unreadable:
+        if item.page:
+            place = f"第 {item.page} 页"
+            text = f"{item.name}：{item.reason}未补写内容。"
+        else:
+            place = f"{item.pages} 页" if item.pages else ""
+            text = f"{item.name}" + (f"（{item.pages} 页）" if item.pages else "") + f"：{item.reason}未补写内容。"
+        note.append(["未能读取", place, text])
+    unread_keys = {(item.name, item.page) for item in unreadable}
+    issues = [
+        issue for issue in quality.issues
+        if not (issue.kind == "可读性" and (issue.file, issue.page) in unread_keys)
+    ]
+    shown = issues[:40]
+    for issue in shown:
+        label = _NOTE_KIND.get(issue.kind, issue.kind)
+        note.append([label, _issue_place(issue, req_map, sheet_titles), issue.text])
+    left = len(issues) - len(shown)
+    if left > 0:
+        note.append(["其余", f"{left} 条", "其余问题在需求清单里仍整行标红，备注可筛「内容质检」。"])
+    note.append(["读表", "", "一行一条。外文和中文写在同一格，中间用 / 隔开。类别以「建议：」开头。意见只在对上标准、图号、接口或同文件冲突时填写。截不到图的条目仍留下，备注写未能截图。"])
+    note.append(["状态", "", "Currently status 默认 To be confirmed（待确认）。优先级、提出人、客户反馈和人工修改留给人填。"])
+    note.append(["图表", "", "曲线和旁边的数据表收成一张整图，不从格子中间裁开。"])
+    if param_notes:
+        note.append(["参数", "", "本次说明：" + "；".join(param_notes)])
+    elif used_model:
+        note.append(["参数", "", "本次已用模型给参数起名，并生成外文条款的中文对照。"])
+    widths = {"A": 16, "B": 42, "C": 88}
+    _style_sheet(note, 1, widths, body_height=22, tab="142B49", zoom=110)
+    bold = Font(name="微软雅黑", bold=True, size=12, color="142B49")
+    for row in range(2, note.max_row + 1):
+        label = str(note.cell(row, 1).value or "")
+        fill = None
+        if label == "结论":
+            fill = _NOTE_PASS if str(note.cell(row, 3).value or "").startswith("通过") else _NOTE_FOCUS
+            note.cell(row, 3).font = bold
+        elif label in _NOTE_BAD_LABELS:
+            fill = _NOTE_BAD
+        elif label in {"待定项", "未能读清", "未能读取"}:
+            fill = _NOTE_TBD
+        if fill is not None:
+            for col in range(1, 4):
+                note.cell(row, col).fill = fill
+    note.auto_filter.ref = f"A1:C{note.max_row}"
+    note.page_setup.fitToHeight = 0
+    note.freeze_panes = "A3"
+
+
 def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Path, ask=None, now: datetime | None = None, on_progress=None) -> ContrastResult:
     """ask：可选的模型调用（messages → 回包文本），只用于给正文参数起名和归并同义参数名；None 为纯规则。now：REQ-ID 里的日期。
     一份文件时是确认说明和需求清单。多份文件合成一本，确认说明之后每个文件一张表。"""
-    from electrical_krow.arch_params import CONSIST_DIFF, collect_params
+    from electrical_krow.arch_params import collect_params
     from electrical_krow.arch_qa import check_arch_quality
 
     if not docs:
@@ -1688,6 +1906,7 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
         for row in tables:
             all_tables.append(row)
             row[0] = len(all_tables)
+    _mark_suspected_duplicates(docs, all_rows)
     ts = now or datetime.now()
     pngs, keep_seqs = _render_requirement_pngs(docs, all_rows, on_progress)
     sheet_titles = _excel_sheet_titles([doc.name for doc in docs]) if len(docs) > 1 else {}
@@ -1727,36 +1946,9 @@ def write_contrast(docs: list[SourceDoc], unreadable: list[Unreadable], dest: Pa
         )
     used_model = params.model_used or trans_model_used
 
-    sources = "；".join(f"{doc.name}（{len(doc.pages)} 页）" for doc in docs)
-    if len(docs) > 1:
-        listed = "、".join(f"「{sheet_titles[doc.name]}」" for doc in docs)
-        req_where = f"每个需求文件单独一张表，依次为 {listed}。每张表"
-    else:
-        req_where = f"「{SHEET_REQS}」"
-    lines = [
-        ("用途", "把需求文件按条款拆成条目，供人工逐条确认。本表只摘原文（外文条款附同格中文直译对照），不写能否满足。"),
-        ("来源文件", sources),
-        ("文件内容质检", "\n".join(quality.detail_lines)),
-        ("需求清单", f"{req_where}一行一条需求。同一行原文和它的译文写在一起，中间用 / 隔开。版式按偏差跟踪表：REQ-ID（REQ-日期-序号）、章节、该条在原文里的截图（表格行截那一行，正文截那一段，复杂整表与图表截整表／整图；截图按列宽缩放）、原文摘录（外文条目按「原文 / 中文译文」同格双语对照呈现，原文一字不改）；「类别」是按章节和条文关键词给的建议值，须人工改定；优先级、意见、提出人、客户反馈留给人填，Currently status 默认为 To be confirmed（待确认）。截图按文字位置定位。原文截图被斜章挡住，或定位不到的条目，不写入需求清单。"),
-        ("拆分方式", "行首「1)」「•」「※」等标记各起一条；标记前的短引导句并入其后那条；整页没有标记的按整页一条。原文只来自该页可复制文字。章节按行首的目录章节号和标题词认；本页没有标题的沿用上一页末尾的章节并在备注注明，文件开头还没有章节的留空。"),
-        ("表格与图表", f"PDF 里有格线的表按格读：表头认得出「项目」栏（Category、Item、Classification 等）和「要求」栏（Requirement、Specification、Target 等）的，每行出一条，原文摘录是「项目格：整行」，「数值与单位」是要求格原文（要求格没单位时补上单位栏），「适用条件」是 Remark／Note 格原文，表头认不出角色的栏也带表头放在这里；纵向合并的格沿用上一行。表头未按单列「项目／要求」构造的表（如开发日程、多国法规矩阵、DR 评审表、标准清单等）以及坐标图、曲线图、框图，按所在页码和章节位置统一按「一表／一图一条 REQ（附整图截图与全文）」并入「{SHEET_REQS}」。矢量线框里如果是成句的要求或表格，按版面把原文写入摘录并翻译，截图仍保留；只有刻度标签的曲线图不把线条读成数。曲线和同一高度旁边的数据表收成一张整图，截图含整张表，不从格子中间裁开；纯数字数据表只留在截图里，不摘录、不翻译。图框上方的页眉标题、编号条款、曲线标题和说明按行摘录并翻译。带 Table、Load、Speed rate 的规格表仍按表格摘录。认不出「项目／要求」栏的表（如开发日程）仍是一条需求：截图是整张表。原文摘录有几行内容，就在该条下拆成几行，行与行之间是表格边框；编号、章节和截图合并成一格。职责表下一行若是 HMC、Supplier 这类列名，圆圈按该列写出；列名读不出时不写圆圈，备注写「圆圈所在列读不出，请对照原页」。斜章和页脚叠字不进表。以图片贴进 PDF 的表格，按图里的格线切格、OCR 识字后同样处理，备注标「{NOTE_OCR}」，字符可能识错，请对照原图。"),
-        ("数值与条件", "正文条目的「数值与单位」是从该条原文里机械挑出的带单位的数，每个数前带原文里紧挨着的几个字（右对齐截短）以便对应，数后紧跟的「↑」「以上」「max」一起保留；「适用条件（原文括注）」是原文括号里带数或带条件词的话。两列都不是认条，不改写、不换算，须对照「原文摘录」核对。"),
-        ("取值一致性", f"程序把全文「参数 → 取值」归到一起比对：表格里一格一个数的取项目格和要求格；一格几个数的和正文条目由模型指出每个数是哪个参数的值，程序核对该字串确在原文里。同一参数、适用条件相同而取值不同的，在需求清单该条的备注里写明别处的页码和取值，并整行标红（「{CONSIST_DIFF}」）；取值不同但适用条件也不同（不同工况、不同标准）的不算冲突。归并是否恰当、不一致是笔误还是分段落条件不同，由确认人判断。"
-                     + ("本次已用模型起名、归并同义参数名并生成外文条款中文对照。" if used_model else "本次未用模型，参数名是数前的引导词，归并按原名，外文条款按内置工程词典生成中文对照。")
-                     + ("；".join(params.notes) and ("本次说明：" + "；".join(params.notes)) or "")),
-        ("留空栏目", "Currently status 默认 To be confirmed（待确认），下拉还有 Requirement Met、Require Customer Clarified、Closed。优先级、意见、提出人、客户反馈由确认人填写。"),
-    ]
-    if unreadable:
-        for item in unreadable:
-            lines.append(("未能读取", f"{item.name}" + (f"（{item.pages} 页）" if item.pages else "") + f"：{item.reason}未补写内容。"))
-    else:
-        lines.append(("未能读取", "所选文件均已读出文字。"))
-    note.append(["项目", "内容"])
-    for item in lines:
-        note.append(list(item))
-    _style_sheet(note, 1, {"A": 18, "B": 108}, body_height=36)
-    note.page_setup.fitToHeight = 1
-    note.auto_filter.ref = None
+    _fill_note_sheet(
+        note, docs, unreadable, quality, req_map, sheet_titles, params.notes, used_model,
+    )
 
     book.active = book[sheet_titles[docs[0].name] if sheet_titles else SHEET_REQS]
     dest = Path(dest)
@@ -1857,7 +2049,7 @@ def _render_requirement_pngs(
     all_rows: list[list[object]],
     on_progress=None,
 ) -> tuple[dict[int, bytes], set[int]]:
-    """渲染原文截图。有 PDF 时，截不到图或被斜章挡住的条目不进入需求清单。"""
+    """渲染原文截图。截不到或被斜章挡住的条目仍留下，截图空着，备注写未能截图。挡住的图不放回去。"""
     from electrical_krow.arch_shots import render_shots
 
     sec_col, file_col, seq_col = COLUMNS.index("章节"), COLUMNS.index("文件"), COLUMNS.index("序号")
@@ -1875,13 +2067,9 @@ def _render_requirement_pngs(
         )
     ]
     pngs: dict[int, bytes] = {}
-    keep: set[int] = set()
+    keep = {int(row[seq_col]) for row in picked}
     note_col = COLUMNS.index("备注")
-    for row in picked:
-        note = str(row[note_col] or "")
-        # 和表格同一张图里拆出的编号正文，没有单独截图也要留下
-        if "按编号摘出" in note or "按版面摘出" in note:
-            keep.add(int(row[seq_col]))
+    page_col = COLUMNS.index("PDF页码")
     by_doc: dict[str, list[list[object]]] = {}
     for row in picked:
         by_doc.setdefault(str(row[file_col]), []).append(row)
@@ -1890,11 +2078,9 @@ def _render_requirement_pngs(
         rows = by_doc.get(doc.name, [])
         if not doc.path:
             for row in rows:
-                seq = int(row[seq_col])
-                keep.add(seq)
                 shot = row[SHOT_SLOT] if len(row) > SHOT_SLOT else None
                 if shot is not None and shot.png:
-                    pngs[seq] = shot.png
+                    pngs[int(row[seq_col])] = shot.png
             continue
         pending = [
             (int(row[seq_col]), row[SHOT_SLOT])
@@ -1916,8 +2102,15 @@ def _render_requirement_pngs(
         for (seq, _), png in zip(pending, rendered):
             if png:
                 pngs[seq] = png
-                keep.add(seq)
         shot_done += len(pending)
+    docs_by_name = {doc.name: doc for doc in docs}
+    for row in picked:
+        note = str(row[note_col] or "")
+        if "按编号摘出" in note or "按版面摘出" in note:
+            continue
+        doc = docs_by_name.get(str(row[file_col]))
+        if doc and doc.path and int(row[seq_col]) not in pngs:
+            row[note_col] = _join_notes(note, f"未能截图，见第 {row[page_col]} 页")
     return pngs, keep
 
 
@@ -1927,7 +2120,7 @@ def _req_row_map(
     now: datetime,
     with_shot: set[int] | None = None,
 ) -> dict[int, tuple[int, str]]:
-    """计算将进入「需求清单」的每条序号对应的 (Excel行号, REQ-ID)。没有原文截图的条目不进入清单。"""
+    """计算将进入「需求清单」的每条序号对应的 (Excel行号, REQ-ID)。截不到图的条目也进入清单。"""
     sec_col, file_col, seq_col = COLUMNS.index("章节"), COLUMNS.index("文件"), COLUMNS.index("序号")
     doc_has_sections = {
         doc.name: any(str(r[sec_col] or "") not in {"", SECTION_COVER, SECTION_TOC} for r in all_rows if r[file_col] == doc.name)
@@ -1961,8 +2154,8 @@ _GRID_BORDER = Border(
     top=Side(style="thin", color="000000"),
     bottom=Side(style="thin", color="000000"),
 )
-_GRID_HEADER_FILL = PatternFill("solid", fgColor="D6E3F0")
-_GRID_HEADER_FONT = Font(name="宋体", bold=True, size=10)
+_GRID_HEADER_FILL = PatternFill("solid", fgColor="EAF2FC")
+_GRID_HEADER_FONT = Font(name="微软雅黑", bold=True, size=10, color="142B49")
 
 
 def _ready_grid(text: str) -> list[list[str]]:
@@ -2013,7 +2206,15 @@ def _write_drawn_table(sheet, grid: list[list[str]], identity: list[object], ext
     width = len(grid[0])
     grid_end = excerpt_col + width - 1
     start = sheet.max_row + 1
-    side = [(9 + extra, identity[8]), (11 + extra, identity[10]), (13 + extra, identity[12]), (14 + extra, identity[13])]
+    side = [
+        (8 + extra, identity[7]),
+        (9 + extra, identity[8]),
+        (11 + extra, identity[10]),
+        (13 + extra, identity[12]),
+        (14 + extra, identity[13]),
+        (15 + extra, identity[14]),
+        (16 + extra, identity[15]),
+    ]
     overflow = [value for col, value in side if value not in (None, "") and col <= grid_end]
     for index, cells in enumerate(grid):
         first = index == 0
@@ -2109,7 +2310,7 @@ def _write_reqs(
 ) -> tuple[int, int, int, bool]:
     """「需求清单」：一行一条需求，带原文截图、双语原文摘录、数值、条件和程序备注；取值与别处不一致的行标红。返回 (条数, 带截图条数, 图表张数, 是否用到模型翻译)。"""
     from electrical_krow.arch_shots import render_shots
-    from electrical_krow.arch_translate import format_bilingual_excerpt, table_excerpt_blocks, translate_excerpts
+    from electrical_krow.arch_translate import format_bilingual_excerpt, needs_translation, table_excerpt_blocks, translate_excerpts
 
     sec_col, item_col, text_col, page_col, file_col, seq_col, qty_col, cond_col, note_col = (
         COLUMNS.index(k) for k in ("章节", "项目（表格栏目）", "原文摘录", "PDF页码", "文件", "序号", "数值与单位", "适用条件（原文括注）", "备注")
@@ -2129,8 +2330,6 @@ def _write_reqs(
     ]
     if keep_seqs is not None:
         picked = [row for row in picked if int(row[seq_col]) in keep_seqs]
-    elif pngs is not None:
-        picked = [row for row in picked if pngs.get(int(row[seq_col]))]
     stamp = now.strftime("%Y%m%d")
     raw_excerpts: dict[int, str] = {}
     for row in picked:
@@ -2174,7 +2373,14 @@ def _write_reqs(
                 if png:
                     pngs[seq] = png
             shot_done += len(pending)
-        picked = [row for row in picked if pngs.get(int(row[seq_col]))]
+        page_col_src = COLUMNS.index("PDF页码")
+        for row in picked:
+            note = str(row[note_col] or "")
+            if "按编号摘出" in note or "按版面摘出" in note:
+                continue
+            doc = next((item for item in docs if item.name == row[file_col]), None)
+            if doc and doc.path and int(row[seq_col]) not in pngs:
+                row[note_col] = _join_notes(note, f"未能截图，见第 {row[page_col_src]} 页")
     shots = 0
     figures = sum(
         1
@@ -2185,12 +2391,23 @@ def _write_reqs(
     groups: list[tuple[int, int, bytes]] = []
     drawn_ranges: list[tuple[int, int, int, int]] = []
     shot_col = REQ_COLUMNS.index("SR content\n原文截图") + 1
+    page_bodies = {(doc.name, index): body for doc in docs for index, body in doc.pages}
     for number, row in enumerate(picked, start=1):
         seq = int(row[seq_col])
         section = str(row[sec_col] or "")
         item = str(row[item_col] or "")
         text = str(row[text_col] or "")
         source = raw_excerpts[seq]
+        opinion, noted = _opinion_for(row, text_col, note_col)
+        if needs_translation(source) and seq not in translations:
+            noted = _join_notes(noted, "未翻译")
+        page_body = page_bodies.get((row[file_col], row[page_col]), "")
+        qty, qty_note = _quantity_on_page(str(row[qty_col] or ""), source, page_body)
+        if qty_note:
+            noted = _join_notes(noted, qty_note)
+        review = bool(qty_note) or NOTE_OCR in noted
+        confidence = _row_confidence(source, page_body, review=review)
+        category = "建议：" + suggest_category(section, f"{item} {text}")
         grid = grids.get(seq) or []
         if grid:
             start, end, left, right = _write_drawn_table(
@@ -2204,14 +2421,15 @@ def _write_reqs(
                     None,
                     None,
                     None,
-                    None,
-                    None,
-                    None,
+                    category,
+                    opinion,
                     None,
                     STATUS_CURRENT,
                     None,
-                    row[note_col] or "",
+                    noted,
                     row[page_col],
+                    confidence,
+                    None,
                 ],
                 extra,
             )
@@ -2225,7 +2443,6 @@ def _write_reqs(
         blocks = table_excerpt_blocks(source) if source.startswith(("本页表格", "本页图片表格")) else []
         if not blocks:
             blocks = [format_bilingual_excerpt(source, translations.get(seq, ""))]
-        category = suggest_category(section, f"{item} {text}")
         start = sheet.max_row + 1
         for index, block in enumerate(blocks):
             first = index == 0
@@ -2238,15 +2455,17 @@ def _write_reqs(
             ]
             values.extend([None] * extra)
             values.extend([
-                (row[qty_col] or "") if first else None,
+                qty if first else None,
                 (row[cond_col] or "") if first else None,
                 category if first else None,
-                None,
+                opinion if first else None,
                 None,
                 STATUS_CURRENT if first else None,
                 None,
-                (row[note_col] or "") if first else None,
+                noted if first else None,
                 row[page_col] if first else None,
+                confidence if first else None,
+                None,
             ])
             sheet.append(values)
             if extra:
@@ -2255,7 +2474,7 @@ def _write_reqs(
                 flagged.append(sheet.max_row)
         end = sheet.max_row
         if end > start:
-            for col in (1, 3, shot_col, *(c + extra for c in (6, 7, 8, 11, 14))):
+            for col in (1, 3, shot_col, *(c + extra for c in (6, 7, 8, 9, 11, 13, 14, 15, 16))):
                 sheet.merge_cells(start_row=start, start_column=col, end_row=end, end_column=col)
         png = pngs.get(seq)
         if png:
@@ -2263,7 +2482,7 @@ def _write_reqs(
     heights = {r: sheet.row_dimensions[r].height for r in range(2, sheet.max_row + 1) if sheet.row_dimensions[r].height}
     from openpyxl.utils import get_column_letter
 
-    base_widths = [20, 9, 26, _REQ_SHOT_COL_WIDTH, 36, 28, 26, 16, 36, 12, 28, 36, 36, 9]
+    base_widths = [20, 9, 26, _REQ_SHOT_COL_WIDTH, 36, 28, 26, 16, 36, 12, 28, 36, 36, 9, 14, 12]
     for _ in range(extra):
         base_widths.insert(5, 24)
     qty_excel = REQ_COLUMNS.index("数值与单位") + 1 + extra
@@ -2280,6 +2499,8 @@ def _write_reqs(
         sheet, 1,
         {get_column_letter(index + 1): width for index, width in enumerate(base_widths)},
         body_height=20,
+        fit_width=False,
+        zoom=100,
     )
     one_line = Alignment(wrap_text=False, vertical="center", horizontal="left")
     for col in (qty_excel,):
@@ -2365,7 +2586,13 @@ def _write_attachments(sheet, docs: list[SourceDoc], all_rows: list[list[object]
         row = sheet.max_row
         heights[row] = min(_MAX_ROW_HEIGHT, image.height + _REQ_SHOT_ROW_PAD)
         _place_image(sheet, image, ATTACH_COLUMNS.index("图") + 1, row)
-    _style_sheet(sheet, 1, {"A": 8, "B": 14, "C": 36, "D": 10, "E": 26, "F": 14, "G": 90, "H": 92, "I": 30}, body_height=60)
+    _style_sheet(
+        sheet, 1,
+        {"A": 8, "B": 14, "C": 36, "D": 10, "E": 26, "F": 14, "G": 90, "H": 92, "I": 30},
+        body_height=60,
+        fit_width=False,
+        zoom=100,
+    )
     # 图高决定行高，样式里按文字算的行高要让位
     for row, height in heights.items():
         sheet.row_dimensions[row].height = max(height, sheet.row_dimensions[row].height or 0)
@@ -2408,6 +2635,7 @@ def build_contrast(sources: list[Path], dest: Path, ask=None, on_progress=None, 
             unreadable.append(read)
         else:
             docs.append(read)
+            unreadable.extend(read.unread)
 
     def write_progress(inner: float, stage: str, detail: str = "") -> None:
         report(70 + max(0.0, min(100.0, inner)) * 0.29, stage, detail)

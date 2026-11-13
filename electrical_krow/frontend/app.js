@@ -509,6 +509,40 @@ function recordAutoKey(row, kind) {
   return "auto:" + recordFolderTitle(row, kind).trim().toLowerCase();
 }
 
+function recordFileKey(row) {
+  const raw = String((row && row.source) || "").trim() || fileNameOf(row && row.download);
+  const base = raw.split(/[/\\]/).pop() || raw;
+  return base.trim().toLowerCase();
+}
+
+function betterRecord(row, prev, active) {
+  const id = String(row.id || "");
+  const prevId = String(prev.id || "");
+  if (active && id === active && prevId !== active) return true;
+  if (active && prevId === active && id !== active) return false;
+  const newer = Number(row.created_at || 0) - Number(prev.created_at || 0);
+  if (newer) return newer > 0;
+  const rowOut = row.role !== "source";
+  const prevOut = prev.role !== "source";
+  if (rowOut !== prevOut) return rowOut;
+  return row.status === "done" && prev.status !== "done";
+}
+
+function collapseSameFiles(rows) {
+  const active = String(viewingJob || currentJob || "");
+  const best = new Map();
+  rows.forEach((row) => {
+    const key = recordFileKey(row);
+    if (!key) return;
+    const prev = best.get(key);
+    if (!prev || betterRecord(row, prev, active)) best.set(key, row);
+  });
+  return rows.filter((row) => {
+    const key = recordFileKey(row);
+    return !key || best.get(key) === row;
+  });
+}
+
 function layoutRecords(rows, kind) {
   const folders = recordFolders[kind] || [];
   const known = new Set(folders.map((folder) => folder.id));
@@ -650,7 +684,8 @@ function recordToolbar(kind) {
 
 function fillRecordHost(host, kind, rows, cardHtml, onEmpty) {
   const query = recordQueryOf(kind).trim().toLowerCase();
-  const shown = query ? rows.filter((row) => recordHaystack(row, kind).includes(query)) : rows;
+  const unique = collapseSameFiles(rows);
+  const shown = query ? unique.filter((row) => recordHaystack(row, kind).includes(query)) : unique;
   const folders = recordFolders[kind] || [];
   const scroll = host.scrollTop;
   const typing = document.activeElement && host.contains(document.activeElement)
@@ -673,7 +708,7 @@ function fillRecordHost(host, kind, rows, cardHtml, onEmpty) {
   if (!blocks.length) {
     html += "<p class='job-empty'>" + tx("record.noMatch") + "</p>";
   } else if (query) {
-    html += "<p class='job-search-count'>" + tx("record.foundN", { n: shown.length, total: rows.length }) + "</p>";
+    html += "<p class='job-search-count'>" + tx("record.foundN", { n: shown.length, total: unique.length }) + "</p>";
   }
   html += blocks.map((block) => {
     if (block.type === "single") return cardHtml(block.row);
@@ -1702,7 +1737,7 @@ const FLOWS = {
     zh: {
       title: "出表核对",
       input: ["一份规格书：PDF、Word 或 Excel，不超过 80MB"],
-      output: ["电控设计需求核对", "01_封面、02_需求核对、03_正文审查、04_清单外、05_条目说明"],
+      output: ["电控设计需求核对", "01_封面、02_需求核对、03_提取质量审查、04_清单外、05_条目说明"],
       bound: ["只根据这份规格书写", "读不出文字就不出表", "05_条目说明不是本份抽出值"],
       steps: [
         { k: "p", t: "选择规格书", d: "PDF、Word 或 Excel" },
@@ -1710,7 +1745,7 @@ const FLOWS = {
         { k: "p", t: "核对这份材料", d: "看中文、英文和前后是否一致" },
         { k: "q", q: "对得上原文？", yes: [{ k: "p", t: "写入该格", d: "内容来自这份规格书" }], no: [{ k: "p", t: "留空或待确认", d: "对不上就不填" }] },
         { k: "p", t: "写出核对表", d: "大标题是电控设计需求核对。源文件用上传时的文件名。对照清单仍是原来的 116 条清单" },
-        { k: "p", t: "按页签看", d: "02 是主表。绿色已检索到，琥珀局部对应，浅红未检索到。03 是正文里要对的地方。点一行才展开原文" },
+        { k: "p", t: "按页签看", d: "02 是主表。绿色已检索到，琥珀局部对应，浅红未检索到。03 是提取质量审查。点一行才展开原文" },
       ],
     },
     en: {

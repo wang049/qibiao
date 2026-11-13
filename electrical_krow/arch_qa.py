@@ -562,8 +562,11 @@ def check_arch_quality(
 
     # 1. 文件级可读性与页面花字检查
     for item in unreadable:
-        pages_note = f"（{item.pages} 页）" if item.pages else ""
-        issues.append(ArchIssue("warn", "可读性", item.name, 0, 0, f"{item.name}{pages_note}：{item.reason}"))
+        if item.page:
+            issues.append(ArchIssue("warn", "可读性", item.name, item.page, 0, f"{item.name} 第 {item.page} 页：{item.reason}"))
+        else:
+            pages_note = f"（{item.pages} 页）" if item.pages else ""
+            issues.append(ArchIssue("warn", "可读性", item.name, 0, 0, f"{item.name}{pages_note}：{item.reason}"))
 
     for doc in docs:
         garbled_pages: list[int] = []

@@ -1303,8 +1303,7 @@ QSPI5_SLSO1 O2 Master slave select output
                 mark = str(port.cell(analog, COL_MARK - 1).value)
                 self.assertEqual(port.cell(analog, 9).value, "Input")
                 self.assertEqual(port.cell(analog, 10).value, "ADC")
-                self.assertTrue(str(port.cell(analog, 11).value).startswith("手册推荐：ADC"))
-                self.assertNotIn("IA_S", str(port.cell(analog, 11).value))
+                self.assertIsNone(port.cell(analog, 11).value)
                 self.assertIsNone(port.cell(analog, 12).value)
                 self.assertIn("分配待人工确认", mark)
                 self.assertNotIn("模板有端口名 IA_S/M_TM", mark)
@@ -1315,8 +1314,7 @@ QSPI5_SLSO1 O2 Master slave select output
                 self.assertIsNone(port.cell(drive, 8).value)
                 self.assertEqual(port.cell(drive, 9).value, "Output")
                 self.assertEqual(port.cell(drive, 10).value, "PWM")
-                self.assertTrue(str(port.cell(drive, 11).value).startswith("手册推荐：PWM"))
-                self.assertNotIn("PWM_M_AH", str(port.cell(drive, 11).value))
+                self.assertIsNone(port.cell(drive, 11).value)
                 self.assertIsNone(port.cell(drive, 12).value)
                 self.assertNotIn("星驱原理图网络", [port.cell(3, col).value for col in range(1, 16)])
                 self.assertIn("ATOM1", str(port.cell(drive, 18).value))
@@ -1334,9 +1332,7 @@ QSPI5_SLSO1 O2 Master slave select output
                 analog_link = port.cell(analog, 3).hyperlink
                 self.assertIsNotNone(analog_link)
                 self.assertIn("ADC", analog_link.location)
-                name_link = port.cell(analog, 11).hyperlink
-                self.assertIsNotNone(name_link)
-                self.assertIn("ADC", name_link.location)
+                self.assertIsNone(port.cell(analog, 11).hyperlink)
                 self.assertIsNone(port.cell(analog, 12).hyperlink)
                 spi = out[[name for name in out.sheetnames if "SPI" in name][0]]
                 self.assertEqual(spi.cell(3, 2).value, "PIN")
@@ -2725,6 +2721,71 @@ B2 GPIO_0 I/O General-purpose input
                 self.assertEqual(out["1_Chang History"].cell(2, 2).value, "v1.3")
                 self.assertRegex(str(out["1_Chang History"].cell(3, 2).value), r"^\d{8}-\d{6}$")
                 self.assertIn("L4", str(out["3_ADC Table"].cell(9, 6).value))
+            finally:
+                out.close()
+
+    def test_symbol_function_stays_out_of_the_signal_name(self) -> None:
+        import pymupdf
+
+        from electrical_krow.hsi_book import revise_hsi_from_schematic
+
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            drawing = root / "sheet.pdf"
+            doc = pymupdf.open()
+            page = doc.new_page(width=842, height=595)
+            page.insert_text((40, 40), "CB10_MCU DIO.SchDoc", fontsize=10)
+            page.insert_text((100, 220), "P00_0/CAN10_TXD", fontsize=6)
+            page.insert_text((78, 217), "K4", fontsize=6)
+            page.insert_text((240, 220), "P00_2/GPIO", fontsize=6)
+            page.insert_text((218, 217), "L4", fontsize=6)
+            doc.save(drawing)
+            doc.close()
+            base = root / "base.xlsx"
+            dest = root / "out.xlsx"
+            book = Workbook()
+            book.active.title = "Cover"
+            history = book.create_sheet("1_Chang History")
+            history.cell(1, 2, "版本")
+            history.cell(2, 2, "v1.3")
+            port = book.create_sheet("2_Port Assignment ")
+            port.cell(2, 2, "MCU_TC499")
+            port.cell(3, 2, r"BGA436\Ball")
+            port.cell(3, 3, "Pin_Symbol")
+            port.cell(3, 9, "Direction")
+            port.cell(3, 10, "Function")
+            port.cell(3, 11, "原理图网络")
+            port.cell(3, 12, "Pin Definition")
+            port.cell(4, 2, "W13")
+            port.cell(4, 3, "AN0")
+            port.cell(4, 10, "Analog")
+            port.cell(4, 12, "IA_S/M_TM")
+            port.cell(5, 2, "K4")
+            port.cell(5, 3, "P00.0")
+            port.cell(5, 10, "Digital")
+            port.cell(6, 2, "L4")
+            port.cell(6, 3, "P00.2")
+            port.cell(6, 10, "Digital")
+            adc = book.create_sheet("3_ADC Table")
+            adc.cell(4, 4, "PIN")
+            adc.cell(4, 6, "Signal name")
+            adc.cell(5, 4, "AN0")
+            adc.cell(5, 6, "IA_S/M_TM")
+            book.save(base)
+            book.close()
+            revise_hsi_from_schematic(base, dest, drawing)
+            out = load_workbook(dest)
+            try:
+                sheet = out["2_Port Assignment "]
+                self.assertEqual(sheet.cell(4, 3).value, "AN0")
+                self.assertEqual(sheet.cell(4, 11).value, "IA_S/M_TM")
+                self.assertEqual(sheet.cell(5, 3).value, "P00.0")
+                self.assertIsNone(sheet.cell(5, 11).value)
+                self.assertEqual(sheet.cell(5, 18).value, "CAN10_TXD")
+                self.assertEqual(sheet.cell(6, 11).value, None)
+                self.assertEqual(sheet.cell(6, 18).value, "GPIO")
+                self.assertNotIn("CAN10_TXD", str(out["3_ADC Table"].cell(5, 6).value))
+                self.assertIn("IA_S/M_TM", str(sheet.cell(4, 11).value))
             finally:
                 out.close()
 

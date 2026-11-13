@@ -1692,6 +1692,31 @@ def _parse_json_list(blob: str) -> list[dict]:
         return []
 
 
+_SKIP_DICT = re.compile(r"[\uac00-\ud7a3äöüÄÖÜß]")
+_GERMAN_WORD = re.compile(
+    r"\b(?:der|die|das|den|dem|und|nicht|muss|müssen|soll|eine|einer|für|mit|von|ist|sind|wird|sowie)\b",
+    re.I,
+)
+
+
+def _has_hangul_or_german(text: str) -> bool:
+    raw = text or ""
+    if _SKIP_DICT.search(raw):
+        return True
+    return len(_GERMAN_WORD.findall(raw)) >= 2
+
+
+def _translation_is_usable(source: str, zh: str) -> bool:
+    """词典译出了中文才收下。韩文、德文若还留着大半原文，不当成译文。"""
+    if not zh or zh == source or not _CJK.search(zh):
+        return False
+    if not _has_hangul_or_german(source):
+        return True
+    if _SKIP_DICT.findall(source) and len(_SKIP_DICT.findall(zh)) * 2 > len(_SKIP_DICT.findall(source)):
+        return False
+    return _GERMAN_WORD.findall(zh).__len__() < 2
+
+
 def translate_excerpts(
     items: list[tuple[int, str]],
     ask: Ask | None = None,
@@ -1742,11 +1767,11 @@ def translate_excerpts(
                 pass
             _tick(min(i + len(batch), total))
 
-    # 对未命中或离线情况使用规则词典兜底，确保每条外文需求都有中文对照
+    # 词典兜底。韩文、德文只有词典真正盖住才收下，剩下大段原文的不算译出。
     for seq, text in pending:
         if seq not in translations:
             zh = rule_translate_text(text)
-            if zh and zh != text and _CJK.search(zh):
+            if _translation_is_usable(text, zh):
                 translations[seq] = zh
     _tick(total)
 

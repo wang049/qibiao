@@ -465,6 +465,9 @@ class ArchContrastTests(unittest.TestCase):
                 self.assertEqual(tuple(cell.value for cell in rows[1]), REQ_COLUMNS)
                 self.assertLess(rows.max_row - 1, result.rows)  # 封面、目录行不进需求清单
                 self.assertEqual(rows.freeze_panes, "A2")
+                self.assertTrue(str(rows.cell(1, 1).fill.fgColor.rgb).endswith("142B49"))
+                self.assertEqual(rows.cell(2, 1).font.name, "微软雅黑")
+                self.assertFalse(rows.sheet_view.showGridLines)
                 status_col = REQ_COLUMNS.index("Currently status\n状态") + 1
                 statuses = {rows.cell(r, status_col).value for r in range(2, rows.max_row + 1)}
                 self.assertEqual(statuses, {STATUS_CURRENT})
@@ -475,10 +478,9 @@ class ArchContrastTests(unittest.TestCase):
                     self.assertEqual([rows.cell(r, col).value for r in range(2, rows.max_row + 1) if rows.cell(r, col).value], [], name)
                 comment_col = REQ_COLUMNS.index("Comments\n意见") + 1
                 opinions = [rows.cell(r, comment_col).value for r in range(2, rows.max_row + 1) if rows.cell(r, 1).value]
-                self.assertTrue(opinions)
-                self.assertTrue(all(opinions))
                 for text in opinions:
-                    self.assertNotIn("满足", str(text))
+                    self.assertNotIn("满足", str(text or ""))
+                    self.assertNotIn("尚无对应口径", str(text or ""))
                 qty_col = REQ_COLUMNS.index("数值与单位") + 1
                 self.assertIn("Closed-loop feedback applies within 10 ms；(at 25 °C；ambient, 50%", [rows.cell(r, qty_col).value for r in range(2, rows.max_row + 1)])
                 excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
@@ -914,6 +916,186 @@ class ArchOpinionTests(unittest.TestCase):
         opinion, reason = assign_opinion("Submit the development plan.")
         self.assertIn("尚无对应口径", opinion)
         self.assertIn("没有对上", reason)
+
+
+class ArchAcceptanceTests(unittest.TestCase):
+    def test_blank_page_is_named_and_not_filled_from_another_page(self) -> None:
+        import pymupdf
+
+        from electrical_krow.arch_contrast import read_pdf_pages
+
+        clause = "1) The supplier shall confirm every change with the customer before release of the software."
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "a.pdf"
+            doc = pymupdf.open()
+            page = doc.new_page()
+            page.insert_text((72, 72), clause)
+            doc.new_page()
+            doc.save(str(path))
+            doc.close()
+            read = read_pdf_pages(path)
+            self.assertFalse(isinstance(read, Unreadable))
+            self.assertTrue(any(item.page == 2 and "第 2 页" in item.reason for item in read.unread))
+            rows, _tables = split_document(read)
+            pages = {row[COLUMNS.index("PDF页码")] for row in rows}
+            self.assertNotIn(2, pages)
+            excerpts = " ".join(str(row[COLUMNS.index("原文摘录")] or "") for row in rows)
+            self.assertIn("supplier shall confirm", excerpts)
+
+    def test_same_fallback_opinion_is_not_stamped_on_every_row(self) -> None:
+        from datetime import datetime
+
+        plain = "2 System requirements\n1) The supplier shall confirm every change with the customer before release."
+        cited = "2 System requirements\n1) The insulation shall comply with GB/T 18488-2024 before release."
+        with tempfile.TemporaryDirectory() as raw:
+            dest = Path(raw) / "out.xlsx"
+            write_contrast(
+                [SourceDoc("plain.pdf", ((1, plain),)), SourceDoc("cited.pdf", ((1, cited),))],
+                [],
+                dest,
+                now=datetime(2026, 11, 13),
+            )
+            book = load_workbook(dest)
+            try:
+                comment_col = REQ_COLUMNS.index("Comments\n意见") + 1
+                note_col = REQ_COLUMNS.index("Remark\n备注") + 1
+                found = {}
+                for name in book.sheetnames:
+                    if name == SHEET_NOTE:
+                        continue
+                    sheet = book[name]
+                    for row in range(2, sheet.max_row + 1):
+                        if not sheet.cell(row, 1).value:
+                            continue
+                        found[name] = (
+                            str(sheet.cell(row, comment_col).value or ""),
+                            str(sheet.cell(row, note_col).value or ""),
+                        )
+                plain_comment, plain_note = found["plain"]
+                cited_comment, cited_note = found["cited"]
+                self.assertEqual(plain_comment, "")
+                self.assertNotIn("初步意见理由", plain_note)
+                self.assertNotIn("尚无对应口径", plain_comment)
+                self.assertIn("对照该标准", cited_comment)
+                self.assertIn("初步意见理由", cited_note)
+                self.assertNotEqual(plain_comment, cited_comment)
+            finally:
+                book.close()
+
+    def test_quantity_missing_from_the_page_stays_blank(self) -> None:
+        from electrical_krow.arch_contrast import _quantity_on_page
+
+        qty, note = _quantity_on_page("电压 12 V", "无此数", "page without twelve")
+        self.assertEqual(qty, "")
+        self.assertIn("待人工确认", note)
+        kept, clear = _quantity_on_page("within 10 ms", "within 10 ms", "within 10 ms")
+        self.assertEqual(kept, "within 10 ms")
+        self.assertEqual(clear, "")
+
+    def test_same_excerpt_is_marked_and_not_merged(self) -> None:
+        from datetime import datetime
+
+        clause = "2 System requirements\n1) The supplier shall confirm every change with the customer before release."
+        dest_dir = tempfile.TemporaryDirectory()
+        try:
+            dest = Path(dest_dir.name) / "out.xlsx"
+            write_contrast(
+                [SourceDoc("a.pdf", ((1, clause),)), SourceDoc("b.pdf", ((4, clause),))],
+                [],
+                dest,
+                now=datetime(2026, 11, 13),
+            )
+            book = load_workbook(dest)
+            try:
+                notes = []
+                ids = []
+                for name in book.sheetnames:
+                    if name == SHEET_NOTE:
+                        continue
+                    sheet = book[name]
+                    note_col = REQ_COLUMNS.index("Remark\n备注") + 1
+                    for row in range(2, sheet.max_row + 1):
+                        if sheet.cell(row, 1).value:
+                            ids.append(sheet.cell(row, 1).value)
+                            notes.append(str(sheet.cell(row, note_col).value or ""))
+                self.assertEqual(len(ids), 2)
+                self.assertTrue(all("疑似重复" in note for note in notes))
+                self.assertTrue(any("b.pdf" in note and "第 4 页" in note for note in notes))
+                self.assertTrue(any("a.pdf" in note and "第 1 页" in note for note in notes))
+            finally:
+                book.close()
+        finally:
+            dest_dir.cleanup()
+
+    def test_unshot_row_stays_and_category_is_marked_as_a_suggestion(self) -> None:
+        import pymupdf
+        from datetime import datetime
+
+        clause = "2 System requirements\n1) The supplier shall confirm every change with the customer before release."
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "a.pdf"
+            doc = pymupdf.open()
+            page = doc.new_page()
+            page.insert_text((72, 72), clause)
+            doc.save(str(path))
+            doc.close()
+            dest = Path(raw) / "out.xlsx"
+            write_contrast([SourceDoc("a.pdf", ((1, clause),), path=str(path))], [], dest, now=datetime(2026, 11, 13))
+            book = load_workbook(dest)
+            try:
+                sheet = book[SHEET_REQS]
+                note_col = REQ_COLUMNS.index("Remark\n备注") + 1
+                cat_col = REQ_COLUMNS.index("Category\n类别（建议）") + 1
+                human_col = REQ_COLUMNS.index("人工修改") + 1
+                notes = [str(sheet.cell(r, note_col).value or "") for r in range(2, sheet.max_row + 1) if sheet.cell(r, 1).value]
+                cats = [str(sheet.cell(r, cat_col).value or "") for r in range(2, sheet.max_row + 1) if sheet.cell(r, 1).value]
+                self.assertTrue(notes)
+                self.assertTrue(all("未能截图" in note and "第 1 页" in note for note in notes))
+                self.assertEqual(sheet._images, [])
+                self.assertTrue(all(cat.startswith("建议：") for cat in cats))
+                self.assertTrue(all(sheet.cell(r, human_col).value in (None, "") for r in range(2, sheet.max_row + 1)))
+            finally:
+                book.close()
+
+    def test_korean_and_german_without_a_model_stay_untranslated(self) -> None:
+        from datetime import datetime
+
+        from electrical_krow.arch_translate import translate_excerpts
+
+        korean = "공급자는 모든 변경 사항을 고객과 미리 확인한 뒤에만 소프트웨어를 출시해야 하며, 확인 없는 출시는 허용되지 않는다."
+        german = "Der Lieferant muss jede Änderung vor der Freigabe mit dem Kunden bestätigen."
+        translated, _used = translate_excerpts([(1, korean), (2, german)])
+        self.assertEqual(translated, {})
+        with tempfile.TemporaryDirectory() as raw:
+            dest = Path(raw) / "out.xlsx"
+            write_contrast(
+                [SourceDoc("kr.pdf", ((1, korean),)), SourceDoc("de.pdf", ((2, german),))],
+                [],
+                dest,
+                now=datetime(2026, 11, 13),
+            )
+            book = load_workbook(dest)
+            try:
+                notes = []
+                excerpts = []
+                for name in book.sheetnames:
+                    if name == SHEET_NOTE:
+                        continue
+                    sheet = book[name]
+                    note_col = REQ_COLUMNS.index("Remark\n备注") + 1
+                    excerpt_col = REQ_COLUMNS.index("原文摘录") + 1
+                    for row in range(2, sheet.max_row + 1):
+                        if not sheet.cell(row, 1).value:
+                            continue
+                        notes.append(str(sheet.cell(row, note_col).value or ""))
+                        excerpts.append(str(sheet.cell(row, excerpt_col).value or ""))
+                self.assertTrue(notes)
+                self.assertTrue(all("未翻译" in note for note in notes))
+                self.assertTrue(any("공급자" in text for text in excerpts))
+                self.assertTrue(any("Lieferant" in text for text in excerpts))
+                self.assertFalse(any(" / " in text for text in excerpts))
+            finally:
+                book.close()
 
 
 if __name__ == "__main__":

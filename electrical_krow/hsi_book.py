@@ -164,24 +164,6 @@ def _write_port_match(sheet, header_row: int, excel_row: int, human_col: int, te
     sheet.column_dimensions[get_column_letter(column)].width = 42
 
 
-def _manual_recommendation(pin: ChipPin) -> str:
-    """没有原理图时，Pin Definition 写手册上的分类和第一条复用，不写上一项目的端口名。"""
-    kind = pin_class(pin)
-    first = ""
-    for line in present_mux(pin.mux).splitlines():
-        text = line.strip()
-        if text:
-            first = text
-            break
-    if kind and first:
-        return f"手册推荐：{kind}；{first}"
-    if kind:
-        return f"手册推荐：{kind}"
-    if first:
-        return f"手册推荐：{first}"
-    return ""
-
-
 def _drop_carried_project(workbook: Workbook) -> None:
     """按手册重出时，封面修改人和上一项目的变更记录不再留在这份表里。"""
     cover = _cover_sheet(workbook)
@@ -1221,12 +1203,15 @@ _LINK_SKIP = frozenset({"", "-", "--", "NC", "N.C.", "N/A", "NA"})
 
 
 def _share_symbol_jump(name_cell, symbol_cell) -> None:
-    """端口名自己没有落点时，跟这一行符号走。一处直达，多处进同一条跳转索引。"""
-    link = symbol_cell.hyperlink
-    if link is None or not getattr(link, "location", None):
-        return
+    """端口名自己没有落点时，跟这一行符号走。
+
+    信号名还空着时不写跳转。空格子一旦带上表内链接，再次打开时落点名称会被写进这一格，看起来像已经填了信号名。这一行的符号格子已经能跳到同一处。
+    """
     name = _text(name_cell.value)
     if not name:
+        return
+    link = symbol_cell.hyperlink
+    if link is None or not getattr(link, "location", None):
         return
     tip = link.tooltip or ""
     if tip.startswith("第") and " " in tip:
@@ -1333,6 +1318,8 @@ def _tie_name_column(detail, detail_row: int, source) -> None:
             if text.startswith(("signal name", "pin definition", "fuction des", "function des")):
                 seen.add(col)
                 found.append((row, col))
+    if not _text(source.value):
+        return
     ref = _sheet_cell(source.parent.title, source.row, source.column)
     formula = f'=IF({ref}="","",{ref})'
     for header, name_col in found:
@@ -2042,8 +2029,19 @@ def _set_if_changed(cell, value: object) -> bool:
     return True
 
 
+def _wire_net(pin: SchematicSymbolPin) -> str:
+    """导线上的网络名。和符号功能相同、或只是另一个脚号的字，不写成信号名。"""
+    net = (pin.net or "").strip()
+    if not net or _pin_alias_text(net):
+        return ""
+    function = (pin.function or "").strip()
+    if function and _signal_key(net) == _signal_key(function):
+        return ""
+    return net
+
+
 def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolPin]) -> int:
-    """按原理图符号脚就地更新端口表。只改对上的球号、网络名和复用。脚号别名不写成交叉，模板里没有的脚不追加。"""
+    """按原理图符号脚就地更新端口表。只改对上的球号、导线网络名和复用。符号上的功能不写入信号名。"""
     port = _port_sheet(workbook)
     if port is None or not pins:
         return 0
@@ -2081,7 +2079,7 @@ def _write_schematic_symbol_pins(workbook: Workbook, pins: list[SchematicSymbolP
         if layout.mux and shown_function and not function_in_symbol and not _text(port.cell(row, layout.mux).value):
             mux_changed = bool(_set_if_changed(port.cell(row, layout.mux), shown_function))
         port_name = _text(port.cell(row, layout.name).value) if layout.name else ""
-        signal = pin.net or (shown_function if not port_name else "")
+        signal = _wire_net(pin)
         net_changed = bool(
             layout.name and signal and port_name != signal and _set_if_changed(port.cell(row, layout.name), signal)
         )
@@ -2152,8 +2150,9 @@ def _symbol_pin_facts(pins: list[SchematicSymbolPin]) -> dict[str, dict[str, str
     for pin in pins:
         for key in split_symbol_parts(pin.symbol):
             slot = facts.setdefault(key, {"net": "", "function": ""})
-            if pin.net:
-                slot["net"] = pin.net
+            net = _wire_net(pin)
+            if net:
+                slot["net"] = net
             if pin.function:
                 slot["function"] = pin.function
     return facts
@@ -3059,12 +3058,13 @@ def _schematic_signal_names(pins: list[SchematicSymbolPin]) -> dict[str, str]:
     """原理图导线上的网络名。按脚号和球号都能对上。"""
     names: dict[str, str] = {}
     for pin in pins:
-        if not pin.net:
+        net = _wire_net(pin)
+        if not net:
             continue
         for key in split_symbol_parts(pin.symbol):
-            names.setdefault(key, pin.net)
+            names.setdefault(key, net)
         if pin.ball:
-            names.setdefault(pin.ball, pin.net)
+            names.setdefault(pin.ball, net)
     return names
 
 
@@ -3413,9 +3413,6 @@ def _write_ports_v13(
         kind = pin_class(by_symbol[row.symbol]) if row.symbol in by_symbol else ""
         if layout.function and kind:
             sheet.cell(excel_row, layout.function, kind)
-        advice = _manual_recommendation(by_symbol[row.symbol]) if row.symbol in by_symbol else ""
-        if layout.name and advice:
-            sheet.cell(excel_row, layout.name, advice)
         sheet.cell(excel_row, layout.mux, present_mux(row.mux))
         sheet.cell(excel_row, layout.page, row.page)
         sheet.cell(excel_row, layout.excerpt, present_excerpt(excerpts.get(row.symbol, "")))

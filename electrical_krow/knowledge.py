@@ -603,7 +603,16 @@ def feature_library(kind: str) -> dict:
             "owner": _scrub_text(str(scope.get("owner") or "")),
             "site": _scrub_text(str(scope.get("site") or "")),
         },
-        "sources": [],
+        "sources": [
+            {
+                "id": str(row.get("id") or ""),
+                "title": _scrub_text(str(row.get("title") or "")),
+                "role": str(row.get("role") or ""),
+                "leave_site": bool(row.get("leave_site")),
+            }
+            for row in (raw.get("sources") or [])
+            if isinstance(row, dict)
+        ],
         "stats": {
             "clauses": len(clauses),
             "physics": 0,

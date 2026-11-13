@@ -545,6 +545,45 @@ class JunkAndFitTests(unittest.TestCase):
             "fulfill ASIL C according to ISO 26262",
         )
 
+    def test_numbered_clause_excerpt_keeps_english_and_chinese(self) -> None:
+        chunk = (
+            "6.10.2.6 HVDC voltage sensor 高压直流电压传感器\n\n"
+            "The XCM shall have a HVDC voltage sensor monitoring the HVDC voltage.\n\n"
+            "6.10.2.7 HVDC current sensor 高压直流电流传感器\n\n"
+            "The XCM shall have a HVDC current sensor monitoring the HVDC current. "
+            "The AUX current should not be included in the measured HVDC current. "
+            "The HVDC current sensor shall fulfill ASIL C according to ISO 26262-2018.\n\n"
+            "控制器应该有一个高压直流电流传感器监测高压直流电流。"
+            "辅助高压电流不应包括在测量的高压直流电流中。"
+            "高压直流电流传感器应符合ISO 26262-2018的ASIL C标准。\n\n"
+            "6.10.2.8 HVAC current sensor 高压交流电流传感器\n\n"
+            "Each of the inverters within the XCM shall measure all the three AC phase currents.\n"
+        )
+        found = {c.name: c for c in _rule_cells(chunk, family="dpr")}
+        excerpt = found["母线直流电流检测"].excerpt
+        self.assertIn("6.10.2.7 HVDC current sensor", excerpt)
+        self.assertIn("The AUX current should not be included", excerpt)
+        self.assertIn("辅助高压电流不应包括在测量的高压直流电流中", excerpt)
+        self.assertNotIn("6.10.2.8", excerpt)
+        self.assertNotIn("HVAC current sensor", excerpt)
+
+    def test_same_line_chinese_stays_after_the_english_period(self) -> None:
+        from electrical.extract import _expand_to_clause
+
+        chunk = (
+            "2.3.1 Weight重量\n\n"
+            "The weight of the XCM shall be less than 20.2kg(With OD Module),"
+            "The weight of the non-boost XCM shall not exceed 16 kilograms "
+            "(including the OD module).. "
+            "升压XCM的重量不得超过20.2公斤（含OD模块），非升压XCM的重量不得超过18.5公斤（含OD模块）。\n\n"
+            "| Serial Num. 序号 | Commodity Name 商品名称 |\n"
+        )
+        start = chunk.find("weight of the XCM")
+        excerpt = _expand_to_clause(chunk, start, start + 40)
+        self.assertIn("20.2kg(With OD Module)", excerpt)
+        self.assertIn("升压XCM的重量不得超过20.2公斤", excerpt)
+        self.assertNotIn("Commodity Name", excerpt)
+
     def test_ohm_computes_insulation_from_voltage_and_current(self) -> None:
         chunk = (
             "## 第 78 页\n"
@@ -1702,6 +1741,103 @@ P1 continuous torque 55Nm
                 "thermal management control, boost control, and integrates",
             )
         )
+
+    def test_boost_control_alone_does_not_claim_a_platform_variant(self) -> None:
+        chunk = (
+            "PCM includes transmission control, motor control, thermal management "
+            "control, boost control, and integrates power distribution module."
+        )
+        found = {c.name: c for c in _rule_cells(chunk, family="dpr")}
+        drive = found.get("设计范围是否包含驱动升压功能")
+        self.assertIsNotNone(drive)
+        assert drive is not None
+        self.assertIn("boost control", drive.value)
+        self.assertNotIn("平台变型", drive.value)
+
+    def test_ground_resistance_is_not_insulation(self) -> None:
+        from electrical.extract import _value_fits_field
+        from electrical.schema import ExtractedCell, STATUS_MISS
+        from electrical.extract import scrub_cells_ocr_notes
+
+        self.assertFalse(
+            _value_fits_field(
+                "高压安全-绝缘电阻",
+                "接地电阻不大于10mΩ",
+                "要求可导电外壳任意两点之间接地电阻不大于10mΩ",
+            )
+        )
+        cell = ExtractedCell(
+            name="高压安全-绝缘电阻",
+            value="接地电阻不大于10mΩ",
+            excerpt="要求可导电外壳任意两点之间接地电阻不大于10mΩ",
+            review_status="已检索到",
+        )
+        scrub_cells_ocr_notes([cell])
+        self.assertEqual(cell.value, "")
+        self.assertEqual(cell.review_status, STATUS_MISS)
+
+    def test_page_banner_leaves_the_excerpt_and_unsupported_number_is_partial(self) -> None:
+        from electrical.extract import scrub_cells_ocr_notes
+        from electrical.schema import STATUS_PARTIAL, ExtractedCell
+
+        cell = ExtractedCell(
+            name="控制器重量",
+            value="14.9 kg",
+            excerpt=(
+                "[本页为本机 OCR] Document Type 文档类型 Page No 页码 "
+                "2.3.1 Weight 重量 零部件需保证重量优化设计。"
+            ),
+            review_status="已检索到",
+            confidence=0.9,
+        )
+        scrub_cells_ocr_notes([cell])
+        self.assertNotIn("Document Type", cell.excerpt)
+        self.assertNotIn("[本页为本机 OCR]", cell.excerpt)
+        self.assertEqual(cell.review_status, STATUS_PARTIAL)
+        self.assertIn("14.9", cell.note)
+
+    def test_p3_peak_torque_keeps_duration_and_speed(self) -> None:
+        chunk = (
+            "P3 电机峰值扭矩@600A@10s@640V P3 peak torque (@600A@10s@640V "
+            "Nm 400Nm @0-6500rpm\n"
+        )
+        found = {c.name: c.value for c in _rule_cells(chunk, family="dpr")}
+        value = found.get("P3峰值扭矩/时间/对应转速范围") or ""
+        self.assertIn("400Nm", value)
+        self.assertIn("10s", value)
+        self.assertIn("6500rpm", value)
+
+    def test_clipped_boost_excerpt_keeps_both_sentences(self) -> None:
+        chunk = """
+PCM is the control unit of a hybrid dedicated transmission, which includes transmission
+control, motor control, thermal management control, boost control, and integrates power distribution module.
+Considering the platform integration of PCM, PCM must have variants tailored to the BOOST architecture.
+"""
+        rows = {c.seq: c for c in empty_template_rows()}
+        clipped = (
+            "control, motor control, thermal management control, boost control, "
+            "and integrates power distribution module. PCM is"
+        )
+        _store_cell(
+            ExtractedCell(
+                name="设计范围是否包含驱动升压功能",
+                value="是；PCM 含 boost control，并按 BOOST 架构做平台变型",
+                excerpt=clipped,
+                confidence=0.9,
+            ),
+            chunk,
+            rows,
+            [],
+            set(),
+            {},
+            {},
+        )
+        for cell in _rule_cells(chunk, family="dpr"):
+            _store_cell(cell, chunk, rows, [], set(), {}, {})
+        got = next(c for c in rows.values() if c.name == "设计范围是否包含驱动升压功能")
+        self.assertTrue(got.excerpt.startswith("PCM is the control unit"))
+        self.assertIn("variants tailored to the BOOST architecture", got.excerpt)
+        self.assertFalse(got.excerpt.endswith("PCM is"))
 
     def test_drive_boost_scope_writes_conclusion(self) -> None:
         from electrical.extract import _better
@@ -3797,7 +3933,7 @@ Full power is a condition where the unit can perform without any power derating.
         chunk = (
             "### 4.3.3 Environment Cycles Ageing Requirement环境循环老化要求\n"
             + pad
-            + "## 4.6 Flame Retardance Requirement阻燃要求\n"
+            + "## 4.6 Flame Retardance Requirement阻燃要求\n\n"
             "According Q/JLY J7110335C-2022 Limit requirements and test methods "
             "for flame retardant automotive non-metallic materials.\n"
             "根据Q/JLY J7110335C-2022汽车非金属材料阻燃性限值要求及试验方法，并提供阻燃报告。\n"
@@ -3809,6 +3945,8 @@ Full power is a condition where the unit can perform without any power derating.
             _store_cell(cell, chunk, rows, extra, set(), {}, {})
         flame = next(c for c in rows.values() if c.name == "阻燃要求")
         self.assertIn("J7110335", flame.value or "")
+        self.assertIn("According Q/JLY J7110335C-2022", flame.excerpt)
+        self.assertIn("并提供阻燃报告", flame.excerpt)
         self.assertEqual(flame.clause, "4.6")
         self.assertNotEqual(flame.clause, "4.3.3")
 

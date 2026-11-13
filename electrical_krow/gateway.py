@@ -755,6 +755,18 @@ def create_app(
             job_id, username=item.auth.username
         )
 
+    @app.get("/api/jobs/{job_id}/items")
+    def job_items(
+        job_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """当次核对表上的需求条目。只读表里已写的抽出值、页码、条款号和原文。"""
+        item = _require_session(request, authorization)
+        return request.app.state.jobs.review_items(
+            job_id, username=item.auth.username
+        )
+
     @app.post("/api/jobs/{job_id}/pause")
     def pause_job(
         job_id: str,

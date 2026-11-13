@@ -66,20 +66,25 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb = load_workbook(path)
-            self.assertEqual(wb.sheetnames, ["说明", "电控设计需求", "清单外需求", "清单口径"])
-            ws = wb["电控设计需求"]
-            headers = [c.value for c in ws[2]]
+            self.assertEqual(wb.sheetnames, ["01_封面", "02_需求核对", "04_清单外", "05_条目说明"])
+            ws = wb["02_需求核对"]
+            groups = [c.value for c in ws[2]]
+            self.assertIn("条目", groups)
+            self.assertIn("原文", groups)
+            headers = [c.value for c in ws[3]]
             self.assertIn("人工填写", headers)
             self.assertIn("条款号", headers)
             self.assertIn("分组", headers)
             self.assertNotIn("参考示例（非本份抽出）", headers)
-            self.assertEqual(ws["A3"].value, "已检索到")
-            self.assertEqual(ws["A4"].value, "未检索到")
-            self.assertEqual(ws["B3"].value, "设计范围")
-            self.assertEqual(ws["G3"].value, "2.3.3.3")
-            self.assertEqual(ws["E3"].fill.fgColor.rgb[-6:].upper(), "D6EAF8")
-            self.assertEqual(ws["E4"].fill.fgColor.rgb[-6:].upper(), "FFF3CD")
-            self.assertEqual(ws["E4"].value, "未检索到")
+            self.assertEqual(ws["A4"].value, "已检索到")
+            self.assertEqual(ws["A5"].value, "未检索到")
+            self.assertEqual(ws["B4"].value, "设计范围")
+            self.assertEqual(ws["G4"].value, "2.3.3.3")
+            self.assertEqual(ws["E4"].fill.fgColor.rgb[-6:].upper(), "D4EDDA")
+            self.assertEqual(ws["E5"].fill.fgColor.rgb[-6:].upper(), "F6CACA")
+            self.assertEqual(ws["E5"].value, "未检索到")
+            self.assertEqual(ws.freeze_panes, "E4")
+            self.assertEqual(wb["01_封面"]["D2"].value, "局部对应/需人工复核")
             loaded, meta = load_review_cells(path)
             self.assertEqual(meta["源文件"], "DHTS160_DPR.docx")
             self.assertIn("知识库版本", meta)
@@ -91,8 +96,13 @@ class WorkbookTests(unittest.TestCase):
             self.assertEqual(loaded[1].review_status, "未检索到")
             cover_text = "\n".join(
                 " ".join("" if c.value is None else str(c.value) for c in row)
-                for row in wb["说明"].iter_rows()
+                for row in wb["01_封面"].iter_rows()
             )
+            self.assertEqual(wb["01_封面"]["A1"].value, "电控设计需求核对")
+            self.assertIsNone(wb["01_封面"].freeze_panes)
+            self.assertEqual(wb["01_封面"]["A6"].value, "源文件")
+            self.assertEqual(wb["01_封面"]["B6"].value, "DHTS160_DPR.docx")
+            self.assertEqual(wb["02_需求核对"]["A1"].value, "电控设计需求核对")
             self.assertIn("已检索到", cover_text)
             self.assertIn("知识库版本", cover_text)
             self.assertIn("用法", cover_text)
@@ -160,11 +170,11 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb = load_workbook(path)
-            ws = wb["电控设计需求"]
-            self.assertEqual(ws["C3"].value, 17)
-            self.assertEqual(ws["C4"].value, 18)
-            self.assertEqual(wb["清单口径"]["A3"].value, 17)
-            self.assertEqual(wb["清单口径"]["A4"].value, 18)
+            ws = wb["02_需求核对"]
+            self.assertEqual(ws["C4"].value, 17)
+            self.assertEqual(ws["C5"].value, 18)
+            self.assertEqual(wb["05_条目说明"]["A4"].value, 17)
+            self.assertEqual(wb["05_条目说明"]["A5"].value, 18)
             loaded, _ = load_review_cells(path)
             self.assertEqual(loaded[0].seq, 17)
             self.assertEqual(loaded[1].seq, 20)
@@ -192,16 +202,16 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb = load_workbook(path)
-            ws = wb["电控设计需求"]
-            self.assertEqual(ws["A3"].value, "未检索到")
-            self.assertEqual(ws["E3"].value, "未检索到")
-            self.assertEqual(ws["E3"].fill.fgColor.rgb[-6:].upper(), "FFF3CD")
-            self.assertNotIn("参考", ws["E3"].value or "")
-            self.assertIn("企标方法对照", ws["J3"].value or "")
-            self.assertEqual(ws["C3"].value, 68)
+            ws = wb["02_需求核对"]
+            self.assertEqual(ws["A4"].value, "未检索到")
+            self.assertEqual(ws["E4"].value, "未检索到")
+            self.assertEqual(ws["E4"].fill.fgColor.rgb[-6:].upper(), "F6CACA")
+            self.assertNotIn("参考", ws["E4"].value or "")
+            self.assertIn("企标方法对照", ws["J4"].value or "")
+            self.assertEqual(ws["C4"].value, 68)
             cover_text = "\n".join(
                 " ".join("" if c.value is None else str(c.value) for c in row)
-                for row in wb["说明"].iter_rows()
+                for row in wb["01_封面"].iter_rows()
             )
             self.assertNotIn("未给出（方法见备注）", cover_text)
             self.assertNotIn("未检索到（方法见备注）", cover_text)
@@ -235,8 +245,8 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb2 = load_workbook(path)
-            self.assertEqual(wb2["电控设计需求"]["A3"].value, "局部对应/需人工复核")
-            self.assertEqual(wb2["电控设计需求"]["E3"].value, "局部对应/需人工复核")
+            self.assertEqual(wb2["02_需求核对"]["A4"].value, "局部对应")
+            self.assertEqual(wb2["02_需求核对"]["E4"].value, "局部对应/需人工复核")
 
     def test_formula_note_written_to_review_column(self) -> None:
         rows = [
@@ -269,16 +279,16 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb = load_workbook(path)
-            ws = wb["电控设计需求"]
-            headers = [c.value for c in ws[2]]
+            ws = wb["02_需求核对"]
+            headers = [c.value for c in ws[3]]
             note_col = headers.index("复核备注") + 1
             self.assertEqual(
-                ws.cell(3, note_col).value,
+                ws.cell(4, note_col).value,
                 "由物理公式计算：R=U/I（代入 1000 VDC、0.1 mA）",
             )
-            self.assertEqual(ws["E3"].value, "10 MΩ")
-            self.assertIsNotNone(ws["E3"].comment)
-            self.assertIn("R=U/I", ws["E3"].comment.text)
+            self.assertEqual(ws["E4"].value, "10 MΩ")
+            self.assertIsNotNone(ws["E4"].comment)
+            self.assertIn("R=U/I", ws["E4"].comment.text)
 
     def test_long_excerpt_gets_tall_row(self) -> None:
         long = "主动短路期间，P1电磁最大允许稳态电流为250Arms有效值。" * 8
@@ -303,8 +313,11 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb = load_workbook(path)
-            height = wb["电控设计需求"].row_dimensions[3].height
-            self.assertGreaterEqual(height, 80)
+            sheet = wb["02_需求核对"]
+            height = sheet.row_dimensions[4].height
+            self.assertGreaterEqual(height, 182)
+            self.assertEqual(sheet["H4"].value, long)
+            self.assertEqual(sheet["E4"].value, long)
 
     def test_cover_records_knowledge_version(self) -> None:
         rows = [
@@ -328,6 +341,27 @@ class WorkbookTests(unittest.TestCase):
             _, meta = load_review_cells(path)
             self.assertEqual(meta["知识库版本"], "2026-09-03.4")
             self.assertNotIn("知识库口径", meta)
+
+    def test_cover_source_drops_the_storage_prefix(self) -> None:
+        rows = [
+            ExtractedCell(
+                seq=1,
+                name="设计范围是否包含OD本体物理集成",
+                value="是",
+                confidence=0.9,
+            )
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "核对表.xlsx"
+            write_review_workbook(
+                rows,
+                path,
+                source_name="d56df42e_DHTS160_DPR.docx",
+                likely_scan=False,
+                parser="DocxReader",
+            )
+            _, meta = load_review_cells(path)
+            self.assertEqual(meta["源文件"], "DHTS160_DPR.docx")
 
     def test_cover_records_file_qa_without_fill_values(self) -> None:
         from electrical.doc_qa import DocQaReport
@@ -395,7 +429,9 @@ class WorkbookTests(unittest.TestCase):
                 ContentFinding(
                     "P0",
                     "中英冲突",
-                    "P1 交流电流量程中英不一致：中文 ±180A，英文 ±600A。",
+                    "P1 交流电流：中文写 ±180A，英文写 ±600A，两边对不上。",
+                    "32",
+                    "6.3.3.1",
                 )
             ],
         )
@@ -412,17 +448,25 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb = load_workbook(path)
-            self.assertIn("文件审查", wb.sheetnames)
+            self.assertIn("03_提取质量审查", wb.sheetnames)
             self.assertEqual(
-                wb.sheetnames[:2],
-                ["说明", "文件审查"],
+                wb.sheetnames[:3],
+                ["01_封面", "02_需求核对", "03_提取质量审查"],
             )
             review_text = "\n".join(
                 " ".join("" if c.value is None else str(c.value) for c in row)
-                for row in wb["文件审查"].iter_rows()
+                for row in wb["03_提取质量审查"].iter_rows()
             )
-            self.assertIn("P0", review_text)
+            self.assertIn("中英冲突", review_text)
             self.assertIn("±180A", review_text)
+            self.assertIn("页码", review_text)
+            self.assertIn("条款号", review_text)
+            self.assertIn("32", review_text)
+            self.assertIn("6.3.3.1", review_text)
+            levels = [row[0].value for row in wb["03_提取质量审查"].iter_rows(min_col=1, max_col=1)]
+            self.assertNotIn("P0", levels)
+            self.assertNotIn("P1", levels)
+            self.assertNotIn("等级", review_text)
             self.assertNotIn("不写入抽出值", review_text)
             self.assertNotIn("8000", review_text)
             _, meta = load_review_cells(path)
@@ -478,23 +522,23 @@ class WorkbookTests(unittest.TestCase):
             from openpyxl import load_workbook
 
             wb = load_workbook(path)
-            self.assertIn("清单外需求", wb.sheetnames)
-            main = wb["电控设计需求"]
+            self.assertIn("04_清单外", wb.sheetnames)
+            main = wb["02_需求核对"]
             names = [row[3].value for row in main.iter_rows(min_row=3, max_col=4)]
             self.assertIn("设计范围是否包含OD本体物理集成", names)
             self.assertNotIn("生产追溯码", names)
             self.assertNotIn("规格书标题", names)
-            extra = wb["清单外需求"]
-            self.assertEqual([c.value for c in extra[2]], ["名称", "抽出值", "页码", "条款号", "原文摘录"])
-            self.assertEqual(extra["A3"].value, "生产追溯码")
-            self.assertEqual(extra["B3"].value, "生产追溯码应打印在壳体右侧。")
-            self.assertEqual(extra["C3"].value, "88")
-            self.assertEqual(extra["D3"].value, "9.2.1")
-            extra_names = [row[0].value for row in extra.iter_rows(min_row=3, max_col=1)]
+            extra = wb["04_清单外"]
+            self.assertEqual([c.value for c in extra[3]], ["名称", "抽出值", "页码", "条款号", "原文摘录"])
+            self.assertEqual(extra["A4"].value, "生产追溯码")
+            self.assertEqual(extra["B4"].value, "生产追溯码应打印在壳体右侧。")
+            self.assertEqual(extra["C4"].value, "88")
+            self.assertEqual(extra["D4"].value, "9.2.1")
+            extra_names = [row[0].value for row in extra.iter_rows(min_row=4, max_col=1)]
             self.assertNotIn("规格书标题", extra_names)
             cover = "\n".join(
                 " ".join("" if c.value is None else str(c.value) for c in row)
-                for row in wb["说明"].iter_rows()
+                for row in wb["01_封面"].iter_rows()
             )
             self.assertIn("清单条目", cover)
             self.assertIn("清单外需求", cover)

@@ -522,6 +522,40 @@ function recordAutoKey(row, kind) {
   return "auto:" + recordFolderTitle(row, kind).trim().toLowerCase();
 }
 
+function recordFileKey(row) {
+  const raw = String((row && row.source) || "").trim() || fileNameOf(row && row.download);
+  const base = raw.split(/[/\\]/).pop() || raw;
+  return base.trim().toLowerCase();
+}
+
+function betterRecord(row, prev, active) {
+  const id = String(row.id || "");
+  const prevId = String(prev.id || "");
+  if (active && id === active && prevId !== active) return true;
+  if (active && prevId === active && id !== active) return false;
+  const newer = Number(row.created_at || 0) - Number(prev.created_at || 0);
+  if (newer) return newer > 0;
+  const rowOut = row.role !== "source";
+  const prevOut = prev.role !== "source";
+  if (rowOut !== prevOut) return rowOut;
+  return row.status === "done" && prev.status !== "done";
+}
+
+function collapseSameFiles(rows) {
+  const active = String(viewingJob || currentJob || "");
+  const best = new Map();
+  rows.forEach((row) => {
+    const key = recordFileKey(row);
+    if (!key) return;
+    const prev = best.get(key);
+    if (!prev || betterRecord(row, prev, active)) best.set(key, row);
+  });
+  return rows.filter((row) => {
+    const key = recordFileKey(row);
+    return !key || best.get(key) === row;
+  });
+}
+
 function layoutRecords(rows, kind) {
   const folders = recordFolders[kind] || [];
   const known = new Set(folders.map((folder) => folder.id));
@@ -663,7 +697,8 @@ function recordToolbar(kind) {
 
 function fillRecordHost(host, kind, rows, cardHtml, onEmpty) {
   const query = recordQueryOf(kind).trim().toLowerCase();
-  const shown = query ? rows.filter((row) => recordHaystack(row, kind).includes(query)) : rows;
+  const unique = collapseSameFiles(rows);
+  const shown = query ? unique.filter((row) => recordHaystack(row, kind).includes(query)) : unique;
   const folders = recordFolders[kind] || [];
   const scroll = host.scrollTop;
   const typing = document.activeElement && host.contains(document.activeElement)
@@ -686,7 +721,7 @@ function fillRecordHost(host, kind, rows, cardHtml, onEmpty) {
   if (!blocks.length) {
     html += "<p class='job-empty'>" + tx("record.noMatch") + "</p>";
   } else if (query) {
-    html += "<p class='job-search-count'>" + tx("record.foundN", { n: shown.length, total: rows.length }) + "</p>";
+    html += "<p class='job-search-count'>" + tx("record.foundN", { n: shown.length, total: unique.length }) + "</p>";
   }
   html += blocks.map((block) => {
     if (block.type === "single") return cardHtml(block.row);
@@ -1266,6 +1301,7 @@ function resultMarkup(data) {
     + "<div class='stat is-miss'><b>" + miss + "</b><span>" + tx("stat.miss") + "</span></div>"
     + pendingStat
     + "</div>"
+    + (extract ? "<div id='sor-items' class='sor-items'></div>" : "")
     + (extract ? groupBarsMarkup(data.groups) : "")
     + (extract ? compareMarkup(data.compare) : "")
     + (tip ? "<p class='result-note'>" + tip + "</p>" : "");
@@ -1320,6 +1356,299 @@ function compareMarkup(cmp) {
     + body + "</div>";
 }
 
+let sorView = { id: "", items: [], filter: "all", q: "", group: "", openKey: "", extraOpen: false };
+
+function itemBucket(status) {
+  const s = String(status || "");
+  if (s === "已检索到" || s === "通过") return "found";
+  if (s.indexOf("局部对应") === 0 || s === "需修改") return "partial";
+  return "miss";
+}
+
+function statusLabel(it) {
+  const s = String((it && it.status) || "").trim();
+  if (!s) return String((it && it.value) || "").trim() ? "—" : tx("items.filterMiss");
+  if (s.indexOf("局部对应") === 0) return tx("items.filterPartial");
+  return s;
+}
+
+function loadSorItems(data) {
+  const box = document.getElementById("sor-items");
+  if (!box) return;
+  const id = String((data && data.id) || "");
+  if (!id) {
+    box.innerHTML = "";
+    return;
+  }
+  if (!box.dataset.bound) {
+    box.dataset.bound = "1";
+    box.addEventListener("click", onSorClick);
+    box.addEventListener("input", onSorInput);
+    box.addEventListener("change", onSorInput);
+    box.addEventListener("compositionstart", onSorComposeStart);
+    box.addEventListener("compositionend", onSorComposeEnd);
+  }
+  box.innerHTML = "<p class='sor-wait'>" + tx("items.loading") + "</p>";
+  json("/api/jobs/" + encodeURIComponent(id) + "/items").then((payload) => {
+    const live = document.getElementById("sor-items");
+    if (!live || !lastShownJob || String(lastShownJob.id || "") !== id) return;
+    sorView = {
+      id: id,
+      items: Array.isArray(payload.items) ? payload.items : [],
+      filter: "all",
+      q: "",
+      group: "",
+      openKey: "",
+      extraOpen: false,
+    };
+    renderSorItems();
+  }).catch((err) => {
+    const live = document.getElementById("sor-items");
+    if (live) {
+      const msg = (err && err.message) ? err.message : String(err);
+      live.innerHTML = "<p class='sor-wait'>" + escText(msg) + "</p>";
+    }
+  });
+}
+
+function onSorClick(ev) {
+  const btn = ev.target.closest("[data-filter]");
+  if (btn) {
+    sorView.filter = btn.getAttribute("data-filter") || "all";
+    sorView.openKey = "";
+    renderSorItems();
+    return;
+  }
+  const extra = ev.target.closest("[data-extra]");
+  if (extra) {
+    sorView.extraOpen = !sorView.extraOpen;
+    renderSorItems();
+    return;
+  }
+  const row = ev.target.closest("tr[data-key]");
+  if (!row || !ev.currentTarget.contains(row)) return;
+  const key = row.getAttribute("data-key") || "";
+  const box = ev.currentTarget;
+  const wasOpen = sorView.openKey === key;
+  box.querySelectorAll("tr.sor-detail").forEach((el) => el.remove());
+  box.querySelectorAll("tr.is-open").forEach((el) => el.classList.remove("is-open"));
+  if (wasOpen) {
+    sorView.openKey = "";
+    return;
+  }
+  const it = (sorView.items || []).find((item) => sorKey(item) === key);
+  if (!it) return;
+  sorView.openKey = key;
+  row.classList.add("is-open");
+  row.insertAdjacentHTML("afterend", sorDetailRow(it));
+  const detail = row.nextElementSibling;
+  const scroller = row.closest(".sor-scroll");
+  if (detail && scroller) {
+    const view = scroller.getBoundingClientRect();
+    const boxBottom = detail.getBoundingClientRect().bottom;
+    if (boxBottom > view.bottom) scroller.scrollTop += boxBottom - view.bottom + 8;
+  }
+}
+
+function onSorComposeStart(ev) {
+  const t = ev.target;
+  if (t.matches && t.matches("[data-q]")) t.dataset.composing = "1";
+}
+
+function onSorComposeEnd(ev) {
+  const t = ev.target;
+  if (!t.matches || !t.matches("[data-q]")) return;
+  delete t.dataset.composing;
+  sorView.q = t.value;
+  paintSorRows();
+}
+
+function onSorInput(ev) {
+  const t = ev.target;
+  if (t.matches("[data-q]")) {
+    if (ev.isComposing || t.dataset.composing) return;
+    sorView.q = t.value;
+    paintSorRows();
+    return;
+  }
+  if (!t.matches("[data-group]")) return;
+  sorView.group = t.value;
+  renderSorItems();
+}
+
+function sorKey(it) {
+  return (it.extra ? "x:" : "m:") + String(it.seq || "") + ":" + String(it.name || "");
+}
+
+function sorMatchQuery(it) {
+  const q = String(sorView.q || "").trim().toLowerCase();
+  if (!q) return true;
+  const name = String(it.name || "").toLowerCase();
+  const seq = String(it.seq || "");
+  const value = String(it.value || "").toLowerCase();
+  return name.indexOf(q) >= 0 || value.indexOf(q) >= 0 || (seq && seq.indexOf(q) >= 0);
+}
+
+function sorVisible(main, extra) {
+  const shown = main.filter((it) => {
+    if (sorView.group && String(it.group || "") !== sorView.group) return false;
+    if (!sorMatchQuery(it)) return false;
+    return sorView.filter === "all" || itemBucket(it.status) === sorView.filter;
+  }).map((it, index) => ({ it: it, index: index }));
+  shown.sort((a, b) => sorRank(a.it) - sorRank(b.it) || a.index - b.index);
+  const extraShown = extra.filter((it) => !sorView.group && sorMatchQuery(it));
+  return { shown: shown, extraShown: extraShown };
+}
+
+function sorBodyHtml(shown) {
+  return shown.length
+    ? shown.map((row) => sorRowMarkup(row.it)).join("")
+    : "<tr><td class='sor-none' colspan='5'>" + tx("items.none") + "</td></tr>";
+}
+
+function sorExtraHtml(extraShown) {
+  if (!extraShown.length) return "";
+  return "<div class='sor-extra" + (sorView.extraOpen ? " is-open" : "") + "'>"
+    + "<button type='button' class='sor-extra-btn' data-extra='1'>"
+    + "<i class='sor-caret'></i>"
+    + tx("items.extra") + "<b>" + extraShown.length + "</b>"
+    + "</button>"
+    + (sorView.extraOpen
+      ? "<div class='sor-scroll'><table class='sor-table'>" + sorHead() + "<tbody>"
+        + extraShown.map(sorRowMarkup).join("")
+        + "</tbody></table></div>"
+      : "")
+    + "</div>";
+}
+
+function paintSorRows() {
+  const box = document.getElementById("sor-items");
+  const tbody = box && box.querySelector(".sor-scroll tbody");
+  if (!tbody) {
+    renderSorItems();
+    return;
+  }
+  const all = Array.isArray(sorView.items) ? sorView.items : [];
+  const visible = sorVisible(all.filter((it) => !it.extra), all.filter((it) => it.extra));
+  tbody.innerHTML = sorBodyHtml(visible.shown);
+  const old = box.querySelector(".sor-extra");
+  if (old) old.remove();
+  const extra = sorExtraHtml(visible.extraShown);
+  if (extra) box.insertAdjacentHTML("beforeend", extra);
+}
+
+function renderSorItems() {
+  const box = document.getElementById("sor-items");
+  if (!box) return;
+  const pageX = window.scrollX;
+  const pageY = window.scrollY;
+  const all = Array.isArray(sorView.items) ? sorView.items : [];
+  const main = all.filter((it) => !it.extra);
+  const extra = all.filter((it) => it.extra);
+  const groups = [];
+  main.forEach((it) => {
+    const name = String(it.group || "");
+    if (name && groups.indexOf(name) < 0) groups.push(name);
+  });
+  const counts = { all: main.length, found: 0, partial: 0, miss: 0 };
+  main.forEach((it) => {
+    counts[itemBucket(it.status)] += 1;
+  });
+  const filters = [
+    ["found", "items.filterFound"],
+    ["partial", "items.filterPartial"],
+    ["miss", "items.filterMiss"],
+    ["all", "items.filterAll"],
+  ];
+  const chips = filters.map(([id, key]) => {
+    const on = sorView.filter === id ? " is-on" : "";
+    return "<button type='button' class='sor-chip" + on + "' data-filter='" + id + "'>"
+      + "<i class='sor-dot is-" + id + "'></i>"
+      + tx(key) + "<b>" + counts[id] + "</b></button>";
+  }).join("");
+  const groupOpts = "<option value=''>" + tx("items.groupAll") + "</option>"
+    + groups.map((name) => {
+      const sel = sorView.group === name ? " selected" : "";
+      return "<option value='" + escText(name) + "'" + sel + ">" + escText(name) + "</option>";
+    }).join("");
+  const visible = sorVisible(main, extra);
+  const body = sorBodyHtml(visible.shown);
+  const extraBlock = sorExtraHtml(visible.extraShown);
+  box.innerHTML = "<div class='sor-head'><div class='sor-title'>" + tx("items.head") + "</div>"
+    + "<p class='sor-lead'>" + tx("items.lead") + "</p></div>"
+    + "<div class='sor-bar'><div class='sor-filters'>" + chips + "</div>"
+    + "<div class='sor-find'><select data-group>" + groupOpts + "</select>"
+    + "<input data-q type='search' value='" + escText(sorView.q) + "' placeholder='" + escText(tx("items.search")) + "'>"
+    + "</div></div>"
+    + "<div class='sor-scroll'><table class='sor-table'>" + sorHead()
+    + "<tbody>" + body + "</tbody></table></div>"
+    + extraBlock;
+  window.scrollTo(pageX, pageY);
+}
+
+function sorHead() {
+  return "<colgroup><col class='c-seq'><col class='c-name'><col class='c-value'><col class='c-loc'><col class='c-status'></colgroup>"
+    + "<thead><tr><th>" + tx("items.colSeq") + "</th><th>" + tx("items.colName")
+    + "</th><th>" + tx("items.colValue") + "</th><th>" + tx("items.colLoc")
+    + "</th><th>" + tx("items.colStatus") + "</th></tr></thead>";
+}
+
+function sorRank(it) {
+  const bucket = itemBucket(it.status);
+  if (bucket === "found") return 0;
+  if (bucket === "partial") return 1;
+  return 2;
+}
+
+function sorLocMarkup(page, clause) {
+  if (page && clause) {
+    return "<span class='sor-page'>" + escText(page) + "</span><span class='sor-clause'>" + escText(clause) + "</span>";
+  }
+  if (page) return "<span class='sor-page'>" + escText(page) + "</span>";
+  if (clause) return "<span class='sor-clause is-only'>" + escText(clause) + "</span>";
+  return "<span class='sor-page is-empty'>—</span>";
+}
+
+function sorDetailRow(it) {
+  const page = String(it.page || "").trim();
+  const clause = String(it.clause || "").trim();
+  const excerpt = String(it.excerpt || "").trim();
+  const note = String(it.note || "").trim();
+  const seq = Number(it.seq || 0) ? String(it.seq) : "";
+  const meta = [
+    "<span>" + tx("items.colItem") + " <b>" + escText(seq || "—") + "</b></span>",
+    "<span>" + tx("items.colPage") + " <b>" + escText(page || "—") + "</b></span>",
+    "<span>" + tx("items.colClause") + " <b>" + escText(clause || "—") + "</b></span>",
+  ].join("");
+  return "<tr class='sor-detail'><td colspan='5'><div class='sor-cite'>"
+    + "<div class='sor-cite-meta'>" + meta + "</div>"
+    + "<div class='sor-cite-label'>" + tx("items.excerpt") + "</div>"
+    + "<p class='sor-cite-body'>" + escText(excerpt || "—") + "</p>"
+    + (note ? "<p class='sor-cite-note'><b>" + tx("items.note") + "</b>" + escText(note) + "</p>" : "")
+    + "</div></td></tr>";
+}
+
+function sorRowMarkup(it) {
+  const key = sorKey(it);
+  const open = sorView.openKey === key;
+  const value = String(it.value || "").trim();
+  const bucket = it.extra && value && !String(it.status || "").trim() ? "found" : itemBucket(it.status);
+  const seq = Number(it.seq || 0) ? String(it.seq) : "";
+  const page = String(it.page || "").trim();
+  const clause = String(it.clause || "").trim();
+  const group = String(it.group || "").trim();
+  const detail = open ? sorDetailRow(it) : "";
+  return "<tr class='sor-row is-" + bucket + (open ? " is-open" : "") + "' data-key='" + escText(key) + "'>"
+    + "<td class='num sor-seq'><i class='sor-caret'></i><span>" + escText(seq) + "</span></td>"
+    + "<td><span class='sor-name'>" + escText(it.name || "") + "</span>"
+    + (group ? "<span class='sor-group'>" + escText(group) + "</span>" : "") + "</td>"
+    + "<td><span class='sor-value" + (value ? "" : " is-empty") + "' title='" + escText(value || tx("items.emptyValue")) + "'>"
+    + escText(value || tx("items.emptyValue")) + "</span></td>"
+    + "<td class='sor-loc'>" + sorLocMarkup(page, clause) + "</td>"
+    + "<td><span class='sor-status is-" + bucket + "'>" + escText(statusLabel(it)) + "</span></td>"
+    + "</tr>" + detail;
+}
+
 function showFinishedJob(data) {
   lastShownJob = data;
   progress.classList.add("show");
@@ -1337,6 +1666,7 @@ function showFinishedJob(data) {
   result.className = "result show";
   result.innerHTML = resultMarkup(data);
   revealResult();
+  loadSorItems(data);
 }
 
 async function openHistory(id) {
@@ -1425,27 +1755,29 @@ const FLOWS = {
     zh: {
       title: "出表核对",
       input: ["一份规格书：PDF、Word 或 Excel，不超过 80MB"],
-      output: ["核对表", "对得上的写入，对不上的留空或标待确认"],
-      bound: ["只根据这份规格书写", "读不出文字就不出表"],
+      output: ["电控设计需求核对", "01_封面、02_需求核对、03_提取质量审查、04_清单外、05_条目说明"],
+      bound: ["只根据这份规格书写", "读不出文字就不出表", "05_条目说明不是本份抽出值"],
       steps: [
         { k: "p", t: "选择规格书", d: "PDF、Word 或 Excel" },
         { k: "q", q: "能读出文字？", join: false, no: [{ k: "e", t: "停止，不出表", stop: true }] },
         { k: "p", t: "核对这份材料", d: "看中文、英文和前后是否一致" },
         { k: "q", q: "对得上原文？", yes: [{ k: "p", t: "写入该格", d: "内容来自这份规格书" }], no: [{ k: "p", t: "留空或待确认", d: "对不上就不填" }] },
-        { k: "p", t: "写出核对表", d: "保存到本机" },
+        { k: "p", t: "写出核对表", d: "大标题是电控设计需求核对。源文件用上传时的文件名。对照清单仍是原来的 116 条清单" },
+        { k: "p", t: "按页签看", d: "02 是主表。绿色已检索到，琥珀局部对应，浅红未检索到。03 是提取质量审查。点一行才展开原文" },
       ],
     },
     en: {
       title: "Extract and review",
       input: ["One spec: PDF, Word, or Excel, up to 80MB"],
-      output: ["A review workbook", "Matched cells are filled. The rest stay blank or pending"],
-      bound: ["Use only this spec", "Stop if the text cannot be read"],
+      output: ["An e-control design review workbook", "Cover, requirement check, document review, off-list, and item notes"],
+      bound: ["Use only this spec", "Stop if the text cannot be read", "The item-note sheet is not this document's extracted values"],
       steps: [
         { k: "p", t: "Choose the spec", d: "PDF, Word, or Excel" },
         { k: "q", q: "Text readable?", join: false, no: [{ k: "e", t: "Stop. No workbook", stop: true }] },
         { k: "p", t: "Check this document", d: "Compare the Chinese, English, and internal consistency" },
         { k: "q", q: "Matches the source?", yes: [{ k: "p", t: "Write the cell", d: "The value comes from this spec" }], no: [{ k: "p", t: "Leave blank or pending", d: "Do not fill a cell that does not match" }] },
-        { k: "p", t: "Write the workbook", d: "Save it on this machine" },
+        { k: "p", t: "Write the workbook", d: "The title is the review name. The source file keeps the uploaded name" },
+        { k: "p", t: "Read the tabs", d: "The second sheet is the working list. Open a row to read the source text" },
       ],
     },
   },
@@ -1459,7 +1791,7 @@ const FLOWS = {
         { k: "q", q: "有原理图？", yes: [
           { k: "p", t: "读原理图", d: "PDF 按符号脚，EDIF 按网络名和外部电阻" },
           { k: "q", q: "符号对得上模板？", yes: [
-            { k: "p", t: "更新这一行", d: "球号变了才改。导线网络名写入 Pin Definition。空的复用可以填上，只标这一格" },
+            { k: "p", t: "更新这一行", d: "球号变了才改。有导线网络名就写入 Pin Definition；没有网络名、格子又空着，才写入符号上的功能。复用只在空格时填写" },
             { k: "q", q: "和模板原名相同？", yes: [
               { k: "p", t: "不写交叉", d: "核对状态不因另一个脚号改动" },
             ], no: [
@@ -1469,7 +1801,7 @@ const FLOWS = {
             { k: "p", t: "不新增这一行", d: "对不上的脚和网络都不补" },
           ]},
           { k: "p", t: "去掉星驱原理图网络列", d: "这一列不进入输出。后面的列和公式左移" },
-          { k: "p", t: "后面各页只改读到的网络名", d: "ADC、SPI、CAN 没读到导线名就保持模板原文" },
+          { k: "p", t: "后面各页留下", d: "原理图没写到的页不删。盖住文字的图挪到这段文字右侧，按原来的大小" },
           { k: "p", t: "补回跳转", d: "一对一直接跳，一对多先打开跳转索引" },
           { k: "p", t: "死区时间可以改", d: "7_Dead Time 的 μs 改一格，要求文字和时序图跟着变" },
           { k: "p", t: "3041 用下拉选位", d: "一位两位下拉选 0、1、2。位数多的直接填数。寄存器值和纳秒结果跟着变" },
@@ -1492,7 +1824,7 @@ const FLOWS = {
         { k: "q", q: "Schematic?", yes: [
           { k: "p", t: "Read the schematic", d: "PDF by symbol pin. EDIF by net name and external resistor" },
           { k: "q", q: "Symbol matches the template?", yes: [
-            { k: "p", t: "Update this row", d: "Change the ball only when it differs. Write a wire net only when it differs. An empty option cell can be filled, and only that cell is marked" },
+            { k: "p", t: "Update this row", d: "Change the ball only when it differs. A wire net goes into Pin Definition. If there is no net and that cell is empty, write the function printed on the symbol. Fill an option cell only when it is empty" },
             { k: "q", q: "Port name matches the net?", yes: [
               { k: "p", t: "No cross note", d: "Another pin number does not change the review status" },
             ], no: [
@@ -1502,7 +1834,7 @@ const FLOWS = {
             { k: "p", t: "Do not add this row", d: "Leave unmatched pins and nets out" },
           ]},
           { k: "p", t: "Drop the project net column", d: "The Xingqu schematic-net column is removed. Later columns and formulas shift left" },
-          { k: "p", t: "Later sheets use the wire net only", d: "ADC signal name, and SPI or CAN Net Name. Unread cells keep the template text" },
+          { k: "p", t: "Later sheets stay", d: "Do not delete a sheet the schematic did not fill. Move a picture off the text, keeping its size" },
           { k: "p", t: "Restore jumps", d: "One hit jumps directly. Several hits open the index" },
           { k: "p", t: "Dead time stays editable", d: "Change the μs cell on 7_Dead Time. The requirement text and the timing figure follow it" },
           { k: "p", t: "3041 uses a bit dropdown", d: "One or two bits choose 0, 1, or 2. Wider fields are typed. The register word and the nanosecond result follow" },
@@ -1521,41 +1853,41 @@ const FLOWS = {
     zh: {
       title: "ICD 规划",
       input: ["当版 ICD", "上一版可以不选"],
-      output: ["当版原表，右侧加匹配栏", "有上一版时，原表后面加差异总结，并写本次出表时间"],
-      bound: ["只反映当版实际有的内容", "原表已有列宽不缩小", "删除的行不在当版，写在本表小结里"],
+      output: ["当版原表，改过的格子涂色", "本表小结在表头右侧", "有上一版时，原表后面加差异总结"],
+      bound: ["只反映当版实际有的内容", "原表列宽不缩小，图按原文件里的尺寸留下", "删除的行写在右侧本表小结，不插回原表"],
       steps: [
         { k: "q", q: "是引脚表？", join: false, no: [{ k: "e", t: "不出表", stop: true }] },
         { k: "p", t: "按原表抽出引脚", d: "表和列保持当版原来的样子" },
         { k: "q", q: "有上一版？", yes: [
           { k: "p", t: "逐行对照", d: "看出新增、修改和删除" },
-          { k: "p", t: "原表涂色", d: "新增绿，修改黄，删除红。只涂改过的那一段" },
-          { k: "p", t: "匹配栏写关系", d: "新增、修改了哪个字段，或未改" },
-          { k: "p", t: "表下写本表小结", d: "从 A 列起，文字靠左" },
-          { k: "p", t: "原表后面写差异总结", d: "写两版版本号和本次出表时间" },
+          { k: "p", t: "原表涂色", d: "新增绿，修改黄，删除红。只涂改过的那一格" },
+          { k: "p", t: "小结写在右侧", d: "颜色说明单独占最上面一行，原表下移一行。本表小结仍在表头右侧，空一列。不插入列" },
+          { k: "p", t: "图保持原尺寸", d: "沿用客户原来的两个格子。有图的表用普通视图从 A1 打开，不再铺成分页预览" },
+          { k: "p", t: "原表后面写差异总结", d: "关键变化先写接插件的厂家、供应商、型号和料号。引脚增减不展开" },
         ], no: [
-          { k: "p", t: "匹配栏写已从当版读出", d: "不编上一版没有的差异" },
+          { k: "p", t: "保持当版原表", d: "不编上一版没有的差异" },
         ]},
-        { k: "p", t: "按字数收列宽", d: "变更记录不进入输出" },
+        { k: "p", t: "写出引脚清单", d: "变更记录不进入输出" },
       ],
     },
     en: {
       title: "ICD",
       input: ["The current ICD", "A previous ICD is optional"],
-      output: ["The current sheets, plus a match column", "A difference summary after the original sheets, with this run's time, when a previous file exists"],
-      bound: ["Show only what the current file actually has", "Do not shrink the original column widths", "Removed rows are listed under the sheet, not put back into it"],
+      output: ["The current sheets, with changed cells colored", "A sheet note to the right of the header", "A difference summary after the original sheets when a previous file exists"],
+      bound: ["Show only what the current file actually has", "Do not shrink original columns. Keep each picture at its recorded size", "Removed rows go in the note on the right"],
       steps: [
         { k: "q", q: "Pin workbook?", join: false, no: [{ k: "e", t: "No workbook", stop: true }] },
         { k: "p", t: "Read the current sheets", d: "Keep their tables and columns" },
         { k: "q", q: "Previous file?", yes: [
           { k: "p", t: "Compare row by row", d: "See what was added, changed, or removed" },
-          { k: "p", t: "Color the current sheets", d: "Green for added, yellow for changed, red for removed. Color only that span" },
-          { k: "p", t: "Fill the match column", d: "Added, which field changed, or unchanged" },
-          { k: "p", t: "Note the sheet", d: "Start at column A, left aligned" },
-          { k: "p", t: "Write the summary after the sheets", d: "Include both versions and this run's time" },
+          { k: "p", t: "Color the current sheets", d: "Green for added, yellow for changed, red for removed. Color only that cell" },
+          { k: "p", t: "Note the sheet on the right", d: "The color note takes the top row and the original sheet moves down one row. The summary stays to the right of the header. Do not insert a column" },
+          { k: "p", t: "Keep picture size", d: "Do not stretch a picture with its cells. Picture sheets stay in page-break preview and open at A1" },
+          { k: "p", t: "Write the summary after the sheets", d: "Lead with the connector maker, supplier, model, and part number. Do not expand pin adds and deletes" },
         ], no: [
-          { k: "p", t: "Mark each row as read from this file", d: "Do not invent a difference" },
+          { k: "p", t: "Keep the current sheets", d: "Do not invent a difference" },
         ]},
-        { k: "p", t: "Size columns by their text", d: "Drop the change-log sheet from the output" },
+        { k: "p", t: "Write the pin list", d: "Drop the change-log sheet from the output" },
       ],
     },
   },
@@ -1564,7 +1896,7 @@ const FLOWS = {
       title: "CE BOM",
       input: ["电子件用 AD 导出的 Excel", "结构件用二维图", "上一版可以不选"],
       output: ["供应商表，电子件级别为 4", "字段匹配页一个零件一行", "结构件另起一张同样的列"],
-      bound: ["规则表没有的 TYPE，中文名称留空", "3 级件不提取尺寸", "上一版多出来的零件不补"],
+      bound: ["规则表没有的 TYPE，中文名称留空", "3 级件不提取尺寸", "明细栏旁边的技术要求不写入零件名", "上一版多出来的零件不补"],
       steps: [
         { k: "q", q: "是电子件？", yes: [
           { k: "p", t: "读 AD 导出的 Excel", d: "取 TYPE、数量、规格型号" },
@@ -1573,7 +1905,7 @@ const FLOWS = {
           { k: "p", t: "另起字段匹配页", d: "一个零件一行。缺的字段标未对上，页首写合计" },
         ], no: [
           { k: "q", q: "是这张二维图上的零件？", yes: [
-            { k: "p", t: "定为 2 级", d: "只读图上标明的外形尺寸、材料、图样代号、质量" },
+            { k: "p", t: "定为 2 级", d: "读标题栏的图样名称、图号、材料、质量，以及视图上的外形尺寸。没有文字层也读标题栏这一块" },
           ], no: [
             { k: "p", t: "定为 3 级", d: "明细里的子件不提取尺寸，尺寸手填" },
           ]},
@@ -1590,7 +1922,7 @@ const FLOWS = {
       title: "CE BOM",
       input: ["An AD Excel BOM for electronic parts", "A 2D drawing for structure", "A previous BOM is optional"],
       output: ["A supplier sheet, with electronic parts at level 4", "A field-match sheet with one row per part", "Structure on a second sheet with the same columns"],
-      bound: ["Leave the Chinese name blank when TYPE is not in the rules", "Do not extract sizes for level-3 parts", "Do not add parts that exist only in the previous file"],
+      bound: ["Leave the Chinese name blank when TYPE is not in the rules", "Do not extract sizes for level-3 parts", "A note beside the name is not part of the part name", "Do not add parts that exist only in the previous file"],
       steps: [
         { k: "q", q: "Electronic parts?", yes: [
           { k: "p", t: "Read the AD Excel", d: "Take TYPE, quantity, and spec" },
@@ -1599,7 +1931,7 @@ const FLOWS = {
           { k: "p", t: "Add a field-match sheet", d: "One row per part. Mark a missing field, and put the total at the top" },
         ], no: [
           { k: "q", q: "Part on this drawing?", yes: [
-            { k: "p", t: "Level 2", d: "Read only the labeled outline, material, drawing number, and mass" },
+            { k: "p", t: "Level 2", d: "Read the title block name, number, material, and mass, plus the outline on the view. A drawing without a text layer still uses the title block" },
           ], no: [
             { k: "p", t: "Level 3", d: "Do not extract sizes for detail-list children" },
           ]},
@@ -1618,28 +1950,28 @@ const FLOWS = {
       title: "需求拆解",
       input: ["一份或多份需求 PDF"],
       output: ["确认说明和需求清单", "整表和图表放在附件"],
-      bound: ["数值只来自原文", "状态留给人确认"],
+      bound: ["数值只来自原文", "意见是初步意见，理由写在备注", "状态留给人确认"],
       steps: [
         { k: "p", t: "选择 PDF", d: "可以一次选多份" },
         { k: "q", q: "能读出文字？", join: false, no: [{ k: "e", t: "停止，并说明原因", stop: true }] },
         { k: "p", t: "拆成条款", d: "保留出处和带单位的数值" },
         { k: "p", t: "保留整表和图表", d: "看不清文字的页不拆进条款" },
         { k: "p", t: "标出不一致", d: "前后对不上的标出来，不改原数值" },
-        { k: "p", t: "写出对照稿", d: "确认说明在前，状态待人确认" },
+        { k: "p", t: "写出对照稿", d: "每条有初步意见和理由。状态仍待人确认" },
       ],
     },
     en: {
       title: "Requirement breakdown",
       input: ["One or more requirement PDFs"],
       output: ["A confirmation note and a requirement list", "Whole tables and figures go to the attachment"],
-      bound: ["Numbers come only from the document", "Status is left for a person"],
+      bound: ["Numbers come only from the document", "The comment is a preliminary opinion. The reason is in the note", "Status is left for a person"],
       steps: [
         { k: "p", t: "Choose PDFs", d: "Several files can be selected" },
         { k: "q", q: "Text readable?", join: false, no: [{ k: "e", t: "Stop and say why", stop: true }] },
         { k: "p", t: "Split into clauses", d: "Keep the source and values with units" },
         { k: "p", t: "Keep tables and figures", d: "Pages without readable text are not split" },
         { k: "p", t: "Mark conflicts", d: "Flag disagreements. Do not change the number" },
-        { k: "p", t: "Write the workbook", d: "Confirmation note first. Status stays pending" },
+        { k: "p", t: "Write the workbook", d: "Each item has a preliminary opinion and a reason. Status stays pending" },
       ],
     },
   },

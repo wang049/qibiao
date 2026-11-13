@@ -106,15 +106,13 @@ class ArchQualityCheckTests(unittest.TestCase):
 
             wb = load_workbook(out)
             note_ws = wb[SHEET_NOTE]
-            note_map = {
-                str(r[0] or ""): str(r[1] or "")
-                for r in note_ws.iter_rows(min_row=2, values_only=True)
-            }
-            self.assertIn("文件内容质检", note_map)
-            self.assertIn("中英数值不一致", note_map["文件内容质检"])
-            self.assertIn("待定项", note_map["文件内容质检"])
-            self.assertIn("需求清单第 2 行", note_map["文件内容质检"])
-            self.assertIn("需求清单第 3 行", note_map["文件内容质检"])
+            note_text = "\n".join(str(c.value or "") for row in note_ws.iter_rows() for c in row)
+            self.assertEqual(note_ws.cell(2, 1).value, "结论")
+            self.assertNotIn("•", str(note_ws.cell(2, 3).value or ""))
+            self.assertIn("中英数值不一致", note_text)
+            self.assertIn("待定项", note_text)
+            self.assertIn("需求清单第 2 行", note_text)
+            self.assertIn("需求清单第 3 行", note_text)
 
             req_ws = wb[SHEET_REQS]
             headers = [str(c.value or "") for c in req_ws[1]]
@@ -122,7 +120,7 @@ class ArchQualityCheckTests(unittest.TestCase):
             self.assertIn("中英数值不一致", str(req_ws.cell(2, remark_idx).value or ""))
             self.assertIn("TBD/TBC", str(req_ws.cell(3, remark_idx).value or ""))
             self.assertNotIn("须向客户确认", str(req_ws.cell(3, remark_idx).value or ""))
-            self.assertNotIn("须向客户确认", note_map["文件内容质检"])
+            self.assertNotIn("须向客户确认", note_text)
             self.assertIn("check", seen_stages)
             self.assertIn("save", seen_stages)
             # 冲突行与 TBD 行在「需求清单」均整行标红（FCE4E4）

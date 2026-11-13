@@ -1014,7 +1014,7 @@ class GatewayTests(unittest.TestCase):
         self.assertEqual(empty.status_code, 400)
 
     def test_hsi_templates_listed_and_schematic_requires_one(self) -> None:
-        from electrical_krow.hsi_book import SCHEMATIC_HSI_TEMPLATE, HsiResult
+        from electrical_krow.hsi_book import HsiResult, hsi_template_for_schematic
 
         listed = self.client.get("/api/hsi/templates")
         self.assertEqual(listed.status_code, 200, listed.text)

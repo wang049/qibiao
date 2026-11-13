@@ -921,7 +921,7 @@ def _cell_from_item(item: dict[str, Any]) -> ExtractedCell | None:
         unit=str(item.get("unit") or "").strip(),
         page=str(item.get("page") or item.get("页码") or "").strip(),
         clause=str(item.get("clause") or item.get("条款号") or item.get("节号") or "").strip(),
-        excerpt=str(item.get("excerpt") or item.get("原文摘录") or "").strip()[:_CLAUSE_LIMIT],
+        excerpt=str(item.get("excerpt") or item.get("原文摘录") or "").strip()[:_BILINGUAL_CLAUSE_LIMIT],
         confidence=_as_confidence(item.get("confidence") or item.get("置信度")),
         extra=True,
         note=str(item.get("note") or item.get("备注") or item.get("复核备注") or "").strip(),
@@ -1172,9 +1172,96 @@ def _scrub_false_ocr_note(cell: ExtractedCell) -> None:
         cell.confidence = max(float(cell.confidence or 0), 0.82)
 
 
+_FURNITURE_LINE = re.compile(
+    r"\[本页为本机 OCR\]|\[本机 OCR\]|保密[：:]|Document Type|Document Name|"
+    r"Document Release Status|Document No|Page No|Volume No|Prerelease|"
+    r"文档类型|文档发布状态|文档编号|HORSE DPR|HORSI DPR",
+    re.I,
+)
+_MEASURE_IN_VALUE = re.compile(
+    r"(\d+(?:\.\d+)?)(?=\s*(?:V|kV|A|Arms|kW|W|Nm|rpm|%|％|kg|mm|mA|kPa|L|h|s|℃|°C|Oct)\b)",
+    re.I,
+)
+
+
+def _page_furniture_line(line: str) -> bool:
+    text = (line or "").strip()
+    if not text or len(text) > 90:
+        return False
+    if re.search(r"shall|must|应|不得|不超过|boost control|Nm|rpm", text, re.I):
+        return False
+    return bool(_FURNITURE_LINE.search(text))
+
+
+def _strip_page_furniture(text: str) -> str:
+    cleaned = _FURNITURE_LINE.sub(" ", text or "")
+    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned)
+    cleaned = re.sub(r" *\n *", "\n", cleaned)
+    return cleaned.strip(" |")
+
+
+def _numbers_missing_from_excerpt(value: str, excerpt: str) -> list[str]:
+    folded = re.sub(r"\s+", "", excerpt or "")
+    missing: list[str] = []
+    for number in _MEASURE_IN_VALUE.findall(value or ""):
+        if number in {"0", "1", "2", "3"}:
+            continue
+        if number not in folded and number not in missing:
+            missing.append(number)
+    for number in re.findall(r"\d+\.\d{3,}", value or ""):
+        if number not in folded and number not in missing:
+            missing.append(number)
+    return missing
+
+
+def _align_cell_with_excerpt(cell: ExtractedCell) -> None:
+    """抽出值不得超出这条摘录。页眉不留在摘录里。"""
+    if cell.excerpt:
+        cell.excerpt = _strip_page_furniture(cell.excerpt)
+    value = cell.value or ""
+    if "平台变型" in value and not re.search(
+        r"BOOST architecture|variants tailored|平台变型|BOOST 架构",
+        cell.excerpt or "",
+        re.I,
+    ):
+        cell.value = value.replace("，并按 BOOST 架构做平台变型", "").replace(
+            "并按 BOOST 架构做平台变型", ""
+        )
+        value = cell.value or ""
+    if "绝缘电阻" in (cell.name or "") and re.search(
+        r"接地电阻|ground(?:ing)? resistance",
+        f"{value}\n{cell.excerpt or ''}",
+        re.I,
+    ) and not re.search(r"绝缘电阻|insulation resistance", f"{value}\n{cell.excerpt or ''}", re.I):
+        cell.value = ""
+        cell.excerpt = ""
+        cell.clause = ""
+        cell.review_status = STATUS_MISS
+        cell.note = "当份写的是接地电阻，不是绝缘电阻。"
+        return
+    if (cell.clause or "").strip() == "6.6.3" and not _is_continuous_hvdc_withstand(cell.excerpt or ""):
+        if re.search(r"16935|漏电流|耐压|击穿", cell.excerpt or ""):
+            cell.clause = ""
+    if not value.strip() or cell.extra or _is_derived_cell(cell):
+        return
+    if (cell.review_status or "") in {STATUS_MISS, STATUS_PARTIAL}:
+        return
+    if not (cell.excerpt or "").strip():
+        return
+    missing = _numbers_missing_from_excerpt(value, cell.excerpt or "")
+    if not missing:
+        return
+    shown = "、".join(missing[:6])
+    note = f"抽出值里的 {shown} 不在这条原文摘录中，请对照原页。"
+    if note not in (cell.note or ""):
+        cell.note = f"{cell.note}；{note}" if (cell.note or "").strip() else note
+    cell.review_status = STATUS_PARTIAL
+
+
 def scrub_cells_ocr_notes(cells: list[ExtractedCell]) -> None:
     for cell in cells:
         _scrub_false_ocr_note(cell)
+        _align_cell_with_excerpt(cell)
 
 
 def _od_module_parenthetical_not_upshift(text: str, value: str = "") -> bool:
@@ -1776,6 +1863,26 @@ def _hvac_phase_accuracy(window: str) -> tuple[str, str]:
 
 def _hvac_phase_accuracy_value(window: str) -> str:
     value, _note = _hvac_phase_accuracy(window)
+    return value
+
+
+def _torque_line_value(window: str, nm: str) -> str:
+    """同一行里的峰值扭矩带上 @10s 和转速范围。只有 Nm 时不补。"""
+    value = re.sub(r"\s+", "", nm or "")
+    if value and not value.lower().endswith("nm"):
+        value += "Nm"
+    duration = re.search(r"@\s*(\d+(?:\.\d+)?)\s*s\b", window or "", re.I)
+    speed = re.search(
+        r"@\s*(\d+(?:\.\d+)?\s*[-~～]\s*\d+(?:\.\d+)?)\s*rpm",
+        window or "",
+        re.I,
+    )
+    if duration and f"@{duration.group(1)}s".lower() not in value.lower():
+        value += f"@{duration.group(1)}s"
+    if speed:
+        span = re.sub(r"\s+", "", speed.group(1))
+        if span not in value:
+            value += f"@{span}rpm"
     return value
 
 
@@ -3283,10 +3390,19 @@ def _drive_boost_conclusions(blob: str) -> tuple[str, str] | None:
         else:
             detail = "HVDC 输入电压较低时将高压输入升至更高电压"
         return f"是；{detail}", f"有；{detail}"
-    if re.search(r"boost control|BOOST architecture", blob, re.I):
+    has_arch = re.search(
+        r"BOOST architecture|variants tailored|平台变型",
+        blob,
+        re.I,
+    )
+    has_control = re.search(r"boost control", blob, re.I)
+    if not has_arch and not has_control:
+        return None
+    if has_arch:
         detail = "PCM 含 boost control，并按 BOOST 架构做平台变型"
-        return f"是；{detail}", f"有；{detail}"
-    return None
+    else:
+        detail = "PCM 含 boost control"
+    return f"是；{detail}", f"有；{detail}"
 
 
 def _hv_booster_output_voltage_from_modes(chunk: str) -> tuple[str, int, str] | None:
@@ -4266,8 +4382,23 @@ def _value_fits_field(name: str, value: str, excerpt: str) -> bool:
             r"符合设计规格",
         ) and not _has_any(text, r"MΩ", r"MOhm", r"100M", r"20M", r"mΩ"):
             return False
+        evidence = f"{value or ''}\n{text}"
+        if re.search(r"接地电阻|ground(?:ing)? resistance", evidence, re.I) and not re.search(
+            r"绝缘电阻|insulation resistance",
+            evidence,
+            re.I,
+        ):
+            return False
         return _has_any(
-            text, r"MΩ", r"MOhm", r"mohm", r"mΩ", r"100M", r"20M", r"48\s*M", r"2\.5\s*M"
+            text,
+            r"绝缘电阻",
+            r"insulation resistance",
+            r"MΩ",
+            r"MOhm",
+            r"100M",
+            r"20M",
+            r"48\s*M",
+            r"2\.5\s*M",
         )
     if "主动放电电阻" in name:
         return _has_any(text, r"ohm", r"ω", r"Ω") and not _has_any(text, r"40k", r"事件", r"events")
@@ -4779,7 +4910,15 @@ def _value_fits_field(name: str, value: str, excerpt: str) -> bool:
             return False
         return _has_any(text, r"100\s*Nm", r">\s*100\s*Nm", r"峰值扭矩", r"peak torque")
     if "绝缘电阻" in name:
-        return _has_any(text, r"绝缘电阻", r"insulation resistance", r"100\s*M", r"20\s*M", r"mΩ")
+        if re.search(r"接地电阻|ground(?:ing)? resistance", text, re.I) and not re.search(
+            r"绝缘电阻|insulation resistance",
+            text,
+            re.I,
+        ):
+            return False
+        return _has_any(
+            text, r"绝缘电阻", r"insulation resistance", r"100\s*M", r"20\s*M", r"(?<![mμu])MΩ", r"MOhm"
+        )
     keys = (
         "逆变器", "持续", "交流", "电流", "峰值", "扭矩", "功率", "转速",
         "电压", "温度", "冷却", "绝缘", "放电", "寿命", "密封", "通讯",
@@ -5319,7 +5458,18 @@ def _expand_to_clause(chunk: str, start: int, end: int, limit: int = _CLAUSE_LIM
 
     i = start
     found_back = False
-    while i > 0 and start - i <= 220:
+    while i > 0 and start - i <= 800:
+        if chunk[i - 1] == "\n":
+            line_end = chunk.find("\n", i)
+            current = chunk[i : line_end if line_end >= 0 else n].strip()
+            prev_start = chunk.rfind("\n", 0, i - 1) + 1
+            previous = chunk[prev_start : i - 1].strip()
+            if _page_furniture_line(previous):
+                found_back = True
+                break
+            if _new_spec_line(current) and _new_spec_line(previous):
+                found_back = True
+                break
         if at_sentence_start(i):
             found_back = True
             break
@@ -5348,7 +5498,7 @@ def _expand_to_clause(chunk: str, start: int, end: int, limit: int = _CLAUSE_LIM
 
     j = end
     found_fwd = False
-    while j < n and j - i <= 240:
+    while j < n and j - i <= 1400:
         ch = chunk[j]
         if ch in "。！？":
             j += 1
@@ -5360,21 +5510,233 @@ def _expand_to_clause(chunk: str, start: int, end: int, limit: int = _CLAUSE_LIM
             if prev.isdigit() and nxt.isdigit():
                 j += 1
                 continue
+            # 同一段里英文句号后面还有中文时，中文也算这条摘录。
+            rest = chunk[j + 1 : min(n, j + 1 + 360)]
+            cut = re.search(r"\n[ \t]*\n|(?:^|\n)#{1,6}[ \t]", rest)
+            window = rest[: cut.start()] if cut else rest
+            if re.search(r"[\u4e00-\u9fff]", window):
+                j += 1
+                continue
             j += 1
             found_fwd = True
             break
         if ch == "\n" and j + 1 < n and chunk[j + 1] == "\n":
+            rest = chunk[j + 2 :]
+            skip = 0
+            while skip < len(rest) and rest[skip] in " \t\n":
+                skip += 1
+            nxt_line = rest[skip:].split("\n", 1)[0].strip()
+            if (
+                not nxt_line
+                or nxt_line.startswith(("|", "#"))
+                or _heading_number_on_line(nxt_line)
+                or _new_spec_line(nxt_line)
+            ):
+                found_fwd = True
+                break
+            j += 2
+            continue
+        if ch == "\n":
+            nxt_line = chunk[j + 1 :].split("\n", 1)[0].strip()
+            if _new_spec_line(nxt_line) or _heading_number_on_line(nxt_line):
+                found_fwd = True
+                break
+            if "|" in chunk[max(0, j - 200) : j] and nxt_line and not nxt_line.startswith("|"):
+                found_fwd = True
+                break
+        if ch == "\n" and re.match(
+            r"[^\n]*(?:IPXXB|防直触|防直接接触|GB/T\s*4208)",
+            chunk[j + 1 : j + 80],
+        ):
             found_fwd = True
             break
         if chunk.startswith("\n## ", j):
             found_fwd = True
             break
         j += 1
-    if not found_fwd:
+    if not found_fwd and j <= end:
         nl = chunk.find("\n", end, min(n, end + 160))
         j = nl if nl >= 0 else end
+    table = _expand_table_block(chunk, start, j)
+    if table and len(table) > (j - i):
+        return table[:limit]
     text = re.sub(r"[ \t]*\n[ \t]*", " ", chunk[i:j]).strip()
     return text[:limit]
+
+
+def _new_spec_line(line: str) -> bool:
+    """换行后是另一条规格，不是上一句的折行。"""
+    text = (line or "").strip()
+    if not text:
+        return False
+    return bool(
+        re.match(
+            r"(?i)^(P1|P3|PCM|HVDC|HVAC|BOOST|Y\+|CY\+|堵转|压降|控制器)",
+            text,
+        )
+    )
+
+
+def _expand_table_block(chunk: str, start: int, end: int) -> str:
+    """命中落在表里时，原文摘录保留这一张表，不在半行停下。"""
+    if not chunk or "|" not in chunk[max(0, start - 80) : min(len(chunk), end + 80)]:
+        return ""
+    line_start = chunk.rfind("\n", 0, start) + 1
+    if "|" not in chunk[line_start : chunk.find("\n", start) if chunk.find("\n", start) >= 0 else len(chunk)]:
+        return ""
+    i = line_start
+    while i > 0:
+        prev_nl = chunk.rfind("\n", 0, i - 1)
+        prev = prev_nl + 1
+        line = chunk[prev:i].strip()
+        if "|" not in line:
+            break
+        i = prev
+    j = end
+    while j < len(chunk):
+        nxt = chunk.find("\n", j + 1)
+        if nxt < 0:
+            nxt = len(chunk)
+        line = chunk[j:nxt].strip()
+        if j > end and "|" not in line:
+            break
+        j = nxt
+        if nxt == len(chunk):
+            break
+    body = re.sub(r"[ \t]*\n[ \t]*", " ", chunk[i:j]).strip()
+    return body if body.count("|") >= 2 else ""
+
+
+def _finish_excerpts(rows: dict[int, ExtractedCell], extra: list[ExtractedCell], markdown: str) -> None:
+    """用整份原文把截断的摘录收到句末或这张表的末尾。"""
+    if not markdown:
+        return
+    for cell in list(rows.values()) + list(extra):
+        excerpt = (cell.excerpt or "").strip()
+        if not excerpt or not (cell.value or "").strip():
+            continue
+        idx = _excerpt_index(markdown, excerpt)
+        if idx < 0:
+            continue
+        grown = _expand_to_clause(
+            markdown, idx, idx + len(excerpt), limit=_BILINGUAL_CLAUSE_LIMIT
+        )
+        if grown and _excerpt_more_complete(grown, excerpt):
+            cell.excerpt = grown
+
+
+_NUM_CLAUSE_HEAD = re.compile(
+    r"(?m)^[ \t]*(?:#{1,6}[ \t]+)?(\d{1,2}(?:\.\d{1,3}){2,4})[ \t]+\S[^\n]*"
+)
+_BILINGUAL_CLAUSE_LIMIT = 1600
+
+
+class _ClauseHead:
+    def __init__(self, start: int, end: int, number: str, line: str) -> None:
+        self._start = start
+        self._end = end
+        self._number = number
+        self._line = line
+
+    def start(self) -> int:
+        return self._start
+
+    def end(self) -> int:
+        return self._end
+
+    def group(self, index: int) -> str:
+        return self._line if index == 0 else self._number
+
+
+def _clause_headings(chunk: str) -> list[_ClauseHead]:
+    """行首条款号。4.6 这种两段号算标题，12.5 kW 不算。"""
+    heads: list[_ClauseHead] = []
+    pos = 0
+    length = len(chunk)
+    while pos < length:
+        nl = chunk.find("\n", pos)
+        line_end = nl if nl >= 0 else length
+        raw = chunk[pos:line_end]
+        stripped = raw.strip()
+        number = _heading_number_on_line(stripped)
+        if number:
+            rel = raw.find(number)
+            heads.append(_ClauseHead(pos + (rel if rel >= 0 else 0), line_end, number, stripped))
+        if nl < 0:
+            break
+        pos = nl + 1
+    return heads
+
+
+def _full_bilingual_clause(chunk: str, index: int) -> str:
+    """编号条款从标题收到下一条标题之前，英文段和中文段都留在摘录里。"""
+    if not chunk or index < 0:
+        return ""
+    heads = _clause_headings(chunk)
+    owner = None
+    nxt_at = len(chunk)
+    for pos, head in enumerate(heads):
+        if head.start() <= index:
+            owner = head
+            nxt_at = heads[pos + 1].start() if pos + 1 < len(heads) else len(chunk)
+        elif owner is not None:
+            break
+    if owner is None:
+        return ""
+    end = nxt_at
+    for mark in re.finditer(r"(?m)^#{1,6}[ \t]+(?!第\s*\d+\s*页)", chunk[owner.end() : end]):
+        end = owner.end() + mark.start()
+        break
+    body = chunk[owner.start() : end]
+    # 6.2.3.2 高压直流连接和后面的触指防护不是同一条。
+    cut = re.search(r"\n(?=[^\n]*(?:IPXXB|防直触|防直接接触|GB/T\s*4208))", body)
+    if cut:
+        body = body[: cut.start()]
+    body = re.sub(r"\n## 第\s*\d+\s*页\s*", "\n", body)
+    body = re.sub(r"[ \t]+\n", "\n", body)
+    body = re.sub(r"\n{3,}", "\n\n", body).strip()
+    if body.count("|") >= 4:
+        return ""
+    return body[:_BILINGUAL_CLAUSE_LIMIT]
+
+
+def _clause_body_if_excerpt_is_short(
+    chunk: str, index: int, excerpt: str, name: str, value: str
+) -> str:
+    """标题或单句才补同一条的中英文。已经写开的摘录、表行、对不上的条款号不动。"""
+    folded = re.sub(r"\s+", " ", excerpt or "").strip()
+    if not folded or folded.count("|") >= 2 or index < 0:
+        return ""
+    if re.search(r"[。！？]", folded) or re.search(r"\b(shall|must|should)\b", folded, re.I):
+        return ""
+    if len(folded) > 90:
+        return ""
+    heads = _clause_headings(chunk)
+    owner = None
+    owner_at = -1
+    for pos, head in enumerate(heads):
+        if head.start() <= index:
+            owner = head
+            owner_at = pos
+    if owner is None or index - owner.start() > 180:
+        return ""
+    heading_flat = re.sub(r"\s+", " ", owner.group(0))
+    tokens = [tok for tok in re.findall(r"[\u4e00-\u9fff]{2,}|[A-Za-z]{4,}", folded) if len(tok) >= 4]
+    if not tokens or not any(tok.lower() in heading_flat.lower() for tok in tokens):
+        return ""
+    nxt = heads[owner_at + 1].start() if owner_at + 1 < len(heads) else len(chunk)
+    if nxt - owner.start() > _BILINGUAL_CLAUSE_LIMIT:
+        return ""
+    known = _pick_clause(chunk, index, folded, name=name)
+    number = owner.group(1)
+    if known and known != number and not known.startswith(number + "."):
+        return ""
+    body = _full_bilingual_clause(chunk, index)
+    if not body or len(body) <= len(folded) + 15:
+        return ""
+    if not _value_fits_field(name, value, body):
+        return ""
+    return body
 
 
 def _complete_cell_clause(cell: ExtractedCell, chunk: str, field_name: str = "") -> None:
@@ -5386,11 +5748,28 @@ def _complete_cell_clause(cell: ExtractedCell, chunk: str, field_name: str = "")
         or "中英文量程不一致" in (cell.note or "")
     ):
         return
+    if re.search(r"IPXXB|防直触|防直接接触", cell.excerpt or "", re.I):
+        return
     snippet = (cell.excerpt or "").strip()
+    if snippet.count("|") >= 2:
+        return
     idx = _excerpt_index(chunk, snippet) if snippet else -1
     if idx < 0 and (cell.value or "").strip():
         idx = chunk.find((cell.value or "").strip()[:48])
+    if idx < 0 and re.fullmatch(r"\d+(?:\.\d+)+", (cell.clause or "").strip()):
+        located = re.search(
+            rf"(?m)^[ \t]*(?:#{{1,6}}[ \t]+)?{re.escape(cell.clause.strip())}[ \t]",
+            chunk,
+        )
+        if located:
+            idx = located.start()
     if idx < 0:
+        return
+    full = _clause_body_if_excerpt_is_short(
+        chunk, idx, snippet, field_name or cell.name, cell.value
+    )
+    if full:
+        cell.excerpt = full
         return
     span = len(snippet) if snippet else min(48, len(cell.value or ""))
     clause = _expand_to_clause(chunk, idx, idx + max(span, 1))
@@ -6284,6 +6663,15 @@ def _collect_off_list_requirements(
     _unify_off_list_names(extra)
 
 
+def _excerpt_more_complete(longer: str, shorter: str) -> bool:
+    """同一抽出值下，含住短摘录的整句优先。"""
+    full = re.sub(r"\s+", " ", longer or "").strip()
+    brief = re.sub(r"\s+", " ", shorter or "").strip()
+    if not full or not brief or len(full) < len(brief) + 24:
+        return False
+    return brief.lower() in full.lower()
+
+
 def _better(old: ExtractedCell, new: ExtractedCell) -> ExtractedCell:
     if _is_derived_cell(new) and (old.value or "").strip() and not _is_derived_cell(old):
         if _fold_text(old.value) == _fold_text(new.value) and not (old.note or "").strip():
@@ -6997,6 +7385,18 @@ def _better(old: ExtractedCell, new: ExtractedCell) -> ExtractedCell:
     if len(new.value) >= len(old.value) + 10:
         return new
     if new.confidence > old.confidence:
+        if _fold_text(old.value) == _fold_text(new.value) and _excerpt_more_complete(
+            old.excerpt, new.excerpt
+        ):
+            new.excerpt = old.excerpt
+        return new
+    if _fold_text(old.value) == _fold_text(new.value) and _excerpt_more_complete(
+        new.excerpt, old.excerpt
+    ):
+        new.clause = new.clause or old.clause
+        new.page = new.page or old.page
+        new.note = new.note or old.note
+        new.review_status = new.review_status or old.review_status
         return new
     return old
 
@@ -7075,7 +7475,10 @@ def _rule_cells(chunk: str, family: str = "generic") -> list[ExtractedCell]:
         )
         end = at + max(len(excerpt or ""), 1)
         clause_text = _expand_to_clause(chunk, at, end)
-        if clause_text and not keep_cn:
+        full = _clause_body_if_excerpt_is_short(chunk, at, excerpt, name, value)
+        if full:
+            excerpt = full
+        elif clause_text and not keep_cn:
             excerpt = clause_text
             if "功能安全" in name and len(clause_text) <= 200:
                 value = clause_text
@@ -7086,7 +7489,17 @@ def _rule_cells(chunk: str, family: str = "generic") -> list[ExtractedCell]:
                 unit=unit,
                 page=_page_for_index(chunk, at),
                 clause=_pick_clause(chunk, at, excerpt, name=name),
-                excerpt=excerpt.strip()[:_CLAUSE_LIMIT],
+                excerpt=excerpt.strip()[
+                    : (
+                        _BILINGUAL_CLAUSE_LIMIT
+                        if full
+                        or (
+                            re.search(r"[\u4e00-\u9fff]", excerpt or "")
+                            and re.search(r"[A-Za-z]{4,}", excerpt or "")
+                        )
+                        else _CLAUSE_LIMIT
+                    )
+                ],
                 confidence=confidence,
                 extra=True,
                 note=note,
@@ -7475,16 +7888,28 @@ def _rule_cells(chunk: str, family: str = "generic") -> list[ExtractedCell]:
             chunk,
             re.I,
         ):
-            pair = _drive_boost_conclusions(match.group(0))
+            window = chunk[match.start() : match.start() + 480]
+            pair = _drive_boost_conclusions(window)
             if pair:
+                sentence = chunk.rfind(
+                    "PCM is the control unit",
+                    max(0, match.start() - 280),
+                    match.end(),
+                )
+                excerpt_at = sentence if sentence >= 0 else match.start()
+                excerpt = re.sub(
+                    r"\s+",
+                    " ",
+                    chunk[excerpt_at : match.start() + 480],
+                ).strip()
                 add(
                     "设计范围是否包含驱动升压功能",
                     pair[0],
                     "",
-                    match.group(0),
-                    match.start(),
+                    excerpt or match.group(0),
+                    excerpt_at,
                 )
-                add("Boost功能要求", pair[1], "", match.group(0), match.start())
+                add("Boost功能要求", pair[1], "", excerpt or match.group(0), excerpt_at)
     match = re.search(
         r"weight of the XCM shall be less than 20\.2kg\(With OD Module\)|"
         r"升压XCM的重量不得超过20\.2公斤（含OD模块）",
@@ -7983,11 +8408,12 @@ def _rule_cells(chunk: str, family: str = "generic") -> list[ExtractedCell]:
     )
     if match:
         val = next(g for g in match.groups() if g)
+        window = chunk[match.start() : match.end() + 48]
         add(
             "P3峰值扭矩/时间/对应转速范围",
-            re.sub(r"\s+", "", val),
+            _torque_line_value(window, val),
             "",
-            match.group(0)[:160],
+            re.sub(r"\s+", " ", window).strip()[:220],
             match.start(),
             confidence=0.86,
         )
@@ -10209,6 +10635,7 @@ def extract_cells(
         _fill_peak_bemf_from_motors(rows)
         _fill_miss_next_step(rows)
         _collect_off_list_requirements(doc.markdown, rows, extra, seen_extra)
+        _finish_excerpts(rows, extra, doc.markdown)
         return list(rows.values()) + extra
 
     empty_n = _empty_field_count(rows)
@@ -10538,6 +10965,7 @@ def extract_cells(
     _fill_peak_bemf_from_motors(rows)
     _fill_miss_next_step(rows)
     _collect_off_list_requirements(doc.markdown, rows, extra, seen_extra)
+    _finish_excerpts(rows, extra, doc.markdown)
     return list(rows.values()) + extra
 
 

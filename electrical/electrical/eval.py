@@ -53,7 +53,13 @@ def _is_miss(value: str) -> bool:
 def load_review_rows(xlsx: Path) -> list[dict[str, str]]:
     """读「电控设计需求」页为逐行字典：seq / name / status / value / clause / page / note / conf。"""
     wb = load_workbook(xlsx, data_only=True)
-    ws = wb["电控设计需求"] if "电控设计需求" in wb.sheetnames else wb["核对表"]
+    ws = None
+    for name in ("02_需求核对", "电控设计需求", "核对表"):
+        if name in wb.sheetnames:
+            ws = wb[name]
+            break
+    if ws is None:
+        ws = wb.active
     headers: list[str] = []
     header_row = 0
     for i, row in enumerate(ws.iter_rows(min_row=1, max_row=6, values_only=True), start=1):
@@ -179,7 +185,13 @@ def score_rows(xlsx: Path, spec: dict[str, Any]) -> dict[str, Any]:
 
 def load_rows(xlsx: Path) -> dict[tuple[str, str], str]:
     wb = load_workbook(xlsx, data_only=True)
-    ws = wb["电控设计需求"] if "电控设计需求" in wb.sheetnames else wb["核对表"]
+    ws = None
+    for name in ("02_需求核对", "电控设计需求", "核对表"):
+        if name in wb.sheetnames:
+            ws = wb[name]
+            break
+    if ws is None:
+        ws = wb.active
     header_row = 1
     for i, row in enumerate(ws.iter_rows(min_row=1, max_row=5, values_only=True), start=1):
         texts = [str(v or "") for v in row]

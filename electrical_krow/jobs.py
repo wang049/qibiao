@@ -164,6 +164,116 @@ def _found_names(cells: object) -> dict[str, str]:
     return out
 
 
+def review_sheet_items(path: Path) -> list[dict[str, object]]:
+    """读当次核对表。抽出值、页码、条款号、原文只取格子里已有的，不拿示例补空值。"""
+    ensure_electrical()
+    from electrical.schema import item_group, review_item_no
+    from electrical.write_excel import load_review_cells
+
+    cells, _meta = load_review_cells(path)
+    items: list[dict[str, object]] = []
+    for cell in cells:
+        if getattr(cell, "extra", False):
+            continue
+        seq = review_item_no(int(getattr(cell, "seq", 0) or 0))
+        items.append(
+            _review_item(
+                seq=seq,
+                name=str(getattr(cell, "name", "") or ""),
+                group=item_group(str(getattr(cell, "name", "") or ""), int(getattr(cell, "seq", 0) or 0)),
+                value=str(getattr(cell, "value", "") or ""),
+                page=str(getattr(cell, "page", "") or ""),
+                clause=str(getattr(cell, "clause", "") or ""),
+                excerpt=str(getattr(cell, "excerpt", "") or ""),
+                status=str(getattr(cell, "review_status", "") or ""),
+                note=str(getattr(cell, "note", "") or ""),
+                extra=False,
+            )
+        )
+    items.extend(_off_list_sheet_items(path))
+    return items
+
+
+def _review_item(**fields: object) -> dict[str, object]:
+    return {
+        "seq": int(fields["seq"] or 0),
+        "name": str(fields["name"] or ""),
+        "group": str(fields["group"] or ""),
+        "value": str(fields["value"] or ""),
+        "page": str(fields["page"] or ""),
+        "clause": str(fields["clause"] or ""),
+        "excerpt": str(fields["excerpt"] or ""),
+        "status": str(fields["status"] or ""),
+        "note": str(fields["note"] or ""),
+        "extra": bool(fields["extra"]),
+    }
+
+
+def _off_list_sheet_items(path: Path) -> list[dict[str, object]]:
+    from openpyxl import load_workbook
+
+    book = load_workbook(path, data_only=True)
+    try:
+        if "04_清单外" in book.sheetnames:
+            sheet = book["04_清单外"]
+        elif "清单外需求" in book.sheetnames:
+            sheet = book["清单外需求"]
+        else:
+            return []
+        header_row = 0
+        headers: list[str] = []
+        for i, row in enumerate(sheet.iter_rows(min_row=1, max_row=5, values_only=True), start=1):
+            texts = [str(v or "") for v in row]
+            if "抽出值" in texts:
+                header_row = i
+                headers = texts
+                break
+        if not header_row:
+            return []
+        index = {name: i for i, name in enumerate(headers)}
+
+        def col(*names: str) -> int | None:
+            for name in names:
+                if name in index:
+                    return index[name]
+            return None
+
+        name_i = col("名称", "需求条目")
+        value_i = col("抽出值")
+        page_i = col("页码")
+        clause_i = col("条款号")
+        excerpt_i = col("原文摘录")
+        rows: list[dict[str, object]] = []
+        for raw in sheet.iter_rows(min_row=header_row + 1, values_only=True):
+            data = list(raw)
+            name = str(data[name_i] or "").strip() if name_i is not None and name_i < len(data) else ""
+            if not name:
+                continue
+
+            def cell_at(idx: int | None) -> str:
+                if idx is None or idx >= len(data) or data[idx] is None:
+                    return ""
+                return str(data[idx]).strip()
+
+            rows.append(
+                _review_item(
+                    seq=0,
+                    name=name,
+                    group="清单外",
+                    value=cell_at(value_i),
+                    page=cell_at(page_i),
+                    clause=cell_at(clause_i),
+                    excerpt=cell_at(excerpt_i),
+                    status="",
+                    note="",
+                    extra=True,
+                )
+            )
+        return rows
+    finally:
+        book.close()
+
+
 def compare_with_previous(
     cells: object, previous: dict[str, object] | None, output_dir: Path
 ) -> dict[str, object]:
@@ -214,7 +324,7 @@ def review_sheet_name(original_name: str, when: datetime | None = None) -> str:
     return f"{_safe_stem(original_name or 'upload')}_{review_sheet_stamp(when)}.xlsx"
 
 
-def _run_pipeline(incoming: Path, out: Path, *, model: str = ""):
+def _run_pipeline(incoming: Path, out: Path, *, model: str = "", source_name: str = ""):
     ensure_electrical()
     lexicon = PROJECT_ROOT / "docs" / "clause_lexicon.json"
     if lexicon.is_file():
@@ -238,6 +348,8 @@ def _run_pipeline(incoming: Path, out: Path, *, model: str = ""):
     kwargs = {}
     if (model or "").strip():
         kwargs["model"] = model.strip()
+    if (source_name or "").strip():
+        kwargs["source_name"] = source_name.strip()
     return run(incoming, out, **kwargs)
 
 
@@ -341,6 +453,19 @@ class JobStore:
         if (username or "").strip() and not job_visible_to(found, username):
             raise HTTPException(404, "找不到该出表任务")
         return found
+
+    def review_items(self, job_id: str, *, username: str = "") -> dict[str, object]:
+        """打开当次核对表，读出每条需求的抽出值、页码和原文。不写入任务历史。"""
+        job = self.snapshot(job_id, username=username)
+        if job.get("extract") is False:
+            return {"items": []}
+        name = str(job.get("download") or "").rsplit("/", 1)[-1]
+        if not name or "/" in name or "\\" in name or name in {".", ".."}:
+            raise HTTPException(404, "这份任务没有核对表")
+        path = (self._output_dir / name).resolve()
+        if path.parent != self._output_dir.resolve() or not path.is_file():
+            raise HTTPException(404, "找不到核对表")
+        return {"items": review_sheet_items(path)}
 
     def list_recent(
         self, limit: int = _HISTORY_LIMIT, *, username: str = ""
@@ -1006,7 +1131,7 @@ class JobStore:
             source = str((self._jobs.get(job_id) or {}).get("source") or "")
         previous = self._previous_done(job_id, source)
         try:
-            result = _run_pipeline(incoming, out, model=model)
+            result = _run_pipeline(incoming, out, model=model, source_name=source)
             stopped = bool(result.stopped_early)
             cells = getattr(result, "cells", None)
             found, miss, partial = retrieval_counts(cells)

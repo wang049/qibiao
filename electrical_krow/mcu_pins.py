@@ -346,7 +346,9 @@ def pin_class(pin: ChipPin) -> str:
         return "DAC"
     if re.search(r"(?<![A-Z0-9])(?:QSPI|SPI)\d", blob):
         return "SPI"
-    if re.search(r"(?<![A-Z0-9])(?:CANXL|CAN)\d", blob):
+    if re.search(r"(?<![A-Z0-9])(?:CANXL|CAN)\d", blob) or re.search(
+        r"(?<![A-Z0-9])CAN(?![A-Z0-9])", blob
+    ):
         return "CAN"
     if re.search(r"(?<![A-Z0-9])(PWM|GTM|TIM|TOM|ATOM|CCU6)(?![A-Z])", blob):
         return "PWM"

@@ -50,6 +50,7 @@ def run(
     output_path: Path | None = None,
     *,
     model: str = DEFAULT_MODEL,
+    source_name: str = "",
 ) -> RunResult:
     started = time.perf_counter()
     # 默认不设总时限：OCR / 抽取跑完再出表。仅当 SPEC_SHEET_BUDGET_SEC>0 才截断。

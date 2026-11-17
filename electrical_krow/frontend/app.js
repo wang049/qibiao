@@ -3190,106 +3190,112 @@ function showEtestDownload(data) {
   bindEtestLink("etest-plan-dl", data.plan_download, tx("etest.planDownload"));
 }
 
-const etestTalk = [];
-
-function renderEtestTalk() {
+function renderEtestSheet(reply, tables) {
   const log = $("etest-log");
   if (!log) return;
   log.replaceChildren();
-  if (!etestTalk.length) {
-    const empty = document.createElement("p");
-    empty.className = "etest-empty";
-    empty.textContent = tx("etest.emptyTalk");
-    log.append(empty);
-    return;
-  }
-  for (const row of etestTalk) {
-    const item = document.createElement("div");
-    item.className = "etest-turn" + (row.role === "user" ? " is-user" : " is-assistant");
+  if (reply) {
     const text = document.createElement("p");
-    text.textContent = row.content || "";
-    item.append(text);
-    for (const sheet of row.tables || []) {
-      const block = document.createElement("div");
-      block.className = "etest-sheet";
-      const caption = document.createElement("strong");
-      caption.textContent = sheet.title || "";
-      const wrap = document.createElement("div");
-      wrap.className = "etest-table-wrap";
-      const table = document.createElement("table");
-      table.className = "etest-table";
-      const head = document.createElement("thead");
-      const headRow = document.createElement("tr");
-      for (const name of sheet.headers || []) {
-        const cell = document.createElement("th");
-        cell.textContent = name;
-        headRow.append(cell);
-      }
-      head.append(headRow);
-      const body = document.createElement("tbody");
-      for (const values of sheet.rows || []) {
-        const line = document.createElement("tr");
-        for (const value of values) {
-          const cell = document.createElement("td");
-          cell.textContent = value == null ? "" : String(value);
-          line.append(cell);
-        }
-        body.append(line);
-      }
-      table.append(head, body);
-      wrap.append(table);
-      block.append(caption, wrap);
-      item.append(block);
-    }
-    log.append(item);
+    text.className = "etest-turn is-assistant";
+    text.textContent = reply;
+    log.append(text);
   }
-  log.scrollTop = log.scrollHeight;
+  for (const sheet of tables || []) {
+    const block = document.createElement("div");
+    block.className = "etest-sheet";
+    const caption = document.createElement("strong");
+    caption.textContent = sheet.title || "";
+    const wrap = document.createElement("div");
+    wrap.className = "etest-table-wrap";
+    const table = document.createElement("table");
+    table.className = "etest-table";
+    const head = document.createElement("thead");
+    const headRow = document.createElement("tr");
+    for (const name of sheet.headers || []) {
+      const cell = document.createElement("th");
+      cell.textContent = name;
+      headRow.append(cell);
+    }
+    head.append(headRow);
+    const body = document.createElement("tbody");
+    for (const values of sheet.rows || []) {
+      const line = document.createElement("tr");
+      for (const value of values) {
+        const cell = document.createElement("td");
+        cell.textContent = value == null ? "" : String(value);
+        line.append(cell);
+      }
+      body.append(line);
+    }
+    table.append(head, body);
+    wrap.append(table);
+    block.append(caption, wrap);
+    log.append(block);
+  }
 }
 
-async function sendEtestTalk() {
-  const input = $("etest-input");
-  const text = (input.value || "").trim();
-  if (!text) return;
-  etestTalk.push({ role: "user", content: text });
-  input.value = "";
-  renderEtestTalk();
+function refreshEtestCompare() {
+  const input = $("etest-table");
+  const file = input && input.files && input.files[0];
+  $("etest-send").disabled = !file;
+}
+
+$("etest-table").addEventListener("change", () => {
+  const input = $("etest-table");
+  const file = input.files && input.files[0];
+  const name = (file && file.name || "").toLowerCase();
+  const ok = [".xlsx", ".xlsm", ".docx", ".txt", ".md"].some((suffix) => name.endsWith(suffix));
+  if (file && !ok) {
+    input.value = "";
+    setEtestMsg(tx("etest.tableType"));
+  } else {
+    setEtestMsg("");
+  }
+  const label = $("etest-table-name");
+  if (label) {
+    label.textContent = file && ok ? file.name : tx("io.fileNone");
+  }
+  refreshEtestCompare();
+});
+
+async function sendEtestCompare() {
+  const input = $("etest-table");
+  const file = input.files && input.files[0];
+  if (!file) {
+    setEtestMsg(tx("etest.needTable"));
+    return;
+  }
+  const body = new FormData();
+  body.append("table", file);
   $("etest-send").disabled = true;
   setEtestMsg(tx("etest.busy"), "ok");
   try {
-    const resp = await fetch(apiUrl("/api/enterprise-test/chat"), {
+    const resp = await fetch(apiUrl("/api/enterprise-test/compare"), {
       method: "POST",
       credentials: "same-origin",
-      headers: { ...authHeaders(), "Content-Type": "application/json" },
-      body: JSON.stringify({ messages: etestTalk }),
+      headers: authHeaders(),
+      body,
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
       const detail = data.detail || data.error || resp.statusText;
       throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
     }
-    etestTalk.push({
-      role: "assistant",
-      content: data.reply || "",
-      tables: Array.isArray(data.tables) ? data.tables : [],
-    });
-    renderEtestTalk();
+    renderEtestSheet(data.reply || "", data.tables || []);
     setEtestMsg(data.page_note || "", data.source_url_set ? "ok" : "");
   } catch (err) {
-    etestTalk.pop();
-    renderEtestTalk();
-    input.value = text;
+    renderEtestSheet("", []);
     setEtestMsg(err.message || String(err));
   } finally {
-    $("etest-send").disabled = false;
+    refreshEtestCompare();
   }
 }
 
 $("etest-back").onclick = () => setPanel("home");
 $("etest-form").addEventListener("submit", (ev) => {
   ev.preventDefault();
-  sendEtestTalk();
+  sendEtestCompare();
 });
-renderEtestTalk();
 async function saveEtestLink(ev) {
   const link = ev.currentTarget;
   const api = desktopSave();

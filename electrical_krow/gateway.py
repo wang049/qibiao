@@ -40,6 +40,7 @@ from electrical_krow.ce_bom import DEFAULT_CE_BOM_TEMPLATE, build_ce_bom, ce_bom
 from electrical_krow.enterprise_dialogue import (
     analysis_messages,
     clean_turns,
+    compare_manual_file,
     fetch_source_page,
     file_key_brief,
     output_tables,
@@ -1543,6 +1544,26 @@ def create_app(
             "page_note": page_note,
             "source_url_set": bool(source_url()),
         }
+
+    @app.post("/api/enterprise-test/compare")
+    async def enterprise_test_compare(
+        request: Request,
+        table: UploadFile = File(...),
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """用一份人工测试表，对上网址里最新且未被替换的标准，生成一张对比表。"""
+        _require_session(request, authorization)
+        name = Path(table.filename or "").name
+        if Path(name).suffix.lower() not in {".docx", ".xlsx", ".xlsm", ".txt", ".md"}:
+            raise HTTPException(400, "测试表请用 Excel、Word 或文本。")
+        payload = await read_capped_upload(table)
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / name
+            path.write_bytes(payload)
+            try:
+                return await asyncio.to_thread(compare_manual_file, path)
+            except ValueError as exc:
+                raise HTTPException(400, str(exc)) from exc
 
     @app.get("/api/enterprise-test/history")
     def enterprise_test_history(

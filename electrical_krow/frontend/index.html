@@ -335,22 +335,28 @@
 
           <div id="etest-card" class="card tool-card" hidden>
             <ol class="io-steps">
-              <li><span>1</span><em data-i18n="etest.step1">对话说明要查的测试内容</em></li>
-              <li><span>2</span><em data-i18n="etest.step2">模型整理问题</em></li>
-              <li><span>3</span><em data-i18n="etest.step3">读取后续提供的网址</em></li>
-              <li><span>4</span><em data-i18n="etest.step4">按清单、对比表、用例和填报记录列出</em></li>
+              <li><span>1</span><em data-i18n="etest.step1">提交一份人工制作的测试表</em></li>
+              <li><span>2</span><em data-i18n="etest.step2">先判断是否最新、是否已替换</em></li>
+              <li><span>3</span><em data-i18n="etest.step3">多份文件逐条标明来源</em></li>
+              <li><span>4</span><em data-i18n="etest.step4">验证对比，欠缺补充作为指标</em></li>
             </ol>
-            <div id="etest-log" class="etest-log" aria-live="polite"></div>
-            <form id="etest-form" class="etest-compose">
-              <label class="visually-hidden" for="etest-input" data-i18n="etest.inputLabel">对话内容</label>
-              <textarea id="etest-input" rows="3" data-i18n-placeholder="etest.placeholder" placeholder="说明要查的试验或条款"></textarea>
+            <form id="etest-form" class="io-form">
+              <div class="io-file">
+                <span class="io-file-label" data-i18n="etest.table">人工测试表</span>
+                <label class="io-file-box" data-target="etest-table" data-accept="manual" data-kind="etest">
+                  <input id="etest-table" type="file" accept=".xlsx,.xlsm,.docx,.txt,.md" />
+                  <span class="io-file-name" id="etest-table-name" data-i18n="io.fileNone">未选择文件</span>
+                  <span class="io-file-action" data-i18n="io.filePick">选择文件</span>
+                </label>
+              </div>
               <div class="io-bar">
                 <button id="etest-back" type="button" class="ghost" data-i18n="io.back">返回</button>
                 <div class="io-bar-end">
-                  <button id="etest-send" type="submit" data-i18n="etest.send">发送</button>
+                  <button id="etest-send" type="submit" data-i18n="etest.compare" disabled>生成对比表</button>
                 </div>
               </div>
             </form>
+            <div id="etest-log" class="etest-log" aria-live="polite"></div>
             <div id="etest-result" class="io-result" hidden>
               <p id="etest-msg" class="msg" hidden></p>
             </div>

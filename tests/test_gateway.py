@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -676,6 +677,217 @@ class GatewayTests(unittest.TestCase):
         pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
         self.assertEqual(re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1), __version__)
         self.assertEqual(data.get("output_dir"), self._tmp.name)
+        self.assertEqual(len(str(data.get("stamp") or "")), 16)
+
+    def test_new_table_gets_a_job_before_the_file(self) -> None:
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        opened = self.client.post(
+            "/api/enterprise-test/compare",
+            headers={"Authorization": "Bearer local"},
+        )
+        self.assertEqual(opened.status_code, 200)
+        first = opened.json()
+        self.assertTrue(first["job_id"])
+        self.assertEqual(first["steps"]["read"], "run")
+        self.assertFalse(first["done"])
+        import io
+        from urllib.parse import quote
+
+        from openpyxl import Workbook
+
+        buf = io.BytesIO()
+        book = Workbook()
+        book.active.append(["1.1", "新项目"])
+        book.save(buf)
+        book.close()
+        with patch(
+            "electrical_krow.gateway.compare_manual_file",
+            return_value={"reply": "ok", "tables": [{"title": "对比表", "headers": [], "rows": []}], "page_note": ""},
+        ), patch("electrical_krow.gateway.open_locally"):
+            saved = self.client.put(
+                f"/api/enterprise-test/compare/{first['job_id']}/file",
+                content=buf.getvalue(),
+                headers={
+                    "Authorization": "Bearer local",
+                    "X-Filename": quote("新表-2026.xlsx"),
+                    "Content-Type": "application/octet-stream",
+                },
+            )
+        self.assertEqual(saved.status_code, 200)
+        self.assertEqual(saved.json()["job_id"], first["job_id"])
+        self.assertEqual(saved.json()["steps"]["read"], "done")
+        again = self.client.put(
+            f"/api/enterprise-test/compare/{first['job_id']}/file",
+            content=buf.getvalue(),
+            headers={
+                "Authorization": "Bearer local",
+                "X-Filename": quote("新表-2026.xlsx"),
+                "Content-Type": "application/octet-stream",
+            },
+        )
+        self.assertEqual(again.status_code, 404)
+
+    def test_empty_table_marks_the_job_failed(self) -> None:
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        opened = self.client.post(
+            "/api/enterprise-test/compare",
+            headers={"Authorization": "Bearer local"},
+        )
+        job_id = opened.json()["job_id"]
+        from urllib.parse import quote
+
+        saved = self.client.put(
+            f"/api/enterprise-test/compare/{job_id}/file",
+            content=b"",
+            headers={
+                "Authorization": "Bearer local",
+                "X-Filename": quote("空表.xlsx"),
+                "Content-Type": "application/octet-stream",
+            },
+        )
+        self.assertEqual(saved.status_code, 400)
+        view = self.client.get(
+            f"/api/enterprise-test/compare/{job_id}",
+            headers={"Authorization": "Bearer local"},
+        )
+        self.assertEqual(view.status_code, 200)
+        body = view.json()
+        self.assertTrue(body["done"])
+        self.assertIn("文件是空的", body["error"])
+        self.assertTrue(any("开始读正文" in line for line in body.get("detect") or []))
+
+    def test_intake_reads_the_table_like_other_tools(self) -> None:
+        import io
+        from openpyxl import Workbook
+
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        buf = io.BytesIO()
+        book = Workbook()
+        grid = book.active
+        grid.append(["序号", "试验项目", "试验标准号及名称", "目标要求"])
+        grid.append(["1.1", "绝缘", "Q/JLY J7110218D-2025", "满足图纸"])
+        book.save(buf)
+        book.close()
+        saved = self.client.post(
+            "/api/enterprise-test/intake",
+            files={"file": ("电机表.xlsx", buf.getvalue(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers={"Authorization": "Bearer local"},
+        )
+        self.assertEqual(saved.status_code, 200, saved.text)
+        body = saved.json()
+        self.assertTrue(body["ok"])
+        self.assertEqual(body["rows"], 1)
+        self.assertEqual(body["name"], "电机表.xlsx")
+        self.assertIn("输入完成", body["say"])
+        self.assertIn("接下来打开 http://arsm.aurobaytech.com/home/index", body["say"])
+
+    def test_local_pick_reads_both_input_tables_and_writes_the_sheet(self) -> None:
+        motor = Path(r"D:\企标测试\输入条件") / "(电机DVP)DVP-001.xlsx"
+        control = Path(r"D:\企标测试\输入条件") / "(电控DVP)DVP-002.xlsx"
+        if not motor.is_file() or not control.is_file():
+            self.skipTest("输入条件不在这台电脑上")
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        page = self.client.get("/")
+        self.assertIn("生成对比表", page.text)
+        headers = {"Authorization": "Bearer local"}
+        with patch("electrical_krow.gateway.open_locally"):
+            self._pick_and_compare(headers, ((motor, 63), (control, 110)))
+
+    def _pick_and_compare(self, headers: dict[str, str], tables: tuple[tuple[Path, int], ...]) -> None:
+        for path, rows in tables:
+            with patch("electrical_krow.gateway.pick_table_path", return_value=str(path)):
+                picked = self.client.post("/api/enterprise-test/pick", headers=headers)
+            self.assertEqual(picked.status_code, 200, picked.text)
+            body = picked.json()
+            self.assertTrue(body["ok"])
+            self.assertFalse(body["cancelled"])
+            self.assertEqual(body["name"], path.name)
+            self.assertEqual(body["rows"], rows)
+            self.assertNotIn("读不出", body["say"])
+            started = self.client.post(
+                "/api/enterprise-test/compare",
+                headers={**headers, "X-Hold-Id": body["hold_id"]},
+            )
+            self.assertEqual(started.status_code, 200, started.text)
+            job_id = started.json()["job_id"]
+            done: dict = {}
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                view = self.client.get(f"/api/enterprise-test/compare/{job_id}", headers=headers)
+                self.assertEqual(view.status_code, 200, view.text)
+                done = view.json()
+                if done.get("done"):
+                    break
+                time.sleep(0.4)
+            self.assertTrue(done.get("done"), done)
+            self.assertEqual(done.get("error") or "", "")
+            self.assertTrue(str(done.get("reply") or "").startswith("已生成对比表"))
+            self.assertIn("网址无法解析", str(done.get("page_note") or done.get("detail") or ""))
+
+    def test_intake_accepts_a_table_larger_than_one_megabyte(self) -> None:
+        import os
+
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        payload = os.urandom(2 * 1024 * 1024)
+        saved = self.client.post(
+            "/api/enterprise-test/intake",
+            files={"file": ("电控表.xlsx", payload, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+            headers={"Authorization": "Bearer local"},
+        )
+        self.assertNotIn("没有收到测试表文件", saved.text)
+        self.assertNotIn("Part exceeded", saved.text)
+        self.assertNotIn("maximum size", saved.text)
+        self.assertEqual(saved.status_code, 400, saved.text)
+
+    def test_detect_log_records_the_job_and_a_page_line(self) -> None:
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        log_path = Path(self._tmp.name) / "企标检测日志.txt"
+        with patch("electrical_krow.gateway.etest_detect_path", return_value=log_path):
+            opened = self.client.post(
+                "/api/enterprise-test/compare",
+                headers={"Authorization": "Bearer local"},
+            )
+            noted = self.client.post(
+                "/api/enterprise-test/detect",
+                headers={"Authorization": "Bearer local"},
+                json={"line": "停在接收测试表"},
+            )
+        self.assertEqual(opened.status_code, 200)
+        self.assertTrue(any("event=job" in line for line in opened.json().get("detect") or []))
+        self.assertEqual(noted.status_code, 200)
+        text = log_path.read_text(encoding="utf-8")
+        self.assertIn("event=job", text)
+        self.assertIn("message=停在接收测试表", text)
+        self.assertNotIn("password", text)
+
+    def test_new_run_overwrites_the_previous_detect_log(self) -> None:
+        session = AuthSession(access_token="tok", username=DEMO_USER, source="password")
+        with patch("electrical_krow.gateway.login_with_password", return_value=session):
+            self.client.post("/api/login", json={"username": DEMO_USER, "password": "demo"})
+        log_path = Path(self._tmp.name) / "企标检测日志.txt"
+        log_path.write_text("2026-11-19 旧的一次使用\n", encoding="utf-8")
+        with patch("electrical_krow.gateway.etest_detect_path", return_value=log_path):
+            noted = self.client.post(
+                "/api/enterprise-test/detect",
+                headers={"Authorization": "Bearer local", "X-Etest-Reset": "1"},
+                json={"line": "side=page event=start step=read say=本次使用"},
+            )
+        self.assertEqual(noted.status_code, 200)
+        text = log_path.read_text(encoding="utf-8")
+        self.assertNotIn("旧的一次使用", text)
+        self.assertIn("本次使用", text)
 
     def test_health_carries_workbench_summary_numbers_only(self) -> None:
         """工作台统计卡 / 知识库摘要卡：只有版本与数量，不带条目内容或源文件。"""

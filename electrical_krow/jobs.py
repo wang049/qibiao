@@ -671,6 +671,43 @@ class JobStore:
             return record
         return record
 
+    def replace_output(
+        self,
+        *,
+        kind: str,
+        name: str,
+        username: str,
+        **fields: object,
+    ) -> dict[str, object]:
+        """这一类只留最新一次。先前的同类记录从历史里去掉。"""
+        _prefix, message = OUTPUT_KINDS[kind]
+        record = {
+            "id": f"{kind}-{uuid.uuid4().hex[:12]}",
+            "status": "done",
+            "kind": kind,
+            "message": message,
+            "source": name,
+            "username": (username or "").strip(),
+            "created_at": time.time(),
+            "download": f"/files/{name}",
+        }
+        record.update({key: value for key, value in fields.items() if key in _HISTORY_FIELDS})
+        path = self._history_path()
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            kept = [
+                item
+                for item in self._read_history()
+                if str(item.get("kind") or "") != kind
+            ]
+            kept.append(_history_record(record))
+            text = "".join(json.dumps(item, ensure_ascii=False) + "\n" for item in kept)
+            with self._persist_lock:
+                path.write_text(text, encoding="utf-8")
+        except OSError:
+            return record
+        return record
+
     def list_output(
         self, kind: str, limit: int = _HISTORY_LIMIT, *, username: str = ""
     ) -> list[dict[str, object]]:
@@ -685,18 +722,22 @@ class JobStore:
             if name:
                 by_name[name] = rec
         if self._output_dir.is_dir():
-            for path in self._output_dir.glob(f"{prefix}*.xlsx"):
-                if path.name.startswith("~$") or path.name in by_name:
-                    continue
-                by_name[path.name] = {
-                    "id": f"{kind}-file-{path.name}",
-                    "status": "done",
-                    "kind": kind,
-                    "message": message,
-                    "source": path.name,
-                    "created_at": path.stat().st_mtime,
-                    "download": f"/files/{path.name}",
-                }
+            patterns = [f"{prefix}*.xlsx"]
+            if kind == "etest":
+                patterns.append("企标对比表-*.xlsx")
+            for pattern in patterns:
+                for path in self._output_dir.glob(pattern):
+                    if path.name.startswith("~$") or path.name in by_name:
+                        continue
+                    by_name[path.name] = {
+                        "id": f"{kind}-file-{path.name}",
+                        "status": "done",
+                        "kind": kind,
+                        "message": message,
+                        "source": path.name,
+                        "created_at": path.stat().st_mtime,
+                        "download": f"/files/{path.name}",
+                    }
         rows = sorted(by_name.values(), key=_created_at, reverse=True)
         return rows[: max(1, min(int(limit), 80))]
 

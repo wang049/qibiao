@@ -8,6 +8,7 @@ import os
 import socket
 import subprocess
 import sys
+import time
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -135,19 +136,68 @@ def _port_open(host: str, port: int) -> bool:
         sock.close()
 
 
-def _prestart_gateway() -> subprocess.Popen | None:
-    """先拉起本机服务，再导入界面。杀毒扫描和界面导入可以同时进行。"""
-    from electrical_krow.config import load_settings
+def _kill_listener(port: int) -> None:
+    """停掉占着本机端口的旧服务。不结束当前这个启动进程。"""
+    if sys.platform != "win32":
+        return
+    try:
+        out = subprocess.run(
+            ["netstat", "-ano", "-p", "tcp"],
+            capture_output=True,
+            text=True,
+            check=False,
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
+        )
+    except OSError:
+        return
+    needle = f":{int(port)}"
+    me = os.getpid()
+    seen: set[int] = set()
+    for line in (out.stdout or "").splitlines():
+        if "LISTENING" not in line.upper() or needle not in line:
+            continue
+        parts = line.split()
+        if not parts:
+            continue
+        try:
+            pid = int(parts[-1])
+        except ValueError:
+            continue
+        if pid in seen or pid <= 0 or pid == me:
+            continue
+        seen.add(pid)
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
+        )
 
-    settings = load_settings()
-    host = settings.gateway_host
-    if host in {"0.0.0.0", "::", "*"}:
-        host = "127.0.0.1"
-    port = int(settings.gateway_port)
+
+def _prestart_gateway() -> subprocess.Popen | None:
+    """先拉起本机服务，再导入界面。端口上若是旧版本，先停掉再启动。"""
+    from electrical_krow.stamp import STAMP, listening_stamp
+
+    settings = _load_gateway_settings()
+    host = settings[0]
+    port = settings[1]
     if _port_open(host, port):
-        os.environ["ELECTRICAL_KROW_GATEWAY_EXTERNAL"] = "1"
-        os.environ["ELECTRICAL_KROW_GATEWAY_PID"] = "0"
-        return None
+        origin = f"http://{host}:{port}"
+        found = listening_stamp(origin)
+        if found and found == STAMP:
+            print("本机服务已是当前版本，继续使用。", flush=True)
+            os.environ["ELECTRICAL_KROW_GATEWAY_EXTERNAL"] = "1"
+            os.environ["ELECTRICAL_KROW_GATEWAY_PID"] = "0"
+            return None
+        print("端口上的本机服务不是当前版本，先停掉再启动。", flush=True)
+        _kill_listener(port)
+        deadline = time.time() + 3
+        while time.time() < deadline and _port_open(host, port):
+            time.sleep(0.05)
+        if _port_open(host, port):
+            raise RuntimeError(
+                "旧的本机服务还占着端口，新程序没法接收测试表。请在任务管理器结束 pythonw 后再打开。"
+            )
     cmd = [
         _windowed_python(),
         str(ROOT / "run.py"),
@@ -164,6 +214,16 @@ def _prestart_gateway() -> subprocess.Popen | None:
     os.environ["ELECTRICAL_KROW_GATEWAY_EXTERNAL"] = "1"
     os.environ["ELECTRICAL_KROW_GATEWAY_PID"] = str(proc.pid)
     return proc
+
+
+def _load_gateway_settings() -> tuple[str, int]:
+    from electrical_krow.config import load_settings
+
+    settings = load_settings()
+    host = settings.gateway_host
+    if host in {"0.0.0.0", "::", "*"}:
+        host = "127.0.0.1"
+    return host, int(settings.gateway_port)
 
 
 def _stop_prestarted(proc: subprocess.Popen | None) -> None:
@@ -211,6 +271,10 @@ def main() -> int:
     prestarted = None
     try:
         prestarted = _prestart_gateway()
+    except RuntimeError as exc:
+        traceback.print_exc()
+        _win_error(str(exc))
+        return 1
     except Exception:
         traceback.print_exc()
         prestarted = None

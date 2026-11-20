@@ -117,11 +117,55 @@ class DesktopTests(unittest.TestCase):
                                 with patch("electrical_krow.desktop.open_window") as window:
                                     with patch("electrical_krow.desktop.start_gateway") as serve:
                                         with patch("electrical_krow.desktop._alert") as alert:
-                                            code = desktop_main([])
+                                            with patch(
+                                                "electrical_krow.desktop.port_is_open",
+                                                return_value=False,
+                                            ):
+                                                code = desktop_main([])
         self.assertEqual(code, 0)
         window.assert_called_once()
         serve.assert_not_called()
         alert.assert_not_called()
+
+    def test_foreign_listener_is_replaced_before_open(self) -> None:
+        settings = load_settings(server_url="http://127.0.0.1:18766")
+        args = SimpleNamespace(host=None, port=None, site=False, no_browser=True)
+
+        class Handle:
+            def alive(self) -> bool:
+                return True
+
+            def stop(self) -> None:
+                return None
+
+            def note_exit(self) -> None:
+                return None
+
+        with patch("electrical_krow.desktop.parse_gateway_argv", return_value=args):
+            with patch(
+                "electrical_krow.desktop.listen_from_args",
+                return_value=(settings, "127.0.0.1", 18765, "http://127.0.0.1:18765"),
+            ):
+                with patch("electrical_krow.desktop.handoff_macos_app", return_value=False):
+                    with patch("electrical_krow.desktop.webview_installed", return_value=True):
+                        with patch("electrical_krow.desktop._load_webview"):
+                            with patch("electrical_krow.desktop.port_is_open", return_value=True):
+                                with patch("electrical_krow.stamp.same_gateway", return_value=False):
+                                    with patch("electrical_krow.desktop._kill_port_listener") as kill:
+                                        with patch("electrical_krow.desktop.reap_stale_gateway"):
+                                            with patch(
+                                                "electrical_krow.desktop.wait_until_ready",
+                                                return_value=True,
+                                            ):
+                                                with patch("electrical_krow.desktop.open_window"):
+                                                    with patch(
+                                                        "electrical_krow.desktop.start_gateway",
+                                                        return_value=Handle(),
+                                                    ) as serve:
+                                                        code = desktop_main([])
+        self.assertEqual(code, 0)
+        kill.assert_called_once_with(18765)
+        serve.assert_called_once()
 
     def test_site_mode_refuses_desktop_window(self) -> None:
         settings = load_settings(

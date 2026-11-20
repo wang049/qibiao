@@ -356,10 +356,22 @@
                 </div>
               </div>
             </form>
-            <div id="etest-log" class="etest-log" aria-live="polite"></div>
             <div id="etest-result" class="io-result" hidden>
               <p id="etest-msg" class="msg" hidden></p>
+              <a id="etest-dl" class="dl" hidden></a>
             </div>
+            <ol id="etest-trace" class="etest-trace"></ol>
+            <details id="etest-detect" class="etest-detect">
+              <summary>检测日志</summary>
+              <div class="etest-detect-body">
+                <div class="etest-detect-bar">
+                  <p id="etest-detect-file" class="etest-detect-file">展开后是给开发反馈问题用的。每一步都留在这里，复制整段发回来。</p>
+                  <button id="etest-detect-copy" type="button" class="ghost">复制检测日志</button>
+                </div>
+                <pre id="etest-detect-text" class="etest-detect-text">还没有记录。</pre>
+              </div>
+            </details>
+            <div id="etest-log" class="etest-log" aria-live="polite"></div>
           </div>
 
           <div id="icd-card" class="card tool-card" hidden>

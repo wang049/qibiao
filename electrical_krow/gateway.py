@@ -9,23 +9,28 @@ import argparse
 import asyncio
 import os
 import re
+import shutil
 import sys
 import tempfile
 import threading
+import traceback
+import uuid
 import webbrowser
-from datetime import date
+from datetime import date, datetime
 from dataclasses import replace
 from pathlib import Path
 from typing import Any
+from urllib.parse import unquote
 
 import uvicorn
 
-from fastapi import FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, Header, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from electrical_krow.about import OpenError, open_locally, versions as about_versions
+from electrical_krow.stamp import STAMP
 from electrical_krow.arch_contrast import build_contrast, contrast_file_name
 from electrical_krow.hsi_book import (
     DEFAULT_HSI_TEMPLATE,
@@ -41,12 +46,15 @@ from electrical_krow.enterprise_dialogue import (
     analysis_messages,
     clean_turns,
     compare_manual_file,
+    comparison_workbook,
     fetch_source_page,
     file_key_brief,
     output_tables,
+    read_manual_table,
     source_url,
 )
 from electrical_krow.enterprise_test import Clock, build_enterprise_test, enterprise_test_file_name
+from electrical_krow.local_table import intake_summary, pick_table_path, stage_table
 from electrical_krow.icd_book import build_icd, icd_file_name
 from electrical_krow.mcu_pins import mcu_name, packages_in_pdf
 from electrical_krow.io_plan import write_io_sheet
@@ -67,7 +75,12 @@ from electrical_krow.config import (
 )
 from electrical_krow.errors import ConfigError, LLMError, LoginError
 from electrical_krow.jobs import JobStore
+from starlette.datastructures import UploadFile as FormUpload
+from starlette.formparsers import MultiPartParser
+
 from electrical_krow import paths as path_limits
+
+MultiPartParser.spool_max_size = path_limits.MAX_BYTES
 from electrical_krow.inspect_doc import document_needs_ocr, inspect_upload
 from electrical_krow.knowledge import browse_catalog, feature_library, knowledge_summary, pending_rulings_count
 from electrical_krow.llm import (
@@ -87,6 +100,21 @@ FRONTEND = FRONTEND_DIR
 _AUTH_REFRESH = threading.Lock()
 _ARCH_PROGRESS: dict[str, dict[str, object]] = {}
 _ARCH_PROGRESS_LOCK = threading.Lock()
+_ETEST_JOBS: dict[str, dict[str, object]] = {}
+_ETEST_LOCK = threading.Lock()
+_ETEST_INBOX: dict[str, dict[str, object]] = {}
+_ETEST_HELD: dict[str, dict[str, object]] = {}
+_ETEST_STEP_ORDER = ("read", "extract", "open", "find", "search", "file", "write")
+_ETEST_STEP_LABEL = {
+    "read": "接收测试表",
+    "extract": "抽出标准号和文件名",
+    "open": "打开网址",
+    "find": "查找检索",
+    "search": "按标准号和文件名检索",
+    "file": "下载标准文件",
+    "write": "写出对比表",
+}
+_TABLE_SUFFIX = {".docx", ".xlsx", ".xlsm", ".txt", ".md"}
 _HSI_PROGRESS: dict[str, dict[str, object]] = {}
 _HSI_PROGRESS_LOCK = threading.Lock()
 
@@ -101,6 +129,212 @@ def _arch_progress_set(job_id: str, percent: int, stage: str, detail: str = "", 
                 _ARCH_PROGRESS.pop(key, None)
 
 
+def etest_detect_path() -> Path:
+    return path_limits.data_root() / "企标检测日志.txt"
+
+
+def _etest_say(step: str, state: str, detail: str, error: str) -> str:
+    """把环节编号收成一句中文，贴回日志时不用再猜缩写。"""
+    name = _ETEST_STEP_LABEL.get(step, step or "对比")
+    text = " ".join(str(detail or "").split())
+    if error:
+        return f"{name}没有完成。{error}"
+    if step == "read" and text == "等待测试表":
+        return "任务已建立。这一步只拿到任务号，测试表还没开始上传。"
+    if step == "read" and text == "已接到上传":
+        return "本机服务已经开始接收文件正文。若后面没有「测试表已完整落盘」，说明正文没传完。"
+    if step == "read" and state == "done":
+        return f"测试表已完整落盘。文件名是 {text}。"
+    if step == "extract" and text.endswith("行"):
+        return f"测试表读完，共 {text}。这些行里的标准号和文件名会用来检索。"
+    if step == "extract" and text.startswith("模型没有"):
+        return "模型没有抽出检索词，改为直接用表里已经写明的标准号和文件名。"
+    if step == "extract":
+        return f"开始从测试表抽出标准号和文件名。文件是 {text}。"
+    if step in {"open", "find", "search", "file"} and text.endswith("。"):
+        return text
+    if step == "open":
+        return f"打开给定网址。地址是 {text}。"
+    if step == "find":
+        return f"在给定网址上找检索框。当前页是 {text}。"
+    if step == "search" and ("检索框" in text or "登录尚未完成" in text):
+        return text
+    if step == "search" and text[:1].isdigit() and "/" in text:
+        return f"正在把标准号或文件名填进检索框。{text}。"
+    if step == "search":
+        return text or "按抽出的标准号和文件名检索。"
+    if step == "file" and text.startswith("0/"):
+        return f"搜索结果里没有可读取的最新文件。{text}。"
+    if step == "file":
+        return f"读取最新文件并提取试验条款。进度 {text}。"
+    if step == "write" and state == "done":
+        return f"对比表已写回工程。{text}" if text else "对比表已写回工程。"
+    if step == "write":
+        return "开始把对比结果写回工程。"
+    return f"{name}。{text}" if text else name
+
+
+def format_etest_log(fields: dict[str, object]) -> str:
+    """固定字段的检测日志。值里的空格用引号包起来，便于整段贴回。"""
+    order = ("side", "event", "step", "name", "state", "ok", "say", "job", "file", "bytes", "error", "message", "detail")
+    keys = [key for key in order if key in fields]
+    keys.extend(key for key in fields if key not in keys)
+    parts: list[str] = []
+    for key in keys:
+        value = fields[key]
+        if value is None or value == "":
+            continue
+        text = " ".join(str(value).split())
+        if any(mark in text for mark in (' ', '"', "=")):
+            text = '"' + text.replace('"', "'") + '"'
+        parts.append(f"{key}={text}")
+    return " ".join(parts)
+
+
+def _write_replacing(dest: Path, payload: bytes) -> None:
+    """先写成临时文件再换上，用来盖掉上一份对比表。"""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    temporary = dest.with_name(dest.name + ".writing")
+    temporary.write_bytes(payload)
+    try:
+        temporary.replace(dest)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        dest.write_bytes(payload)
+
+
+def begin_etest_detect() -> None:
+    """本次使用从空日志写起，盖掉上一份。"""
+    path = etest_detect_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("", encoding="utf-8")
+    except OSError:
+        return
+
+
+def _reset_etest_log(request: Request) -> None:
+    if (request.headers.get("x-etest-reset") or "").strip() == "1":
+        begin_etest_detect()
+
+
+def append_etest_detect(message: str) -> str:
+    """追加一行本次检测日志。不含文件正文和登录信息。"""
+    text = " ".join(str(message or "").split())[:1400]
+    if not text:
+        return ""
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"{stamp}  {text}"
+    path = etest_detect_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.is_file():
+            path.write_text(f"{stamp}  检测日志已建立。版本印记 {STAMP}\n", encoding="utf-8")
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+    except OSError:
+        return line
+    return line
+
+
+def _etest_note(job_id: str, message: str) -> None:
+    line = append_etest_detect(message)
+    if not line or not job_id:
+        return
+    with _ETEST_LOCK:
+        row = _ETEST_JOBS.get(job_id)
+        if row is None:
+            return
+        found = list(row.get("detect") or [])
+        found.append(line)
+        row["detect"] = found[-150:]
+
+
+def _etest_update(job_id: str, **fields: object) -> None:
+    with _ETEST_LOCK:
+        row = _ETEST_JOBS.get(job_id)
+        if row is None:
+            return
+        steps = dict(row.get("steps") or {})
+        state = str(fields.get("state") or "")
+        step = str(fields.get("step") or "")
+        if state == "fail":
+            current = str(row.get("step") or "open")
+            steps[current] = "fail"
+        elif step:
+            for key in _ETEST_STEP_ORDER:
+                if steps.get(key) == "run" and key != step:
+                    steps[key] = "done"
+            steps[step] = state or "run"
+            row["step"] = step
+        row["steps"] = steps
+        if "detail" in fields:
+            row["detail"] = str(fields.get("detail") or "")[:800]
+        for key in ("done", "error", "result"):
+            if key in fields:
+                row[key] = fields[key]
+        if len(_ETEST_JOBS) > 20:
+            for key in list(_ETEST_JOBS)[:-12]:
+                _ETEST_JOBS.pop(key, None)
+                _ETEST_INBOX.pop(key, None)
+    state = str(fields.get("state") or "")
+    step = str(fields.get("step") or "")
+    detail = str(fields.get("detail") or "")[:800]
+    error = str(fields.get("error") or "")[:800]
+    name = _ETEST_STEP_LABEL.get(step, step or "对比")
+    say = _etest_say(step, state, detail, error)
+    if error:
+        _etest_note(job_id, format_etest_log({
+            "side": "server",
+            "event": "step",
+            "step": step or "compare",
+            "name": name,
+            "state": "fail",
+            "ok": 0,
+            "say": say,
+            "error": error,
+        }))
+    elif step and state == "done" and detail:
+        _etest_note(job_id, format_etest_log({
+            "side": "server",
+            "event": "step",
+            "step": step,
+            "name": name,
+            "state": "done",
+            "ok": 1,
+            "say": say,
+            "detail": detail,
+        }))
+    elif step and state == "run" and detail:
+        _etest_note(job_id, format_etest_log({
+            "side": "server",
+            "event": "step",
+            "step": step,
+            "name": name,
+            "state": "run",
+            "ok": 1,
+            "say": say,
+            "detail": detail,
+        }))
+
+
+def _etest_view(job_id: str) -> dict[str, object] | None:
+    with _ETEST_LOCK:
+        row = _ETEST_JOBS.get(job_id)
+        if row is None:
+            return None
+        return {
+            "job_id": job_id,
+            "step": row.get("step") or "read",
+            "detail": row.get("detail") or "",
+            "steps": dict(row.get("steps") or {}),
+            "done": bool(row.get("done")),
+            "error": row.get("error") or "",
+            "detect": list(row.get("detect") or []),
+            "result": row.get("result"),
+        }
+
+
 def _hsi_progress_set(job_id: str, percent: int, stage: str, detail: str = "", *, done: bool = False) -> None:
     if not job_id:
         return
@@ -109,6 +343,50 @@ def _hsi_progress_set(job_id: str, percent: int, stage: str, detail: str = "", *
         if len(_HSI_PROGRESS) > 40:
             for key in list(_HSI_PROGRESS)[:-20]:
                 _HSI_PROGRESS.pop(key, None)
+
+
+class _BodyInterrupted(Exception):
+    """正文没读完。total 是已经落盘的字节。"""
+
+    def __init__(self, total: int, reason: str) -> None:
+        self.total = total
+        super().__init__(reason)
+
+
+def _etest_burn_upload(job_id: str) -> None:
+    """这次上传作废，不能再往同一个任务里塞文件。"""
+    with _ETEST_LOCK:
+        row = _ETEST_JOBS.get(job_id)
+        if row is not None:
+            row["started"] = True
+            row["receiving"] = False
+        _ETEST_INBOX.pop(job_id, None)
+
+
+async def _save_request_body(request: Request, dest: Path) -> int:
+    """把请求体按块写入文件。调用方在读完之后再返回，避免半截响应把提交打断。"""
+    total = 0
+    try:
+        with dest.open("wb") as handle:
+            async for chunk in request.stream():
+                if not chunk:
+                    continue
+                total += len(chunk)
+                if total > path_limits.MAX_BYTES:
+                    raise HTTPException(400, f"文件超过 {path_limits.MAX_MB}MB")
+                handle.write(chunk)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _BodyInterrupted(total, f"{type(exc).__name__}: {exc}") from exc
+    return total
+
+
+def _table_suffix(name: str) -> str:
+    suffix = Path(name).suffix.lower()
+    if suffix not in _TABLE_SUFFIX:
+        raise HTTPException(400, "测试表请用 Excel、Word 或文本。")
+    return suffix
 
 
 async def read_capped_upload(file: UploadFile) -> bytes:
@@ -231,6 +509,10 @@ class RecordPlaceIn(BaseModel):
     folder_id: str = ""
 
 
+class EtestDetectIn(BaseModel):
+    line: str = ""
+
+
 def create_app(
     settings: Settings | None = None,
     *,
@@ -307,6 +589,7 @@ def create_app(
             # 工作台摘要卡：知识库数量与待专家口径条目数（只有数字，不含条目内容）
             "knowledge": _safe_call(knowledge_summary, {}),
             "pending_rulings": _safe_call(pending_rulings_count, 0),
+            "stamp": STAMP,
         }
 
     @app.get("/api/settings")
@@ -1545,25 +1828,469 @@ def create_app(
             "source_url_set": bool(source_url()),
         }
 
+    def _etest_payload(job_id: str) -> dict[str, object]:
+        view = _etest_view(job_id) or {}
+        return {
+            "job_id": job_id,
+            "step": view.get("step") or "read",
+            "detail": view.get("detail") or "",
+            "steps": view.get("steps") or {},
+            "done": bool(view.get("done")),
+            "detect": view.get("detect") or [],
+            "detect_file": str(etest_detect_path()),
+        }
+
+    def _etest_launch(job_id: str, item, path: Path, folder: Path, name: str, output_dir: Path, username: str, jobs) -> None:
+        def work() -> None:
+            try:
+                def on_step(step: str, detail: str = "") -> None:
+                    _etest_update(job_id, step=step, state="run", detail=detail)
+
+                def ask(messages: list[dict[str, str]]) -> str:
+                    model = (item.extract_model or _active_model(item) or cfg.chat_model).strip()
+                    reply = complete(
+                        cfg.server_url,
+                        item.auth,
+                        messages,
+                        model=model,
+                        temperature=0.0,
+                        timeout=min(cfg.timeout_sec, 60.0),
+                        extra={"thinking": {"type": "disabled"}},
+                    )
+                    return reply.content
+
+                on_step("extract", name)
+                result = compare_manual_file(path, on_step=on_step, ask=ask, save_dir=output_dir / "标准文件")
+                on_step("write", "")
+                tables = result.get("tables") if isinstance(result.get("tables"), list) else []
+                sheet = tables[0] if tables and isinstance(tables[0], dict) else {
+                    "title": "对比表",
+                    "headers": [],
+                    "rows": [],
+                }
+                filename = "企标对比表.xlsx"
+                dest = output_dir / filename
+                _write_replacing(dest, comparison_workbook(sheet))
+                for pattern in ("企标对比表-*.xlsx", "企标测试清单-*.xlsx"):
+                    for old in output_dir.glob(pattern):
+                        if old.name.startswith("~$"):
+                            continue
+                        try:
+                            old.unlink()
+                        except OSError:
+                            pass
+                jobs.replace_output(
+                    kind="etest",
+                    name=dest.name,
+                    username=username,
+                    message="对比表已生成",
+                    rows=len(sheet.get("rows") or []),
+                )
+                result["name"] = dest.name
+                result["download"] = f"/files/{dest.name}"
+                _etest_update(job_id, step="write", state="done", done=True, result=result, detail=str(result.get("page_note") or ""))
+                try:
+                    open_locally(dest)
+                except OpenError:
+                    pass
+            except Exception as exc:
+                traceback.print_exc()
+                _etest_update(job_id, state="fail", done=True, error=f"对比没有完成：{exc}")
+            finally:
+                shutil.rmtree(folder, ignore_errors=True)
+
+        threading.Thread(target=work, name=f"etest-{job_id[:8]}", daemon=True).start()
+
+    async def _etest_store_and_launch(
+        request: Request,
+        item,
+        output_dir: Path,
+        username: str,
+        job_id: str | None,
+        background: BackgroundTasks | None = None,
+    ) -> dict[str, object]:
+        """先把文件读完并落盘。回应发出去之后才开始对比。"""
+        folder = Path(tempfile.mkdtemp())
+        raw_path = folder / "upload.bin"
+        try:
+            total = await _save_request_body(request, raw_path)
+            name = Path(unquote(request.headers.get("x-filename") or "")).name or "table.xlsx"
+            suffix = _table_suffix(name)
+            if total == 0:
+                raise HTTPException(400, "文件是空的")
+        except HTTPException as exc:
+            shutil.rmtree(folder, ignore_errors=True)
+            if job_id:
+                _etest_burn_upload(job_id)
+                _etest_update(job_id, state="fail", done=True, error=str(exc.detail))
+            raise
+        except _BodyInterrupted as exc:
+            shutil.rmtree(folder, ignore_errors=True)
+            reason = f"正文在 {exc.total} 字节后中断。{exc}"
+            if job_id:
+                _etest_burn_upload(job_id)
+                _etest_update(job_id, step="read", state="fail", done=True, error=reason)
+            raise HTTPException(400, reason) from exc
+        except Exception as exc:
+            shutil.rmtree(folder, ignore_errors=True)
+            reason = f"{type(exc).__name__}: {exc}"
+            if job_id:
+                _etest_burn_upload(job_id)
+                _etest_update(job_id, step="read", state="fail", done=True, error=f"收文件正文时出错。{reason}")
+            raise HTTPException(400, "文件没有传完") from exc
+        path = folder / f"table{suffix}"
+        raw_path.replace(path)
+        if job_id is None:
+            job_id = uuid.uuid4().hex
+            steps = {step: "wait" for step in _ETEST_STEP_ORDER}
+            steps["read"] = "done"
+            with _ETEST_LOCK:
+                _ETEST_JOBS[job_id] = {
+                    "step": "read",
+                    "detail": name,
+                    "steps": steps,
+                    "done": False,
+                    "error": "",
+                    "result": None,
+                    "started": True,
+                }
+        else:
+            _etest_update(job_id, step="read", state="done", detail=f"{name} {total} 字节")
+            with _ETEST_LOCK:
+                row = _ETEST_JOBS.get(job_id)
+                if row is not None:
+                    row["started"] = True
+                _ETEST_INBOX.pop(job_id, None)
+        launch_args = (job_id, item, path, folder, name, output_dir, username, request.app.state.jobs)
+        if background is not None:
+            background.add_task(_etest_launch, *launch_args)
+        else:
+            _etest_launch(*launch_args)
+        return _etest_payload(job_id)
+
+    def _etest_take_hold(hold_id: str) -> dict[str, object] | None:
+        with _ETEST_LOCK:
+            return _ETEST_HELD.pop(hold_id, None)
+
+    def _etest_keep_hold(hold: dict[str, object]) -> str:
+        hold_id = uuid.uuid4().hex
+        with _ETEST_LOCK:
+            while len(_ETEST_HELD) > 4:
+                old = next(iter(_ETEST_HELD))
+                dropped = _ETEST_HELD.pop(old, None)
+                if dropped is not None:
+                    folder = str(dropped.get("folder") or "")
+                    if folder:
+                        shutil.rmtree(folder, ignore_errors=True)
+            _ETEST_HELD[hold_id] = hold
+        return hold_id
+
+    @app.post("/api/enterprise-test/pick")
+    def enterprise_test_pick(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """本机文件窗口读测试表。Excel 占着同一份文件时按共享方式读。"""
+        _require_session(request, authorization)
+        try:
+            chosen = pick_table_path()
+        except OSError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        if not chosen:
+            return {"ok": False, "cancelled": True, "say": "没有选择文件。"}
+        try:
+            folder, dest, manual, size = stage_table(Path(chosen))
+        except (OSError, ValueError, FileNotFoundError) as exc:
+            raise HTTPException(400, str(exc)) from exc
+        name = Path(chosen).name
+        summary = intake_summary(name, manual, size)
+        hold_id = _etest_keep_hold({
+            "folder": str(folder),
+            "path": str(dest),
+            "name": name,
+            "bytes": size,
+            "rows": len(manual),
+        })
+        line = append_etest_detect(format_etest_log({
+            "side": "server",
+            "event": "extract",
+            "step": "extract",
+            "name": "抽出标准号和文件名",
+            "state": "done",
+            "ok": 1,
+            "file": name,
+            "bytes": size,
+            "say": summary,
+        }))
+        return {
+            "ok": True,
+            "cancelled": False,
+            "hold_id": hold_id,
+            "name": name,
+            "bytes": size,
+            "rows": len(manual),
+            "say": summary,
+            "detect": [line] if line else [],
+            "detect_file": str(etest_detect_path()),
+        }
+
+    @app.post("/api/enterprise-test/intake")
+    async def enterprise_test_intake(
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """与电子电器其他功能相同：表单提交文件，按块读入。只抽出行，不打开标准站。"""
+        _require_session(request, authorization)
+        form = await request.form(max_part_size=path_limits.MAX_BYTES)
+        try:
+            uploaded = form.get("file")
+            if not isinstance(uploaded, FormUpload):
+                raise HTTPException(400, "没有收到测试表文件。")
+            file = uploaded
+            name = Path(file.filename or "").name or "table.xlsx"
+            lines: list[str] = []
+
+            def note(**fields: object) -> None:
+                line = append_etest_detect(format_etest_log({
+                    "side": "server",
+                    "step": "read",
+                    "name": "接收测试表",
+                    "file": name,
+                    **fields,
+                }))
+                if line:
+                    lines.append(line)
+
+            suffix = Path(name).suffix.lower()
+            if suffix not in _TABLE_SUFFIX:
+                note(event="reject", state="fail", ok=0, say="测试表请用 Excel、Word 或文本。")
+                raise HTTPException(400, "测试表请用 Excel、Word 或文本。")
+            note(event="upload", state="run", ok=1, say=f"已接到 {name}。按块读取，和电子电器其他文件相同。")
+            try:
+                data = await read_capped_upload(file)
+            except HTTPException as exc:
+                note(event="error", state="fail", ok=0, say=str(exc.detail), error="HTTPException")
+                raise
+        finally:
+            await form.close()
+        folder = Path(tempfile.mkdtemp())
+        dest = folder / f"table{suffix}"
+        dest.write_bytes(data)
+        try:
+            manual = await asyncio.to_thread(read_manual_table, dest)
+        except ValueError as exc:
+            shutil.rmtree(folder, ignore_errors=True)
+            note(event="error", state="fail", ok=0, say=str(exc), error="ValueError")
+            raise HTTPException(400, str(exc)) from exc
+        except Exception as exc:
+            shutil.rmtree(folder, ignore_errors=True)
+            note(event="error", state="fail", ok=0, say=f"测试表没有读完。{exc}", error=type(exc).__name__)
+            raise HTTPException(400, "测试表没有读完。") from exc
+        summary = intake_summary(name, manual, len(data))
+        hold_id = _etest_keep_hold({
+            "folder": str(folder),
+            "path": str(dest),
+            "name": name,
+            "bytes": len(data),
+            "rows": len(manual),
+        })
+        note(event="extract", step="extract", state="done", ok=1, bytes=len(data), say=summary)
+        return {
+            "ok": True,
+            "hold_id": hold_id,
+            "name": name,
+            "bytes": len(data),
+            "rows": len(manual),
+            "say": summary,
+            "detect": lines,
+            "detect_file": str(etest_detect_path()),
+        }
+
     @app.post("/api/enterprise-test/compare")
     async def enterprise_test_compare(
         request: Request,
-        table: UploadFile = File(...),
+        background: BackgroundTasks,
         authorization: str | None = Header(default=None),
     ) -> dict[str, object]:
-        """用一份人工测试表，对上网址里最新且未被替换的标准，生成一张对比表。"""
+        """先建立任务并返回。没有正文时不读文件，后续任何一份新表都走同一步。"""
+        item = _require_session(request, authorization)
+        jobs = request.app.state.jobs
+        output_dir = jobs.output_dir
+        username = item.auth.username
+        hold_id = (request.headers.get("x-hold-id") or "").strip()
+        if hold_id:
+            held = _etest_take_hold(hold_id)
+            if held is None:
+                raise HTTPException(404, "这份测试表已经不在了。请重新选择。")
+            job_id = uuid.uuid4().hex
+            steps = {step: "wait" for step in _ETEST_STEP_ORDER}
+            steps["read"] = "done"
+            steps["extract"] = "run"
+            with _ETEST_LOCK:
+                _ETEST_JOBS[job_id] = {
+                    "step": "extract",
+                    "detail": f"已读入 {held['rows']} 行",
+                    "steps": steps,
+                    "done": False,
+                    "error": "",
+                    "result": None,
+                    "started": True,
+                }
+            _etest_note(job_id, format_etest_log({
+                "side": "server",
+                "event": "job",
+                "step": "extract",
+                "name": "抽出标准号和文件名",
+                "state": "run",
+                "ok": 1,
+                "file": held["name"],
+                "bytes": held["bytes"],
+                "say": f"输入已经完成，使用本机读入的 {held['name']}。共 {held['bytes']} 字节，{held['rows']} 行。现在开始后续步骤。",
+            }))
+            launch_args = (
+                job_id,
+                item,
+                Path(str(held["path"])),
+                Path(str(held["folder"])),
+                str(held["name"]),
+                output_dir,
+                username,
+                request.app.state.jobs,
+            )
+            if background is not None:
+                background.add_task(_etest_launch, *launch_args)
+            else:
+                _etest_launch(*launch_args)
+            return _etest_payload(job_id)
+        length_text = (request.headers.get("content-length") or "").strip()
+        try:
+            length = int(length_text) if length_text else 0
+        except ValueError:
+            length = 0
+        if length > 0:
+            return await _etest_store_and_launch(request, item, output_dir, username, None, background)
+        job_id = uuid.uuid4().hex
+        steps = {step: "wait" for step in _ETEST_STEP_ORDER}
+        steps["read"] = "run"
+        with _ETEST_LOCK:
+            _ETEST_JOBS[job_id] = {
+                "step": "read",
+                "detail": "等待测试表",
+                "steps": steps,
+                "done": False,
+                "error": "",
+                "result": None,
+                "started": False,
+            }
+            _ETEST_INBOX[job_id] = {
+                "item": item,
+                "username": username,
+                "output_dir": output_dir,
+            }
+        _etest_note(job_id, format_etest_log({
+            "side": "server",
+            "event": "job",
+            "step": "read",
+            "name": "接收测试表",
+            "state": "run",
+            "ok": 1,
+            "say": "任务已建立。这一步只拿到任务号，测试表还没开始上传。",
+            "detail": "等待测试表",
+        }))
+        return _etest_payload(job_id)
+
+    @app.put("/api/enterprise-test/compare/{job_id}/file")
+    async def enterprise_test_compare_file(
+        job_id: str,
+        request: Request,
+        background: BackgroundTasks,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """任务号已经在手里，再接收这一份测试表。"""
         _require_session(request, authorization)
-        name = Path(table.filename or "").name
-        if Path(name).suffix.lower() not in {".docx", ".xlsx", ".xlsm", ".txt", ".md"}:
-            raise HTTPException(400, "测试表请用 Excel、Word 或文本。")
-        payload = await read_capped_upload(table)
-        with tempfile.TemporaryDirectory() as raw:
-            path = Path(raw) / name
-            path.write_bytes(payload)
-            try:
-                return await asyncio.to_thread(compare_manual_file, path)
-            except ValueError as exc:
-                raise HTTPException(400, str(exc)) from exc
+        if not re.fullmatch(r"[0-9a-f]{32}", job_id):
+            raise HTTPException(404, "这次对比已经不在了。")
+        with _ETEST_LOCK:
+            box = _ETEST_INBOX.get(job_id)
+            row = _ETEST_JOBS.get(job_id)
+            if box is None or row is None or row.get("started") or row.get("receiving"):
+                raise HTTPException(404, "这次对比已经不在了。")
+            row["receiving"] = True
+            item = box["item"]
+            output_dir = box["output_dir"]
+            username = str(box["username"])
+        _etest_note(job_id, format_etest_log({
+            "side": "server",
+            "event": "upload",
+            "step": "read",
+            "name": "接收测试表",
+            "state": "run",
+            "ok": 1,
+            "say": "上传连接已建立，开始读正文。这时文件还没落盘。",
+            "detail": "开始读正文",
+        }))
+        try:
+            return await _etest_store_and_launch(
+                request,
+                item,
+                output_dir,
+                username,
+                job_id,
+                background,
+            )
+        finally:
+            with _ETEST_LOCK:
+                current = _ETEST_JOBS.get(job_id)
+                if current is not None:
+                    current["receiving"] = False
+
+    @app.get("/api/enterprise-test/compare/{job_id}")
+    def enterprise_test_compare_status(
+        job_id: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """返回对比进行到哪一环节。请求很短，用来看出停在哪一步。"""
+        _require_session(request, authorization)
+        if not re.fullmatch(r"[0-9a-f]{32}", job_id):
+            raise HTTPException(404, "这次对比已经不在了。")
+        view = _etest_view(job_id)
+        if view is None:
+            raise HTTPException(404, "这次对比已经不在了。")
+        payload = {
+            "job_id": job_id,
+            "step": view.get("step") or "read",
+            "detail": view.get("detail") or "",
+            "steps": view.get("steps") or {},
+            "done": bool(view.get("done")),
+            "error": view.get("error") or "",
+            "detect": view.get("detect") or [],
+            "detect_file": str(etest_detect_path()),
+        }
+        result = view.get("result")
+        if payload["done"] and isinstance(result, dict):
+            payload.update(result)
+        return payload
+
+    @app.post("/api/enterprise-test/detect")
+    def enterprise_test_detect(
+        body: EtestDetectIn,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> dict[str, object]:
+        """页面上的失败也写入检测日志，方便整段发回。"""
+        _require_session(request, authorization)
+        _reset_etest_log(request)
+        raw = " ".join((body.line or "").split())
+        if raw.startswith("side="):
+            line = append_etest_detect(raw)
+        else:
+            line = append_etest_detect(format_etest_log({
+                "side": "page",
+                "event": "note",
+                "message": raw,
+            }))
+        return {"ok": bool(line), "line": line, "detect_file": str(etest_detect_path())}
 
     @app.get("/api/enterprise-test/history")
     def enterprise_test_history(
@@ -1634,14 +2361,29 @@ def create_app(
     if FRONTEND.is_dir():
         app.mount("/static", StaticFiles(directory=str(FRONTEND)), name="static")
 
-    @app.middleware("http")
-    async def no_store_ui(request: Request, call_next):
-        response = await call_next(request)
-        path = request.url.path
-        if path == "/" or path.startswith("/static/"):
-            response.headers["Cache-Control"] = "no-store, max-age=0"
-            response.headers["Pragma"] = "no-cache"
-        return response
+    class _NoStoreUI:
+        def __init__(self, app) -> None:
+            self.app = app
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] != "http":
+                await self.app(scope, receive, send)
+                return
+            path = scope.get("path") or ""
+
+            async def send_wrapped(message):
+                if message["type"] == "http.response.start" and (
+                    path == "/" or str(path).startswith("/static/")
+                ):
+                    headers = list(message.get("headers") or [])
+                    headers.append((b"cache-control", b"no-store, max-age=0"))
+                    headers.append((b"pragma", b"no-cache"))
+                    message = {**message, "headers": headers}
+                await send(message)
+
+            await self.app(scope, receive, send_wrapped)
+
+    app.add_middleware(_NoStoreUI)
 
     return app
 

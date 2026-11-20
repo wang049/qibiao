@@ -2487,7 +2487,10 @@ function openFileChoice(anchor, target, accept, kind) {
   const menu = recordMenuEl();
   const inputId = target === "spec" ? "file" : target;
   const paint = (mode) => {
-    if (mode === "root") {
+    if (mode === "root" && target === "etest-table") {
+      menu.innerHTML = "<button type='button' data-etest-local='1'>" + tx("io.pickLocal") + "</button>"
+        + "<button type='button' data-app='1'>" + tx("io.pickApp") + "</button>";
+    } else if (mode === "root") {
       menu.innerHTML = "<label class='record-menu-choice' for='" + escText(inputId) + "'>" + tx("io.pickLocal") + "</label>"
         + "<button type='button' data-app='1'>" + tx("io.pickApp") + "</button>";
     } else {
@@ -2523,6 +2526,11 @@ function openFileChoice(anchor, target, accept, kind) {
     if (!btn || !menu.contains(btn)) return;
     ev.preventDefault();
     ev.stopPropagation();
+    if (btn.hasAttribute("data-etest-local")) {
+      menu.hidden = true;
+      pickEtestLocal();
+      return;
+    }
     if (btn.hasAttribute("data-app")) {
       paint("app");
       return;
@@ -2542,6 +2550,14 @@ function openFileChoice(anchor, target, accept, kind) {
 }
 
 document.querySelectorAll(".io-file-box[data-target]").forEach((box) => {
+  if (box.getAttribute("data-target") === "etest-table") {
+    box.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      pickEtestLocal();
+    }, true);
+    return;
+  }
   box.addEventListener("click", (ev) => {
     if (ev.target.closest("button, input")) return;
     ev.preventDefault();
@@ -3234,62 +3250,789 @@ function renderEtestSheet(reply, tables) {
   }
 }
 
+let etestFile = null;
+let etestBytes = null;
+let etestRead = null;
+let etestReadError = "";
+let etestHold = "";
+
 function refreshEtestCompare() {
-  const input = $("etest-table");
-  const file = input && input.files && input.files[0];
-  $("etest-send").disabled = !file;
+  $("etest-send").disabled = !etestHold && !etestBytes;
 }
 
 $("etest-table").addEventListener("change", () => {
   const input = $("etest-table");
   const file = input.files && input.files[0];
   const name = (file && file.name || "").toLowerCase();
-  const ok = [".xlsx", ".xlsm", ".docx", ".txt", ".md"].some((suffix) => name.endsWith(suffix));
+  const ok = !file || [".xlsx", ".xlsm", ".docx", ".txt", ".md"].some((suffix) => name.endsWith(suffix));
+  etestHold = "";
+  etestFile = null;
+  etestBytes = null;
+  etestReadError = "";
+  etestRead = null;
   if (file && !ok) {
     input.value = "";
     setEtestMsg(tx("etest.tableType"));
+  } else if (file) {
+    etestFile = file;
+    setEtestMsg("已选中 " + file.name + "。", "ok");
+    etestRead = copyEtestFile(file);
   } else {
     setEtestMsg("");
   }
-  const label = $("etest-table-name");
-  if (label) {
-    label.textContent = file && ok ? file.name : tx("io.fileNone");
-  }
+  syncIoFileName(input, $("etest-table-name"));
   refreshEtestCompare();
 });
 
+const ETEST_TRACE = [
+  ["read", "接收测试表"],
+  ["extract", "抽出标准号和文件名"],
+  ["open", "打开网址"],
+  ["find", "查找检索"],
+  ["search", "按标准号和文件名检索"],
+  ["file", "读取标准文件"],
+  ["write", "写出对比表"],
+];
+
+function etestStepLabel(id) {
+  const found = ETEST_TRACE.find((item) => item[0] === id);
+  return found ? found[1] : id;
+}
+
+function renderEtestTrace(current, states, detail) {
+  const list = $("etest-trace");
+  if (!list) return;
+  list.hidden = false;
+  list.replaceChildren();
+  const known = states || {};
+  for (const [id, label] of ETEST_TRACE) {
+    const li = document.createElement("li");
+    const state = known[id] || "wait";
+    li.className = "is-" + state;
+    li.textContent = id === current && detail ? label + "：" + detail : label;
+    list.append(li);
+  }
+}
+
+renderEtestTrace("", {}, "");
+
+function showEtestResult(data) {
+  renderEtestSheet(data.reply || "", data.tables || []);
+  showEtestDownload({ download: data.download || "" });
+  setEtestMsg(data.page_note || data.reply || "", "ok");
+}
+
+const etestDetectLines = [];
+
+function renderEtestDetect() {
+  const box = $("etest-detect-text");
+  if (!box) return;
+  box.textContent = etestDetectLines.length ? etestDetectLines.join("\n") : "还没有记录。";
+  box.scrollTop = box.scrollHeight;
+}
+
+function etestDetect(line) {
+  const text = String(line || "").trim();
+  if (!text || etestDetectLines.indexOf(text) >= 0) return;
+  etestDetectLines.push(text);
+  renderEtestDetect();
+  const panel = $("etest-detect");
+  if (panel && /(?:^|\s)ok=0(?:\s|$)/.test(text)) panel.open = true;
+}
+
+function etestStamp() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate())
+    + " " + pad(now.getHours()) + ":" + pad(now.getMinutes()) + ":" + pad(now.getSeconds());
+}
+
+function etestSay(fields) {
+  if (fields.say) return String(fields.say);
+  const event = fields.event;
+  const ok = String(fields.ok) !== "0";
+  const message = String(fields.message || "");
+  if (event === "start") return "开始提交。使用选中时复制进内存的副本，不再读取原文件。";
+  if (event === "pick") return "已选中测试表。马上复制进内存，这一步不等任务号。";
+  if (event === "job") return "本机服务已建立任务。下一步把测试表读进内存再上传。任务号是 " + (fields.job || "") + "。";
+  if (event === "memory" && ok) return "浏览器已把测试表完整读进内存，共 " + fields.bytes + " 字节。接下来上传的是这份内存副本。";
+  if (event === "memory" && fields.error === "NotReadableError") {
+    return "浏览器读不出文件内容。报 NotReadableError：选中文件之后权限变了。常见是 Excel 还开着这份表，或文件被占用。";
+  }
+  if (event === "memory") return "浏览器读不出文件内容。错误是 " + (fields.error || "Error") + "。" + message;
+  if (event === "upload-file") return "内存读取失败，改为直接提交原文件。若文件仍被占用，上传会没有 HTTP 回应。";
+  if (event === "upload" && ok) return "上传请求已得到成功回应。";
+  if (event === "upload" && Number(fields.status) === 0) {
+    const sent = fields.sent == null ? "未知" : String(fields.sent);
+    return "上传没有得到任何 HTTP 回应（status=0，ready=4 表示请求已结束）。已发出 " + sent + " 字节。本机服务若没有「已接到上传」，文件就没进到服务。上一条若是读不出文件，发送时文件仍不可读。";
+  }
+  if (event === "upload") return "上传失败。HTTP 状态是 " + fields.status + "。" + message;
+  if (event === "reject") return "测试表超过 80MB，没有提交。";
+  if (event === "network") return "建立任务的请求没有被本机服务接住。" + message;
+  if (event === "poll") return "轮询本机服务失败，停在「" + (fields.name || "") + "」。" + message;
+  if (event === "done" && ok) return "对比结束。" + message;
+  if (event === "done") return "对比停住。" + message;
+  if (event === "error") return "这一步出错。" + message;
+  return "";
+}
+
+function etestLog(fields) {
+  const row = Object.assign({}, fields);
+  const resetLog = !!row.resetLog;
+  delete row.resetLog;
+  if (!row.say) row.say = etestSay(row);
+  const order = ["side", "event", "step", "name", "state", "ok", "say", "job", "file", "bytes", "mime", "modified", "error", "status", "ready", "sent", "message", "detail"];
+  const keys = order.filter((key) => row[key] != null && String(row[key]) !== "");
+  Object.keys(row).forEach((key) => {
+    if (keys.indexOf(key) < 0 && row[key] != null && String(row[key]) !== "") keys.push(key);
+  });
+  const text = keys.map((key) => {
+    const value = String(row[key]).replace(/\s+/g, " ").trim();
+    const shown = /[\s"=]/.test(value) ? '"' + value.replace(/"/g, "'") + '"' : value;
+    return key + "=" + shown;
+  }).join(" ");
+  etestDetect(etestStamp() + "  " + text);
+  const headers = { "Content-Type": "application/json", ...authHeaders() };
+  if (resetLog) headers["X-Etest-Reset"] = "1";
+  return fetch(apiUrl("/api/enterprise-test/detect"), {
+    method: "POST",
+    credentials: "same-origin",
+    headers,
+    body: JSON.stringify({ line: text }),
+  }).then(async (resp) => {
+    const data = await resp.json().catch(() => ({}));
+    if (data.detect_file) {
+      const file = $("etest-detect-file");
+      if (file) file.textContent = "本机文件：" + data.detect_file;
+    }
+  }).catch(() => {});
+}
+
+function etestFileFields(file) {
+  const modified = file && file.lastModified ? new Date(file.lastModified) : null;
+  const pad = (n) => String(n).padStart(2, "0");
+  return {
+    file: (file && file.name) || "",
+    bytes: file ? file.size : "",
+    mime: (file && file.type) || "none",
+    modified: modified
+      ? modified.getFullYear() + "-" + pad(modified.getMonth() + 1) + "-" + pad(modified.getDate())
+        + " " + pad(modified.getHours()) + ":" + pad(modified.getMinutes())
+      : "",
+  };
+}
+
+function readEtestBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error || new Error("FileReader"));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function copyEtestFile(file) {
+  const fields = etestFileFields(file);
+  etestLog({
+    side: "page",
+    event: "pick",
+    step: "read",
+    name: "接收测试表",
+    ok: 1,
+    ...fields,
+  });
+  let buffer = null;
+  let how = "";
+  try {
+    buffer = await file.arrayBuffer();
+    how = "arrayBuffer";
+  } catch (err) {
+    etestLog({
+      side: "page",
+      event: "memory",
+      step: "read",
+      name: "接收测试表",
+      ok: 0,
+      error: (err && err.name) || "Error",
+      message: String((err && err.message) || err || ""),
+      say: "选中当下 arrayBuffer 读不出。接着用 FileReader 再读一次，仍然不上传。",
+      ...fields,
+    });
+    try {
+      buffer = await readEtestBuffer(file);
+      how = "FileReader";
+    } catch (second) {
+      if (etestFile !== file) return;
+      etestBytes = null;
+      etestReadError = "浏览器读不出这份表。请重新点选文件，由本机直接读，Excel 开着也可以。";
+      etestLog({
+        side: "page",
+        event: "memory",
+        step: "read",
+        name: "接收测试表",
+        ok: 0,
+        error: (second && second.name) || "Error",
+        message: String((second && second.message) || second || ""),
+        say: etestReadError,
+        ...fields,
+      });
+      setEtestMsg(etestReadError);
+      refreshEtestCompare();
+      return;
+    }
+  }
+  if (etestFile !== file) return;
+  etestBytes = buffer;
+  etestReadError = "";
+  etestLog({
+    ...fields,
+    side: "page",
+    event: "memory",
+    step: "read",
+    name: "接收测试表",
+    ok: 1,
+    bytes: buffer.byteLength,
+    say: "选中时已复制进内存，共 " + buffer.byteLength + " 字节，方式是 " + how + "。提交时上传这份副本。",
+  });
+  setEtestMsg("测试表已复制进内存，可以读取。", "ok");
+  refreshEtestCompare();
+}
+
+function takeEtestDetect(data) {
+  if (!data) return;
+  if (data.detect_file) {
+    const file = $("etest-detect-file");
+    if (file) file.textContent = "本机文件：" + data.detect_file;
+  }
+  for (const line of data.detect || []) etestDetect(line);
+}
+
+async function intakeEtest() {
+  etestDetectLines.length = 0;
+  renderEtestDetect();
+  etestLog({
+    side: "page",
+    event: "pick",
+    step: "read",
+    name: "接收测试表",
+    ok: 1,
+    say: "请在弹出的窗口里选择测试表。本机直接读文件，不经过浏览器。",
+  });
+  renderEtestTrace("read", { read: "run" }, "正在打开本机文件窗口");
+  setEtestMsg("请在弹出的窗口里选择测试表。", "ok");
+  $("etest-send").disabled = true;
+  let resp;
+  try {
+    resp = await fetch(apiUrl("/api/enterprise-test/intake"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+    });
+  } catch (err) {
+    etestLog({
+      side: "page",
+      event: "network",
+      step: "read",
+      name: "接收测试表",
+      ok: 0,
+      error: (err && err.name) || "Error",
+      message: String((err && err.message) || err || ""),
+      say: "本机文件窗口没有打开，请求没有被本机服务接住。",
+    });
+    setEtestMsg("本机文件窗口没有打开。");
+    refreshEtestCompare();
+    return;
+  }
+  const data = await resp.json().catch(() => ({}));
+  takeEtestDetect(data);
+  if (data.cancelled) {
+    etestLog({ side: "page", event: "reject", step: "read", name: "接收测试表", ok: 0, say: "没有选择文件。" });
+    setEtestMsg("没有选择文件。");
+    refreshEtestCompare();
+    return;
+  }
+  if (!resp.ok || !data.ok) {
+    const detail = data.detail || data.error || "测试表没有读入。";
+    const say = typeof detail === "string" ? detail : JSON.stringify(detail);
+    etestLog({ side: "page", event: "error", step: "read", name: "接收测试表", ok: 0, say: say, message: say });
+    renderEtestTrace("read", { read: "fail" }, "");
+    setEtestMsg(say);
+    refreshEtestCompare();
+    return;
+  }
+  etestHold = data.hold_id || "";
+  const label = $("etest-table-name");
+  if (label) label.textContent = data.name || "已读入";
+  etestLog({
+    side: "page",
+    event: "memory",
+    step: "extract",
+    name: "抽出标准号和文件名",
+    ok: 1,
+    file: data.name || "",
+    bytes: data.bytes || 0,
+    say: data.say || "输入完成。",
+  });
+  renderEtestTrace("extract", { read: "done", extract: "done" }, (data.rows || 0) + " 行");
+  setEtestMsg(data.say || "输入完成。", "ok");
+  refreshEtestCompare();
+}
+
+function beginEtestRunSurface() {
+  etestDetectLines.length = 0;
+  renderEtestDetect();
+  renderEtestSheet("", []);
+  renderEtestTrace("", {}, "");
+  clearEtestDownload();
+}
+
+async function sendHeldEtest(keepLog) {
+  const hold = etestHold;
+  if (!keepLog) beginEtestRunSurface();
+  await etestLog({
+    side: "page",
+    event: "start",
+    step: "extract",
+    name: "抽出标准号和文件名",
+    ok: 1,
+    say: "测试表已读完。开始打开 http://arsm.aurobaytech.com/home/index ，按标准号检索。",
+    resetLog: !keepLog,
+  });
+  $("etest-send").disabled = true;
+  clearEtestDownload();
+  renderEtestSheet("", []);
+  setEtestMsg("正在生成对比表。", "ok");
+  let opened;
+  try {
+    const resp = await fetch(apiUrl("/api/enterprise-test/compare"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { ...authHeaders(), "X-Hold-Id": hold },
+    });
+    opened = await resp.json().catch(() => ({}));
+    if (!resp.ok || !opened.job_id) {
+      const detail = opened.detail || opened.error || resp.statusText || "本机没有开始后续步骤。";
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+  } catch (err) {
+    const raw = String((err && err.message) || err || "");
+    etestLog({ side: "page", event: "error", step: "extract", name: "抽出标准号和文件名", ok: 0, message: raw, say: raw });
+    setEtestMsg(raw);
+    refreshEtestCompare();
+    return;
+  }
+  etestHold = "";
+  takeEtestDetect(opened);
+  const jobId = opened.job_id;
+  let current = opened.step || "extract";
+  let lastStates = opened.steps || { read: "done", extract: "run" };
+  renderEtestTrace(current, lastStates, opened.detail || "");
+  const timer = window.setInterval(async () => {
+    try {
+      const resp = await fetch(apiUrl("/api/enterprise-test/compare/" + jobId), {
+        credentials: "same-origin",
+        headers: authHeaders(),
+      });
+      const polled = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(polled.detail || polled.error || resp.statusText);
+      current = polled.step || current;
+      lastStates = polled.steps || lastStates;
+      renderEtestTrace(current, lastStates, polled.detail || "");
+      takeEtestDetect(polled);
+      if (!polled.done) {
+        setEtestMsg("进行到「" + etestStepLabel(current) + "」。", "ok");
+        return;
+      }
+      window.clearInterval(timer);
+      if (polled.error) {
+        setEtestMsg("停在「" + etestStepLabel(current) + "」。" + polled.error);
+        etestLog({ side: "page", event: "done", step: current, name: etestStepLabel(current), ok: 0, message: polled.error });
+      } else {
+        showEtestResult(polled);
+        etestLog({ side: "page", event: "done", step: "write", name: "写出对比表", ok: 1, message: String(polled.reply || "").split("\n")[0] });
+      }
+      refreshEtestCompare();
+    } catch (err) {
+      window.clearInterval(timer);
+      lastStates[current] = "fail";
+      renderEtestTrace(current, lastStates, "");
+      setEtestMsg("停在「" + etestStepLabel(current) + "」之后，本机服务没有回应。");
+      etestLog({ side: "page", event: "poll", step: current, name: etestStepLabel(current), ok: 0, error: (err && err.name) || "Error", message: String((err && err.message) || err || "") });
+      refreshEtestCompare();
+    }
+  }, 1000);
+}
+
+function showPickedEtest(data) {
+  etestHold = data.hold_id || "";
+  etestBytes = null;
+  etestRead = null;
+  etestReadError = "";
+  etestFile = { name: data.name || "", size: data.bytes || 0, type: "", lastModified: Date.now() };
+  const nameEl = $("etest-table-name");
+  if (nameEl) {
+    nameEl.removeAttribute("data-i18n");
+    nameEl.textContent = data.name || "";
+    nameEl.classList.add("is-set");
+  }
+  takeEtestDetect(data);
+  etestLog({
+    side: "page",
+    event: "memory",
+    step: "read",
+    name: "接收测试表",
+    ok: 1,
+    file: data.name || "",
+    bytes: data.bytes || 0,
+    say: data.say || "本机已读入测试表。",
+  });
+  setEtestMsg(data.say || "测试表已从本机读入。可以生成对比表。", "ok");
+  refreshEtestCompare();
+}
+
+async function pickEtestLocal() {
+  setEtestMsg("正在打开本机文件窗口。直接按共享方式读，Excel 开着也可以。", "ok");
+  $("etest-send").disabled = true;
+  try {
+    const resp = await fetch(apiUrl("/api/enterprise-test/pick"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: authHeaders(),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (data.cancelled) {
+      setEtestMsg(etestHold ? "没有更换文件。" : (etestReadError || "没有选择文件。"), etestHold ? "ok" : "");
+      refreshEtestCompare();
+      return;
+    }
+    if (!resp.ok || !data.ok) {
+      const detail = data.detail || data.error || resp.statusText || "本机没有读入测试表。";
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    showPickedEtest(data);
+  } catch (err) {
+    const raw = String((err && err.message) || err || "");
+    setEtestMsg(raw === "Failed to fetch" ? "本机服务没有打开文件窗口。请确认窗口还开着后再选一次。" : raw);
+    refreshEtestCompare();
+  }
+}
+
 async function sendEtestCompare() {
-  const input = $("etest-table");
-  const file = input.files && input.files[0];
+  if (etestHold && !etestBytes) {
+    await sendHeldEtest();
+    return;
+  }
+  const file = $("etest-table").files && $("etest-table").files[0];
   if (!file) {
     setEtestMsg(tx("etest.needTable"));
     return;
   }
+  if (etestRead) await etestRead;
+  if (!etestBytes) {
+    const say = etestReadError || "这份表还没读进本机。请用「从本机选择」再选一次。";
+    setEtestMsg(say);
+    etestLog({
+      side: "page",
+      event: "reject",
+      step: "read",
+      name: "接收测试表",
+      ok: 0,
+      say: say,
+      ...etestFileFields(file),
+    });
+    refreshEtestCompare();
+    return;
+  }
   const body = new FormData();
-  body.append("table", file);
+  body.append("file", new File([etestBytes], file.name, { type: file.type || "application/octet-stream", lastModified: file.lastModified }));
+  beginEtestRunSurface();
+  await etestLog({
+    ...etestFileFields(file),
+    side: "page",
+    event: "start",
+    step: "read",
+    name: "接收测试表",
+    ok: 1,
+    bytes: etestBytes.byteLength,
+    say: "按电子电器同一方式提交测试表。提交的是选中时复制的内存副本，共 " + etestBytes.byteLength + " 字节。",
+    resetLog: true,
+  });
   $("etest-send").disabled = true;
-  setEtestMsg(tx("etest.busy"), "ok");
+  renderEtestTrace("read", { read: "run" }, "正在生成对比表");
+  setEtestMsg("正在生成对比表。", "ok");
   try {
-    const resp = await fetch(apiUrl("/api/enterprise-test/compare"), {
+    const resp = await fetch(apiUrl("/api/enterprise-test/intake"), {
       method: "POST",
       credentials: "same-origin",
       headers: authHeaders(),
       body,
     });
     const data = await resp.json().catch(() => ({}));
-    if (!resp.ok) {
-      const detail = data.detail || data.error || resp.statusText;
+    takeEtestDetect(data);
+    if (!resp.ok || !data.ok) {
+      const detail = data.detail || data.error || resp.statusText || "测试表没有读入。";
       throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
     }
-    renderEtestSheet(data.reply || "", data.tables || []);
-    setEtestMsg(data.page_note || "", data.source_url_set ? "ok" : "");
+    etestHold = data.hold_id || "";
+    etestLog({
+      side: "page",
+      event: "memory",
+      step: "extract",
+      name: "抽出标准号和文件名",
+      ok: 1,
+      file: data.name || file.name,
+      bytes: data.bytes || file.size,
+      say: data.say || "输入完成。",
+    });
+    renderEtestTrace("extract", { read: "done", extract: "run" }, (data.rows || 0) + " 行");
+    setEtestMsg("测试表已读完，开始打开标准站。", "ok");
+    if (etestHold) {
+      await sendHeldEtest(true);
+      return;
+    }
+    refreshEtestCompare();
   } catch (err) {
-    renderEtestSheet("", []);
-    setEtestMsg(err.message || String(err));
-  } finally {
+    renderEtestTrace("read", { read: "fail" }, "");
+    const raw = String((err && err.message) || err || "");
+    const say = raw === "Failed to fetch"
+      ? "测试表没有送到本机服务。请确认窗口还开着后再点一次生成对比表。"
+      : raw;
+    setEtestMsg(say);
+    etestLog({
+      side: "page",
+      event: "error",
+      step: "read",
+      name: "接收测试表",
+      ok: 0,
+      message: raw,
+      say: say,
+    });
     refreshEtestCompare();
   }
 }
+
+async function sendEtestCompareHeldUnused() {
+  const file = etestFile;
+  if (!file) {
+    setEtestMsg(tx("etest.needTable"));
+    return;
+  }
+  if (etestRead) await etestRead;
+  if (!etestBytes) {
+    const say = etestReadError || "没有内存副本。不建立任务，也不上传。请关掉 Excel 后重新选择这份表。";
+    setEtestMsg(say);
+    etestLog({
+      side: "page",
+      event: "reject",
+      step: "read",
+      name: "接收测试表",
+      ok: 0,
+      error: "no-bytes",
+      say: say,
+      ...etestFileFields(file),
+    });
+    return;
+  }
+  if (etestBytes.byteLength > 80 * 1024 * 1024) {
+    setEtestMsg("测试表超过 80MB，没有提交。");
+    etestLog({ side: "page", event: "reject", step: "read", name: "接收测试表", ok: 0, file: file.name, bytes: etestBytes.byteLength, error: "too-large" });
+    return;
+  }
+  const body = new Blob([etestBytes], { type: "application/octet-stream" });
+  etestDetectLines.length = 0;
+  renderEtestDetect();
+  etestLog({
+    ...etestFileFields(file),
+    side: "page",
+    event: "start",
+    step: "read",
+    name: "接收测试表",
+    ok: 1,
+    bytes: body.size,
+    say: "开始提交。使用选中时复制的 " + body.size + " 字节，不再读取原文件。",
+  });
+  $("etest-send").disabled = true;
+  clearEtestDownload();
+  renderEtestSheet("", []);
+  renderEtestTrace("read", { read: "run" }, "正在建立任务");
+  setEtestMsg("正在建立任务。", "ok");
+  fetch(apiUrl("/api/enterprise-test/compare"), {
+    method: "POST",
+    credentials: "same-origin",
+    headers: authHeaders(),
+  }).then(async (resp) => {
+    const opened = await resp.json().catch(() => ({}));
+    if (!resp.ok || !opened.job_id) {
+      const detail = opened.detail || opened.error || resp.statusText || "本机没有返回任务号。";
+      throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+    }
+    return opened;
+  }).then(async (opened) => {
+    takeEtestDetect(opened);
+    etestLog({ side: "page", event: "job", step: "read", name: "接收测试表", ok: 1, job: opened.job_id });
+    renderEtestTrace("read", opened.steps || { read: "run" }, "任务已建立，正在交内存副本");
+    setEtestMsg("任务已建立，正在提交内存里的测试表。", "ok");
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", apiUrl("/api/enterprise-test/compare/" + opened.job_id + "/file"));
+    xhr.withCredentials = true;
+    const headers = authHeaders();
+    if (headers.Authorization) xhr.setRequestHeader("Authorization", headers.Authorization);
+    xhr.setRequestHeader("X-Filename", encodeURIComponent(file.name));
+    xhr.setRequestHeader("Content-Type", "application/octet-stream");
+    let sentBytes = 0;
+    xhr.upload.onloadstart = () => {
+      etestLog({
+        side: "page",
+        event: "upload",
+        step: "read",
+        name: "接收测试表",
+        ok: 1,
+        bytes: body.size || file.size,
+        say: "浏览器开始把文件正文发给本机服务。",
+      });
+    };
+    xhr.upload.onprogress = (ev) => {
+      sentBytes = ev.loaded;
+      if (!ev.lengthComputable) return;
+      const sent = (ev.loaded / 1048576).toFixed(1);
+      const total = (ev.total / 1048576).toFixed(1);
+      renderEtestTrace("read", { read: "run" }, `已上传 ${sent}/${total} MB`);
+      setEtestMsg(`正在接收测试表，已上传 ${sent}/${total} MB。`, "ok");
+    };
+    xhr.onerror = async () => {
+      try {
+        const resp = await fetch(apiUrl("/api/enterprise-test/compare/" + opened.job_id), {
+          credentials: "same-origin",
+          headers: authHeaders(),
+        });
+        takeEtestDetect(await resp.json().catch(() => ({})));
+      } catch (err) {}
+      renderEtestTrace("read", { read: "fail" }, "");
+      setEtestMsg("停在「接收测试表」。上传没有得到 HTTP 回应，本机服务没有收下文件。");
+      etestLog({
+        side: "page",
+        event: "upload",
+        step: "read",
+        name: "接收测试表",
+        ok: 0,
+        status: xhr.status,
+        ready: xhr.readyState,
+        sent: sentBytes,
+        message: xhr.statusText || "no-response",
+        detail: String(xhr.responseText || "").slice(0, 160),
+        ...etestFileFields(file),
+      });
+      refreshEtestCompare();
+    };
+  xhr.onload = () => {
+    let data = {};
+    try {
+      data = JSON.parse(xhr.responseText || "{}");
+    } catch (err) {
+      data = {};
+    }
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const detail = data.detail || data.error || xhr.statusText || "接收测试表失败";
+        renderEtestTrace("read", { read: "fail" }, "");
+        setEtestMsg(typeof detail === "string" ? detail : JSON.stringify(detail));
+        etestLog({
+          side: "page",
+          event: "upload",
+          step: "read",
+          name: "接收测试表",
+          ok: 0,
+          status: xhr.status,
+          message: typeof detail === "string" ? detail : JSON.stringify(detail),
+        });
+        refreshEtestCompare();
+        return;
+      }
+      takeEtestDetect(data);
+      etestLog({
+        side: "page",
+        event: "upload",
+        step: "read",
+        name: "接收测试表",
+        ok: 1,
+        status: xhr.status,
+        say: "上传得到 HTTP " + xhr.status + "。测试表已交给本机服务，开始轮询抽出、检索和写表。",
+      });
+    const jobId = data.job_id || opened.job_id;
+    renderEtestTrace(data.step || "read", data.steps || { read: "done" }, data.detail || "");
+    let current = "read";
+    let lastStates = data.steps || { read: "done" };
+    const timer = window.setInterval(async () => {
+      try {
+        const resp = await fetch(apiUrl("/api/enterprise-test/compare/" + jobId), {
+          credentials: "same-origin",
+          headers: authHeaders(),
+        });
+        const polled = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(polled.detail || polled.error || resp.statusText);
+        }
+          current = polled.step || current;
+          lastStates = polled.steps || lastStates;
+          renderEtestTrace(current, lastStates, polled.detail || "");
+          takeEtestDetect(polled);
+        if (!polled.done) {
+          setEtestMsg("进行到「" + etestStepLabel(current) + "」。", "ok");
+          return;
+        }
+        window.clearInterval(timer);
+          if (polled.error) {
+            setEtestMsg("停在「" + etestStepLabel(current) + "」。" + polled.error);
+            etestLog({ side: "page", event: "done", step: current, name: etestStepLabel(current), ok: 0, message: polled.error });
+          } else {
+            showEtestResult(polled);
+            etestLog({ side: "page", event: "done", step: "write", name: "写出对比表", ok: 1, message: String(polled.reply || "").split("\n")[0] });
+          }
+        refreshEtestCompare();
+      } catch (err) {
+        window.clearInterval(timer);
+        lastStates[current] = "fail";
+        renderEtestTrace(current, lastStates, "");
+        setEtestMsg("停在「" + etestStepLabel(current) + "」之后，本机服务没有回应。");
+        etestLog({ side: "page", event: "poll", step: current, name: etestStepLabel(current), ok: 0, error: (err && err.name) || "Error", message: String((err && err.message) || err || "") });
+        refreshEtestCompare();
+      }
+    }, 1000);
+  };
+    xhr.send(body);
+  }).catch((err) => {
+    renderEtestTrace("read", { read: "fail" }, "");
+    const raw = String((err && err.message) || err || "");
+    const down = /load failed|failed to fetch|networkerror/i.test(raw);
+    setEtestMsg(down ? "停在「接收测试表」。请求没有被本机服务接住。" : raw);
+    etestLog({
+      side: "page",
+      event: down ? "network" : "error",
+      step: "read",
+      name: "接收测试表",
+      ok: 0,
+      error: (err && err.name) || "Error",
+      message: raw,
+    });
+    refreshEtestCompare();
+  });
+}
+
+$("etest-detect-copy").onclick = async () => {
+  const text = etestDetectLines.join("\n") || "还没有记录。";
+  try {
+    await navigator.clipboard.writeText(text);
+    const file = $("etest-detect-file");
+    if (file) file.textContent = "已复制。把这段检测日志发回来即可。";
+  } catch (err) {
+    const box = $("etest-detect-text");
+    if (!box) return;
+    const range = document.createRange();
+    range.selectNodeContents(box);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+};
 
 $("etest-back").onclick = () => setPanel("home");
 $("etest-form").addEventListener("submit", (ev) => {

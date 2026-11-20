@@ -1000,7 +1000,13 @@ def main(argv: list[str] | None = None) -> int:
             _alert(service_not_ready_message())
             return 1
         return _open()
-    if wait_until_ready(host, port, origin, seconds=1.2):
+    from electrical_krow.stamp import same_gateway
+
+    if port_is_open(host, port) and not same_gateway(origin):
+        print("端口上的服务不是这一版，先停掉再启动。", flush=True)
+        _kill_port_listener(port)
+        reap_stale_gateway(host, port)
+    elif wait_until_ready(host, port, origin, seconds=1.2):
         print("本机服务已在运行，重新打开窗口。", flush=True)
         return _open()
     reap_stale_gateway(host, port)

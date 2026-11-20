@@ -813,5 +813,19 @@ class ResultSummaryTests(unittest.TestCase):
         self.assertEqual(estimate_seconds([], kind_label="电控 DPR", likely_scan=False)["estimate_n"], 0)
 
 
+class EtestRecordReplaceTests(unittest.TestCase):
+    def test_new_comparison_replaces_the_previous_record(self) -> None:
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        store = JobStore(Path(folder.name))
+        store.remember_output(kind="icd", name="ICD引脚清单-1.xlsx", username="demo", rows=3)
+        store.remember_output(kind="etest", name="企标对比表-旧.xlsx", username="demo", rows=10)
+        store.replace_output(kind="etest", name="企标对比表.xlsx", username="demo", rows=12)
+        rows = store.list_output("etest", username="demo")
+        self.assertEqual([item["source"] for item in rows], ["企标对比表.xlsx"])
+        kept = store.list_output("icd", username="demo")
+        self.assertEqual([item["source"] for item in kept], ["ICD引脚清单-1.xlsx"])
+
+
 if __name__ == "__main__":
     unittest.main()

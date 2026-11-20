@@ -2149,14 +2149,57 @@ html[data-theme="dark"] .job-row:hover { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4
 }
 .io-file:has(.arch-pick) { align-items: start; }
 .io-file:has(.arch-pick) .io-file-label { line-height: 40px; }
+.etest-trace {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.etest-trace li {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+}
+.etest-trace li.is-run { color: var(--ink); background: var(--accent-wash); }
+.etest-trace li.is-done { color: var(--ink); }
+.etest-trace li.is-fail { color: #9b2c2c; background: #fde8e8; }
+.etest-detect {
+  margin: 12px 0 0;
+  border: 1px solid var(--rule-2);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.etest-detect summary {
+  cursor: pointer;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+.etest-detect-body { padding: 0 12px 12px; }
+.etest-detect-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.etest-detect-file { margin: 0; color: var(--ink-2); font-size: 12px; }
+.etest-detect-text {
+  margin: 8px 0 0;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: 12px/1.55 ui-monospace, "Cascadia Mono", Consolas, monospace;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.etest-log:empty { display: none; }
 .etest-log {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  min-height: 180px;
   max-height: 360px;
   overflow: auto;
-  margin: 12px 0;
+  margin: 12px 0 0;
   padding: 12px;
   border: 1px solid var(--rule-2);
   border-radius: 10px;
